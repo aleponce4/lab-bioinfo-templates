@@ -1,0 +1,41 @@
+---
+title: "06 · GO Enrichment Analysis"
+subtitle: "Gene Ontology, KEGG pathway enrichment, and multi-comparison bubble plots"
+description: |
+  Performs GO (Biological Process) and KEGG pathway enrichment analysis across one
+  or more DESeq2 comparisons. Produces publication-quality bubble plots for user-defined
+  gene sets, enrichment dot plots, and wide-format CSV exports for GraphPad/Prism.
+categories: [genomics, GO, KEGG, enrichment]
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | CSV with columns: `Gene`, `Comparison`, `log2FoldChange`, `padj` |
+| **Key packages** | `clusterProfiler`, `enrichplot`, `ggplot2`, `viridis`, `patchwork` |
+| **Statistics** | GO enrichment (BP/MF/CC) · KEGG pathway enrichment · BH-FDR |
+| **Output** | Bubble plots (SVG) · GO/KEGG dot plots · Enrichment CSVs |
+| **Download** | [template.Rmd](template.Rmd) |
+
+::: {.callout-tip}
+**When to use this template:** You have DESeq2 results from one or more comparisons
+and want to visualize the expression of curated gene sets as bubble plots, and run
+GO/KEGG enrichment on significant DEGs.
+:::
+
+::: {.callout-note}
+**Bubble plot style:** `theme_classic()` · viridis plasma color scale ·
+italic y-axis gene labels · legend on the left.
+:::
+
+---
+
+```{r}
+#| label: simulate
+#| include: false
+source("data/simulate_data.R")
+```
+
+```{r child="template.Rmd"}
+```

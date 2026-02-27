@@ -1,0 +1,36 @@
+---
+title: "01 · Plaque Assay + Violin Plots"
+subtitle: "Viral titer quantification with replicate QC and significance testing"
+description: |
+  Analyzes plaque assay data from viral infection studies. Performs replicate
+  agreement (Limits of Agreement), one-way ANOVA with Tukey HSD, and produces
+  publication-quality violin plots on a log10 titer scale.
+categories: [infection, virology, ANOVA, plaque-assay]
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | Single CSV — one row per animal, columns for two plaque count replicates and calculated titer |
+| **Key packages** | `ggplot2`, `ggpubr`, `rstatix`, `car`, `gt`, `scales` |
+| **Statistics** | Limits of Agreement · Shapiro-Wilk · Levene · One-way ANOVA · Tukey HSD |
+| **Output** | Replicate QC plot · Violin plots (full + merged) · ANOVA + post-hoc tables |
+| **Download** | [template.Rmd](template.Rmd) |
+
+::: {.callout-tip}
+**When to use this template:** You have viral plaque assay data with duplicate plaque
+counts per animal across multiple treatment groups, and you want to visualize titer
+distributions and test for significant differences.
+:::
+
+---
+
+```{r}
+#| label: simulate
+#| include: false
+source("data/simulate_data.R")
+```
+
+```{r child="template.Rmd"}
+```

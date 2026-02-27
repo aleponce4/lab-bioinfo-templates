@@ -1,0 +1,55 @@
+---
+title: "08 · VCF Mutation Analysis"
+subtitle: "Mutation frequency, Shannon entropy heatmaps, and tissue-type comparisons from VCF files"
+description: |
+  Processes per-sample VCF files produced by a variant caller. Applies coverage filtering,
+  calculates Shannon entropy per genomic position, produces mutation frequency bar charts
+  and entropy heatmaps per tissue type, and runs Kruskal–Wallis tests to compare
+  mutation frequencies across tissue sources.
+categories: [genomics, virology, VCF, mutation, entropy]
+execute:
+  engine: jupyter
+  kernel: jonsson-bioinfo
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | Directory of `.vcf` files: `aa_change_{ID}-{Source}_{Segment}_{Threshold}.vcf` |
+| **Key packages** | `vcfpy`, `pandas`, `scipy`, `seaborn`, `matplotlib`, `sklearn` |
+| **Statistics** | Shannon entropy (natural log) · Kruskal–Wallis non-parametric comparison |
+| **Output** | Mutation bar charts · entropy heatmaps (SVG) · frequency tables · KW results CSV |
+| **Download** | [template.ipynb](template.ipynb) |
+
+::: {.callout-tip}
+**When to use this template:** You have per-sample VCF files from a variant-calling
+pipeline and want to compare intrahost mutation diversity across tissue types or
+experimental groups. The VCF files must follow the naming convention:
+`aa_change_{SampleID}-{Source}_{Segment}_{Threshold}.vcf`
+:::
+
+::: {.callout-note}
+**Segment configuration:** Edit `SEGMENT_CONFIG` in the USER CONFIGURATION cell to
+match your pathogen's genome (total length, CDS boundaries, amino acid count per segment).
+Tissue types to include in the analysis are controlled by `TISSUE_TYPES`; all others
+in the VCF filenames will be loaded but excluded from statistical comparisons.
+:::
+
+::: {.callout-warning}
+**Environment:** Run `conda env create -f environment.yml && conda activate jonsson-bioinfo`
+before rendering. The `vcfpy` package is only available via conda/pip.
+:::
+
+---
+
+```{python}
+#| label: simulate
+#| include: false
+import subprocess, sys
+subprocess.run([sys.executable, "data/simulate_data.py"], check=True)
+```
+
+```{python}
+#| child: template.ipynb
+```

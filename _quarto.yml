@@ -1,0 +1,73 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Jonsson Lab Bioinformatics Templates"
+  description: "Reusable analysis templates for virology and genomics research"
+  favicon: ""
+  repo-url: https://github.com/jonsson-lab/lab-bioinfo-templates
+  repo-actions: [edit, issue]
+
+  navbar:
+    background: primary
+    left:
+      - href: index.qmd
+        text: Gallery
+    right:
+      - icon: github
+        href: https://github.com/jonsson-lab/lab-bioinfo-templates
+
+  sidebar:
+    - title: "Analysis Templates"
+      style: "docked"
+      search: true
+      contents:
+        - section: "Infection & Virology"
+          contents:
+            - text: "01 · Plaque Assay + Violin Plots"
+              href: templates/01_plaque-assay-violin/template.qmd
+            - text: "02 · Image Infection + Dose-Response"
+              href: templates/02_image-infection-dose-response/template.qmd
+            - text: "03 · Multi-Condition ANOVA"
+              href: templates/03_multicondition-anova/template.qmd
+        - section: "Immunology"
+          contents:
+            - text: "04 · MagPix / Luminex Multiplex"
+              href: templates/04_magpix-luminex/template.qmd
+        - section: "Genomics & Transcriptomics"
+          contents:
+            - text: "06 · GO Enrichment Analysis"
+              href: templates/06_go-enrichment/template.qmd
+            - text: "07 · RNA-seq / DESeq2"
+              href: templates/07_rnaseq-deseq2/template.qmd
+            - text: "08 · VCF Mutation Analysis"
+              href: templates/08_vcf-mutation-analysis/template.qmd
+        - section: "Phylogenetics"
+          contents:
+            - text: "05 · Phylo-Geographic Analysis"
+              href: templates/05_phylo-geographic/template.qmd
+
+  page-footer:
+    left: "Jonsson Laboratory · UCLA"
+    right: "Built with [Quarto](https://quarto.org)"
+
+format:
+  html:
+    theme:
+      light: cosmo
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-tools: true
+    code-copy: true
+    highlight-style: github
+    fig-align: center
+    fig-dpi: 150
+    embed-resources: false
+
+execute:
+  freeze: auto
+  cache: true
+  warning: false
+  message: false

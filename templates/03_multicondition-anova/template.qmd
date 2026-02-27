@@ -1,0 +1,39 @@
+---
+title: "03 · Multi-Condition ANOVA"
+subtitle: "Welch's one-way ANOVA with planned contrasts and Holm correction"
+description: |
+  Compares multiple cell types or treatment conditions across one or more
+  viral/experimental conditions. Uses Welch's ANOVA (robust to unequal
+  variances) on log₁₀-transformed data, with planned pairwise contrasts
+  against a reference group and Holm multiple-testing correction.
+categories: [infection, statistics, ANOVA]
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | Wide-format CSV per condition (columns = cell types, rows = replicates) |
+| **Key packages** | `tidyverse`, `car`, `broom` |
+| **Statistics** | Shapiro-Wilk, Bartlett, Levene, Welch one-way ANOVA, Welch t-tests |
+| **Correction** | Holm (FWER) |
+| **Output** | Diagnostic table · ANOVA result · Contrast table with fold-changes |
+| **Download** | [template.Rmd](template.Rmd) |
+
+::: {.callout-tip}
+**When to use this template:** You have measurements (e.g., viral titres, protein levels)
+across several cell types or treatment groups, and you need to test whether a reference
+group differs from the others, accounting for potential heteroscedasticity.
+:::
+
+---
+
+```{r}
+#| label: run-simulate
+#| include: false
+# Generate synthetic example data before rendering the template
+source("data/simulate_data.R")
+```
+
+```{r child="template.Rmd"}
+```

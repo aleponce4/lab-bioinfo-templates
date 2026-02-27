@@ -18,7 +18,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. R setup ───────────────────────────────────────────────────────────
+      # ── 2. System dependencies (needed before R pkg compilation) ────────────
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libjpeg-dev \
+            libpng-dev \
+            libudunits2-dev \
+            libgdal-dev \
+            libgeos-dev \
+            libproj-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libharfbuzz-dev \
+            libfribidi-dev \
+            libxml2-dev \
+            libssl-dev
+
+      # ── 3. R setup ───────────────────────────────────────────────────────────
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
@@ -28,14 +47,14 @@ jobs:
       - name: Cache R packages
         uses: actions/cache@v4
         with:
-          path: ${{ env.R_LIBS_USER }}
-          key: r-pkgs-${{ hashFiles('install_packages.R') }}
-          restore-keys: r-pkgs-
+          path: ~/R          # same location setup-r uses; avoids env.R_LIBS_USER linter warning
+          key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
+          restore-keys: r-pkgs-${{ runner.os }}-
 
       - name: Install R packages
         run: Rscript install_packages.R
 
-      # ── 3. Python / conda setup ──────────────────────────────────────────────
+      # ── 4. Python / conda setup ──────────────────────────────────────────────
       - name: Set up Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -43,7 +62,7 @@ jobs:
           environment-file: environment.yml
           auto-activate-base: false
 
-      # ── 4. Synthetic data generation ─────────────────────────────────────────
+      # ── 5. Synthetic data generation ─────────────────────────────────────────
       - name: Generate synthetic R data (all templates)
         run: |
           for script in templates/*/data/simulate_data.R; do
@@ -59,20 +78,20 @@ jobs:
           conda activate jonsson-bioinfo
           (cd templates/08_vcf-mutation-analysis && python data/simulate_data.py)
 
-      # ── 5. Quarto setup ──────────────────────────────────────────────────────
+      # ── 6. Quarto setup ──────────────────────────────────────────────────────
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: "1.5.57"
 
-      # ── 6. Render site ───────────────────────────────────────────────────────
+      # ── 7. Render site ───────────────────────────────────────────────────────
       - name: Render Quarto site
         shell: bash -l {0}
         run: |
           conda activate jonsson-bioinfo
           quarto render
 
-      # ── 7. Deploy to GitHub Pages ─────────────────────────────────────────────
+      # ── 8. Deploy to GitHub Pages ─────────────────────────────────────────────
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:

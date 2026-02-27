@@ -1,0 +1,41 @@
+---
+title: "07 · RNA-seq / DESeq2"
+subtitle: "Differential expression, volcano plots, PCA, bubble plots, and triangle plots"
+description: |
+  Analyzes RNA-seq data using DESeq2. Loads a pre-computed DESeqDataSet, extracts
+  results for user-defined contrasts, and produces publication-quality volcano plots,
+  a PCA plot, bubble plots (viridis plasma, italic gene names), and directional triangle
+  plots for user-specified gene sets.
+categories: [transcriptomics, RNA-seq, DESeq2, differential-expression]
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | `dds_template.RData` — a saved `DESeqDataSet` processed with `DESeq()` |
+| **Key packages** | `DESeq2`, `ggplot2`, `viridis`, `patchwork`, `svglite` |
+| **Statistics** | DESeq2 Wald test · FDR-adjusted p-values (BH) |
+| **Output** | Volcano plots · PCA · Bubble plots · Triangle plots · DEG CSVs |
+| **Download** | [template.Rmd](template.Rmd) |
+
+::: {.callout-tip}
+**When to use this template:** You have a pre-processed DESeqDataSet and want to
+visualize differential expression across multiple comparisons alongside curated gene sets.
+:::
+
+::: {.callout-note}
+**Plot styles:** Volcano (red/blue) · Bubble (viridis plasma, italic y-axis) ·
+Triangle (up/down triangles, viridis fill) · PCA (theme_classic, Arial 10pt)
+:::
+
+---
+
+```{r}
+#| label: simulate
+#| include: false
+source("data/simulate_data.R")
+```
+
+```{r child="template.Rmd"}
+```

@@ -1,0 +1,138 @@
+---
+title: "Jonsson Lab Bioinformatics Templates"
+subtitle: "A gallery of reusable analysis templates for virology and genomics research"
+page-layout: full
+toc: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(dplyr)
+```
+
+## About
+
+This repository contains **8 standardized analysis templates** built from real lab analyses.
+Each template:
+
+- Ships with **synthetic example data** so it runs out of the box
+- Preserves the **exact plot style** (themes, colors, dimensions) used in our publications
+- Has a **`## ── USER CONFIGURATION ──`** block at the top — change those variables, nothing else
+- Can be downloaded and dropped into any new project
+
+---
+
+## Template Gallery
+
+```{r}
+#| label: gallery-table
+#| echo: false
+library(DT)
+
+templates <- data.frame(
+  `#` = c("01", "02", "03", "04", "05", "06", "07", "08"),
+  Template = c(
+    "[Plaque Assay + Violin Plots](templates/01_plaque-assay-violin/template.qmd)",
+    "[Image Infection + Dose-Response](templates/02_image-infection-dose-response/template.qmd)",
+    "[Multi-Condition ANOVA](templates/03_multicondition-anova/template.qmd)",
+    "[MagPix / Luminex Multiplex](templates/04_magpix-luminex/template.qmd)",
+    "[Phylo-Geographic Analysis](templates/05_phylo-geographic/template.qmd)",
+    "[GO Enrichment Analysis](templates/06_go-enrichment/template.qmd)",
+    "[RNA-seq / DESeq2](templates/07_rnaseq-deseq2/template.qmd)",
+    "[VCF Mutation Analysis](templates/08_vcf-mutation-analysis/template.qmd)"
+  ),
+  Category = c(
+    "Infection & Virology", "Infection & Virology", "Infection & Virology",
+    "Immunology", "Phylogenetics", "Genomics", "Transcriptomics", "Genomics"
+  ),
+  Language = c("R", "R", "R", "R", "R", "R", "R", "Python"),
+  `Key Statistics` = c(
+    "One-way ANOVA, Tukey HSD",
+    "4PL dose-response, EC50/CC50",
+    "Welch ANOVA, Holm correction",
+    "Two-way ANOVA, emmeans, FDR",
+    "Mantel test, geographic distance",
+    "clusterProfiler, GO/KEGG",
+    "DESeq2, volcano, PCA, bubble plots",
+    "Entropy, Kruskal-Wallis"
+  ),
+  `Key Plot Types` = c(
+    "Violin + jitter, log10 titer",
+    "Ridge, density gate, dose-response curve",
+    "Bar + error, fold-change table",
+    "Dot, bar, violin, box, heatmap",
+    "Scatter pie, Mantel correlogram, map",
+    "Dot plot, bar, upset, Venn",
+    "Volcano, bubble, PCA, triangle",
+    "Mutation freq bar, entropy heatmap"
+  ),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+datatable(
+  templates,
+  escape    = FALSE,
+  rownames  = FALSE,
+  options   = list(
+    pageLength = 10,
+    dom        = "ft",
+    columnDefs = list(list(width = "20%", targets = 1))
+  )
+)
+```
+
+---
+
+## How to Use a Template
+
+1. **Browse** the gallery — click any template to see the rendered analysis with example plots.
+2. **Download** the `.Rmd` or `.ipynb` file (use the *</> Code* button at the top right of each page, or download directly from GitHub).
+3. **Edit the config block** at the top of the file:
+
+```r
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+DATA_FILE   <- "your_data.csv"   # path to your input file
+GROUP_COL   <- "Treatment"       # column name for experimental groups
+TITER_COL   <- "Titer_pfuml"    # column name for the measurement
+# ... (all other parameters are documented inline)
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+4. **Run** — everything below the config block executes without modification.
+
+---
+
+## Setup
+
+### R Templates (01–07)
+
+```r
+# Install all required packages at once
+source("install_packages.R")
+```
+
+### Python Template (08)
+
+```bash
+conda env create -f environment.yml
+conda activate jonsson-bioinfo
+```
+
+---
+
+## Repository Structure
+
+```
+lab-bioinfo-templates/
+├── templates/
+│   ├── 01_plaque-assay-violin/
+│   │   ├── template.Rmd      ← the template you copy
+│   │   └── data/simulate_data.R
+│   ├── 02_image-infection-dose-response/  ...
+│   └── ...
+├── _quarto.yml               ← Quarto site config
+├── install_packages.R        ← one-shot R installer
+└── environment.yml           ← Python conda env
+```

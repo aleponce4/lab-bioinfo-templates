@@ -1,0 +1,43 @@
+---
+title: "05 · Phylo-Geographic Analysis"
+subtitle: "Isolation by Distance (Mantel Test), Scatter Pie Map, and Mantel Correlogram"
+description: |
+  Performs isolation-by-distance analysis using Mantel tests on patristic distances
+  from a phylogenetic tree and geographic (Haversine) distances. Produces a scatter
+  pie map showing clade composition per sampling location and a Mantel correlogram.
+categories: [phylogenetics, geographic, mantel, virology]
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | Aligned FASTA (S segment required, M optional) · Newick tree · coordinates CSV · metadata CSV |
+| **Key packages** | `ape`, `vegan`, `geosphere`, `scatterpie`, `sf`, `rnaturalearth`, `ggspatial` |
+| **Statistics** | Mantel test (Pearson) · patristic distances · Haversine geographic distances |
+| **Output** | Isolation-by-distance plot · scatter pie map · Mantel correlogram · TIFF + SVG |
+| **Download** | [template.Rmd](template.Rmd) |
+
+::: {.callout-tip}
+**When to use this template:** You have a phylogenetic tree and sampling coordinates
+for a pathogen, and want to test whether genetic distance correlates with geographic
+distance (isolation by distance) and visualize the geographic distribution of clades.
+:::
+
+::: {.callout-note}
+**Clade colors:** Default palette uses Okabe-Ito colorblind-safe colors.
+Update `CLADE_COLORS` in the USER CONFIGURATION block to match your clade assignments.
+The scatter pie radius (`radius` column in `pie_data`) is in degrees — adjust `mutate(radius = 0.4)`
+to scale pies appropriately for your map extent.
+:::
+
+---
+
+```{r}
+#| label: simulate
+#| include: false
+source("data/simulate_data.R")
+```
+
+```{r child="template.Rmd"}
+```

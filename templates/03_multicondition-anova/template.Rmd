@@ -1,0 +1,185 @@
+---
+title: "Multi-Condition ANOVA — Welch's Test with Planned Contrasts"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+  pdf_document:
+    toc: true
+---
+
+```{r message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# CONDITION_FILES: Named character vector of CSV files to load.
+#   Names become the "condition" label in all outputs.
+#   Each CSV must be wide-format: one column per cell type / sample group,
+#   with replicate runs stored as "CellType.1", "CellType.2" … suffix columns.
+#   (This is the format produced by many plate-reader and CQ1 exports.)
+#
+CONDITION_FILES <- c(
+  "Condition_A" = "data/Condition_A.csv",
+  "Condition_B" = "data/Condition_B.csv",
+  "Condition_C" = "data/Condition_C.csv"
+)
+
+# FOCAL_CONDITION: Which condition to run the planned-contrast analysis on.
+#   Must match one of the names() of CONDITION_FILES exactly.
+FOCAL_CONDITION <- "Condition_A"
+
+# REFERENCE_GROUP: The cell type / sample group used as the reference in
+#   planned comparisons (i.e., all other groups are tested against this one).
+REFERENCE_GROUP <- "CellType_A"
+
+# LOG_TRANSFORM: Apply log10 before analysis? Almost always TRUE for viral
+#   titres and NGS read-count data.
+LOG_TRANSFORM <- TRUE
+
+# ALPHA: Significance threshold for all tests.
+ALPHA <- 0.05
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+```{r message=FALSE, warning=FALSE}
+# ── 0. Libraries ──────────────────────────────────────────────────────────────
+library(tidyverse)
+library(car)
+library(broom)
+```
+
+# Load Data
+
+```{r}
+# ── 1. Read and tidy all condition files ──────────────────────────────────────
+#
+# clean_one() expects a wide CSV where:
+#   • Each column = a cell-type / treatment group
+#   • Replicate columns follow the "<name>.1", "<name>.2" … convention
+#   • Missing values (NA) are silently dropped
+
+clean_one <- function(path, condition_label) {
+  read_csv(path, show_col_types = FALSE) %>%
+    select(-matches("^Unnamed")) %>%                       # drop blank index cols
+    pivot_longer(
+      everything(),
+      names_to  = "cell_type_raw",
+      values_to = "value"
+    ) %>%
+    filter(!is.na(value)) %>%
+    mutate(
+      cell_type = str_remove(cell_type_raw, "\\.[0-9]+$") %>%   # strip ".1"
+                  str_remove("\\.+$"),                           # strip trailing dots
+      replicate = if_else(
+        str_detect(cell_type_raw, "\\.[0-9]+$"),
+        as.integer(str_extract(cell_type_raw, "\\d+$")) + 1L,
+        1L
+      ),
+      condition   = condition_label,
+      log_value   = if (LOG_TRANSFORM) log10(value) else value
+    ) %>%
+    select(condition, cell_type, replicate, value, log_value)
+}
+
+all_data <- imap_dfr(CONDITION_FILES, ~ clean_one(.x, .y))
+
+all_data
+```
+
+# Assumption Checks
+
+```{r}
+# ── 2. Shapiro-Wilk, Bartlett, and Levene tests per condition ─────────────────
+diagnostics <- all_data %>%
+  group_by(condition) %>%
+  summarise(
+    shapiro_raw  = shapiro.test(value)$p.value,
+    shapiro_log  = shapiro.test(log_value)$p.value,
+    bartlett_log = bartlett.test(log_value ~ cell_type)$p.value,
+    levene_log   = car::leveneTest(
+      log_value ~ factor(cell_type),
+      center = median
+    )[["Pr(>F)"]][1],
+    .groups = "drop"
+  )
+
+diagnostics
+```
+
+## Interpretation Guide
+
+- **Raw data** from viral infections are typically **log-normally distributed** — expect low Shapiro-Wilk p-values on raw values.
+- **Log₁₀ transform** symmetrises the distribution and stabilises variance. Check `shapiro_log` > `r ALPHA`.
+- **Bartlett / Levene tests** flag heteroscedasticity. If these are significant for your focal condition, Welch's ANOVA (used below) is the correct choice.
+
+### Why Welch's One-Way ANOVA on log₁₀ data?
+
+1. **Handles heteroscedasticity** — group-specific variances are allowed.
+2. **Tolerates moderate non-normality** — log transform already reduces most skew.
+3. **More powerful than Kruskal-Wallis** at typical n = 3–6 per group.
+4. Pairs with **Holm correction** for planned comparisons (controls family-wise error rate without being overly conservative).
+
+# Focal Condition Analysis
+
+```{r}
+# ── 3. Subset focal condition ─────────────────────────────────────────────────
+focal <- all_data %>%
+  filter(condition == FOCAL_CONDITION, !is.na(log_value)) %>%
+  mutate(cell_type = factor(cell_type))
+
+# ── 4. Welch one-way ANOVA ────────────────────────────────────────────────────
+welch_anova <- oneway.test(log_value ~ cell_type,
+                           data      = focal,
+                           var.equal = FALSE)
+
+cat(sprintf(
+  "Welch one-way ANOVA — %s\n  F(%.1f, %.1f) = %.3f,  p = %.4f\n",
+  FOCAL_CONDITION,
+  welch_anova$parameter["num df"],
+  welch_anova$parameter["denom df"],
+  welch_anova$statistic,
+  welch_anova$p.value
+))
+```
+
+# Planned Contrasts: Reference Group vs All Others
+
+```{r}
+# ── 5. Welch t-tests: REFERENCE_GROUP vs every other cell type ────────────────
+other_groups <- levels(focal$cell_type)[levels(focal$cell_type) != REFERENCE_GROUP]
+
+contrasts <- map_df(other_groups, function(grp) {
+  t_out <- t.test(
+    focal$log_value[focal$cell_type == REFERENCE_GROUP],
+    focal$log_value[focal$cell_type == grp],
+    var.equal = FALSE
+  )
+  tibble(
+    comparison  = paste(REFERENCE_GROUP, "vs", grp),
+    log_diff    = unname(t_out$estimate[1] - t_out$estimate[2]),
+    p_raw       = t_out$p.value
+  )
+}) %>%
+  mutate(
+    p_adj       = p.adjust(p_raw, method = "holm"),
+    fold_change = round(10^(-log_diff), 1),
+    significant = p_adj < ALPHA
+  ) %>%
+  arrange(p_adj)
+
+contrasts
+```
+
+## Summary
+
+```{r}
+cat(sprintf(
+  "\nFocal condition: %s\nReference group: %s\nSignificant contrasts (Holm-adjusted p < %.2f): %d / %d\n",
+  FOCAL_CONDITION,
+  REFERENCE_GROUP,
+  ALPHA,
+  sum(contrasts$significant),
+  nrow(contrasts)
+))
+```

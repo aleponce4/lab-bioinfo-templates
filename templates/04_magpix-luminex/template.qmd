@@ -1,0 +1,42 @@
+---
+title: "04 · MagPix / Luminex Multiplex"
+subtitle: "2×2 factorial cytokine analysis with FDR correction and four plot types"
+description: |
+  Analyzes multiplex immunoassay (MagPix/Luminex) data from a 2×2 factorial
+  design (e.g., disease × treatment). Handles censored values (< LoD) via
+  LoD/√2 substitution, flags outliers (3×IQR), fits per-analyte two-way ANOVA,
+  computes emmeans contrasts with BH-FDR, and produces a heatmap plus four
+  per-analyte plot types (dot, bar, violin, box).
+categories: [immunology, luminex, ANOVA, multiplex]
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | Single wide-format CSV (rows = samples, columns = analytes + metadata) |
+| **Key packages** | `tidyverse`, `emmeans`, `ggbeeswarm`, `ggpubr`, `scales` |
+| **Statistics** | Two-way ANOVA per analyte · emmeans contrasts · BH/FDR |
+| **Output** | QC tables · ANOVA results CSV · Contrasts CSV · Heatmap · 4 plot types per analyte |
+| **Download** | [template.Rmd](template.Rmd) |
+
+::: {.callout-tip}
+**When to use this template:** You have a MagPix/Luminex panel run on a 2×2 factorial
+experiment (e.g., disease status × treatment). Adapt `FACTOR1_LEVELS` and
+`FACTOR2_LEVELS` to your own factor names.
+:::
+
+::: {.callout-note}
+**Okabe-Ito palette** is used throughout — colorblind-safe for all four groups.
+:::
+
+---
+
+```{r}
+#| label: simulate
+#| include: false
+source("data/simulate_data.R")
+```
+
+```{r child="template.Rmd"}
+```

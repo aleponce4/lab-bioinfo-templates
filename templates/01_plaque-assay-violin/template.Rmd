@@ -1,0 +1,382 @@
+---
+title: "Plaque Assay + Violin Plots — Viral Titer Analysis"
+author: "Jonsson Laboratory"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: cerulean
+    toc: true
+    number_sections: true
+    code_folding: hide
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r knitr-opts, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width  = 6,
+  fig.height = 4,
+  dpi        = 600,
+  fig.align  = "center"
+)
+```
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# DATA_FILE: Path to your CSV file with plaque assay data.
+#   Expected columns (rename yours to match, or update the rename() call below):
+#   - "Mouse ID"              : animal/sample identifier
+#   - "Group"                 : group label (e.g., "Group 1", "Group 2")
+#   - "Virus"                 : virus or mock label used in sample
+#   - "# plaques counted R1"  : plaque count replicate 1
+#   - "# plaques counted R2"  : plaque count replicate 2
+#   - "Average plaques from duplicate wells in a 12-well plate"
+#   - "Plated 10e-1 to 10e-6 dilution"
+#   - "Total Volume (ml)"
+#   - "pfu/mL right-side lung homogenate"  : calculated viral titer
+#
+DATA_FILE <- "data/titer_data.csv"
+
+# EXCLUDE_PATTERN: Regex to drop rows you do not want (e.g., backtitrations).
+#   Set to NULL to keep all rows.
+EXCLUDE_PATTERN <- NULL   # e.g., "backtitration"
+
+# GROUP_MAP: Named character vector mapping your "Group N" labels to
+#   human-readable short names used in all plots and tables.
+#   Keys  = values in the "Group" column of your CSV.
+#   Values = display names (shown on plot axes).
+GROUP_MAP <- c(
+  "Group 1" = "Mock + Compound A",
+  "Group 2" = "Mock + Compound B",
+  "Group 3" = "Compound A",
+  "Group 4" = "Compound B",
+  "Group 5" = "Drug X",
+  "Group 6" = "Compound A + Drug X",
+  "Group 7" = "Compound B + Drug X",
+  "Group 8" = "Vehicle"
+)
+
+# GROUP_ORDER: Display order on the x-axis. Must contain the same strings
+#   as the values of GROUP_MAP.
+GROUP_ORDER <- c(
+  "Mock + Compound A",
+  "Mock + Compound B",
+  "Vehicle",
+  "Drug X",
+  "Compound A",
+  "Compound A + Drug X",
+  "Compound B",
+  "Compound B + Drug X"
+)
+
+# PALETTE_GROUPS: Fill color for each group in the full violin plot.
+#   Names must match the values of GROUP_MAP / GROUP_ORDER.
+PALETTE_GROUPS <- c(
+  "Mock + Compound A"    = "grey85",
+  "Mock + Compound B"    = "grey70",
+  "Vehicle"              = "grey40",
+  "Drug X"               = "#984ea3",
+  "Compound A"           = "#74add1",
+  "Compound B"           = "#4575b4",
+  "Compound A + Drug X"  = "#66c2a5",
+  "Compound B + Drug X"  = "#238b45"
+)
+
+# MERGE_MAP: Optionally collapse related groups for the combined-group plot.
+#   Keys = ShortGroup values; Values = merged display name.
+#   Groups not listed here are kept as-is.
+MERGE_MAP <- c(
+  "Mock + Compound A"    = "Mock",
+  "Mock + Compound B"    = "Mock",
+  "Compound A"           = "Inhibitor",
+  "Compound B"           = "Inhibitor",
+  "Compound A + Drug X"  = "Drug + Inhibitor",
+  "Compound B + Drug X"  = "Drug + Inhibitor",
+  "Vehicle"              = "Vehicle",
+  "Drug X"               = "Drug X"
+)
+
+# MERGE_ORDER: Display order for the combined-group violin plot.
+MERGE_ORDER <- c("Mock", "Vehicle", "Drug X", "Inhibitor", "Drug + Inhibitor")
+
+# PALETTE_MERGED: Fill colors for the combined-group violin plot.
+PALETTE_MERGED <- c(
+  "Mock"            = "grey80",
+  "Vehicle"         = "grey40",
+  "Drug X"          = "#984ea3",
+  "Inhibitor"       = "#4575b4",
+  "Drug + Inhibitor"= "#238b45"
+)
+
+# COMPARISONS: Pairs of merged groups to test with stat_compare_means().
+#   Each element is a length-2 character vector of MERGE_ORDER values.
+COMPARISONS <- list(
+  c("Drug X", "Inhibitor"),
+  c("Drug X", "Drug + Inhibitor"),
+  c("Inhibitor", "Drug + Inhibitor")
+)
+
+# TITER_COL: Column name in your CSV that holds the computed titer value.
+TITER_COL <- "pfu/mL right-side lung homogenate"
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# Setup
+
+## Libraries
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(readr)
+library(dplyr)
+library(janitor)
+library(stringr)
+library(ggplot2)
+library(scales)
+library(rstatix)
+library(car)
+library(ggpubr)
+library(gt)
+library(broom)
+```
+
+## Load Data
+
+```{r load-data, message=FALSE, warning=FALSE}
+df <- read_csv(DATA_FILE)
+```
+
+## Clean and Organize
+
+```{r clean}
+df_clean <- df %>%
+  { if (!is.null(EXCLUDE_PATTERN)) filter(., !str_detect(Group, EXCLUDE_PATTERN)) else . } %>%
+  rename(
+    MouseID    = `Mouse ID`,
+    Plaques_R1 = `# plaques counted R1`,
+    Plaques_R2 = `# plaques counted R2`,
+    AvgPlaques = `Average plaques from duplicate wells in a 12-well plate`,
+    Dilution   = `Plated 10e-1 to 10e-6 dilution`,
+    Volume_mL  = `Total Volume (ml)`,
+    Titer      = all_of(TITER_COL)
+  ) %>%
+  mutate(
+    ShortGroup = factor(
+      recode(Group, !!!GROUP_MAP),
+      levels = GROUP_ORDER
+    ),
+    MergedGroup = factor(
+      recode(ShortGroup, !!!MERGE_MAP),
+      levels = MERGE_ORDER
+    ),
+    mean_plaques  = (Plaques_R1 + Plaques_R2) / 2,
+    diff_plaques  = Plaques_R1 - Plaques_R2,
+    Titer_pseudo  = Titer + 1,
+    logTiter      = log10(Titer + 1)
+  )
+
+# ── Limit of Agreement (LoA) ─────────────────────────────────────────────────
+loa_stats <- df_clean %>%
+  summarise(
+    bias    = mean(diff_plaques, na.rm = TRUE),
+    sd_diff = sd(diff_plaques, na.rm = TRUE)
+  )
+loa_upper <- loa_stats$bias + 1.96 * loa_stats$sd_diff
+loa_lower <- loa_stats$bias - 1.96 * loa_stats$sd_diff
+
+df_clean <- df_clean %>%
+  mutate(
+    flag_bad_replicate = diff_plaques < loa_lower | diff_plaques > loa_upper
+  )
+```
+
+# Check Replicates
+
+```{r replicate-check}
+labeled_points <- filter(df_clean, flag_bad_replicate)
+
+print(
+  ggplot(df_clean, aes(x = Plaques_R1, y = Plaques_R2, color = flag_bad_replicate)) +
+    geom_point(size = 2) +
+    geom_abline(slope = 1, intercept = 0, color = "grey40") +
+    geom_text(
+      data    = labeled_points,
+      mapping = aes(label = as.character(MouseID)),
+      nudge_y = 1, size = 3, color = "orange", inherit.aes = FALSE
+    ) +
+    scale_color_manual(values = c("black", "orange"), labels = c("OK", "Outside LoA")) +
+    labs(
+      x     = "Plaques counted (Replicate 1)",
+      y     = "Plaques counted (Replicate 2)",
+      color = "Flagged",
+      title = "Replicate Agreement (1.96 × SD Limits of Agreement)"
+    ) +
+    theme_classic()
+)
+```
+
+Data points outside the LoA are flagged in orange. Review these samples before proceeding.
+
+# Plots
+
+## Full Group Violin Plot
+
+```{r violin-full, message=FALSE, warning=FALSE}
+p_full <- ggplot(df_clean, aes(x = ShortGroup, y = Titer, fill = ShortGroup)) +
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black", bw = 0.15) +
+  stat_summary(
+    fun.data = mean_sdl,
+    fun.args = list(mult = 1),
+    geom = "pointrange", color = "black", size = 0.8, alpha = 0.9, shape = 22
+  ) +
+  geom_jitter(width = 0.18, size = 1, alpha = 0.60) +
+  scale_fill_manual(values = PALETTE_GROUPS, guide = "none") +
+  scale_y_log10(labels = scales::label_scientific()) +
+  labs(
+    x       = "Group",
+    y       = "Viral Titer (pfu/mL, log scale)",
+    title   = "Viral Titers by Group",
+    caption = "Black bars indicate mean \u00b1 1 SD"
+  ) +
+  theme_classic(base_size = 13) +
+  theme(
+    axis.text.x      = element_text(angle = 30, hjust = 1),
+    panel.grid.minor = element_blank()
+  )
+
+ggsave("Viral_Titer_By_Group.tiff", plot = p_full,
+       width = 8, height = 5, units = "in", dpi = 600,
+       compression = "lzw")
+print(p_full)
+```
+
+## Combined Group Violin Plot
+
+```{r violin-merged, message=FALSE, warning=FALSE}
+p_merged <- ggplot(df_clean, aes(x = MergedGroup, y = Titer, fill = MergedGroup)) +
+  geom_violin(trim = FALSE, alpha = 0.45, color = "black", bw = 0.15) +
+  geom_jitter(width = 0.18, size = 1, alpha = 0.60) +
+  scale_fill_manual(values = PALETTE_MERGED, guide = "none") +
+  scale_y_log10(labels = scales::label_scientific()) +
+  labs(
+    x     = "Group",
+    y     = "Viral Titer (pfu/mL, log scale)",
+    title = "Viral Titers by Combined Group"
+  ) +
+  theme_classic(base_size = 13) +
+  theme(
+    axis.text.x      = element_text(angle = 30, hjust = 1),
+    panel.grid.minor = element_blank()
+  )
+
+ggsave("Viral_Titer_By_MergedGroup.tiff", plot = p_merged,
+       width = 8, height = 5, units = "in", dpi = 600,
+       compression = "lzw")
+print(p_merged)
+```
+
+# Significance Testing
+
+## Assumption Checks
+
+```{r assumptions}
+df_clean %>%
+  group_by(ShortGroup) %>%
+  filter(sd(logTiter, na.rm = TRUE) > 0) %>%
+  shapiro_test(logTiter)
+
+leveneTest(logTiter ~ ShortGroup, data = df_clean)
+```
+
+## One-Way ANOVA — All Groups
+
+```{r anova-full}
+fit_full <- aov(logTiter ~ ShortGroup, data = df_clean)
+
+tidy(fit_full) %>%
+  gt() %>%
+  tab_header(title = "ANOVA: log\u2081\u2080(Titer) by Group") %>%
+  fmt_number(columns = c(statistic, p.value), decimals = 3) %>%
+  cols_label(term = "Source", df = "df", sumsq = "Sum Sq",
+             meansq = "Mean Sq", statistic = "F value", p.value = "Pr(>F)")
+
+tukey_raw <- TukeyHSD(fit_full, conf.level = 0.95)$ShortGroup
+tukey_tbl <- as.data.frame(tukey_raw)
+tukey_tbl$comparison <- rownames(tukey_tbl)
+rownames(tukey_tbl) <- NULL
+tukey_tbl <- tukey_tbl[, c("comparison", "diff", "lwr", "upr", "p adj")]
+names(tukey_tbl)[5] <- "p_adj"
+
+tukey_tbl %>%
+  gt() %>%
+  tab_header(title = "Tukey HSD: Pairwise Comparisons") %>%
+  fmt_number(columns = c(diff, lwr, upr, p_adj), decimals = 3) %>%
+  cols_label(comparison = "Comparison", diff = "Difference",
+             lwr = "Lower CI", upr = "Upper CI", p_adj = "Adjusted p")
+```
+
+## One-Way ANOVA — Combined Groups
+
+```{r anova-merged}
+fit_merged <- aov(logTiter ~ MergedGroup, data = df_clean)
+
+tidy(fit_merged) %>%
+  gt() %>%
+  tab_header(title = "ANOVA: log\u2081\u2080(Titer) by Merged Group") %>%
+  fmt_number(columns = c(statistic, p.value), decimals = 3) %>%
+  cols_label(term = "Source", df = "df", sumsq = "Sum Sq",
+             meansq = "Mean Sq", statistic = "F value", p.value = "Pr(>F)")
+
+tukey_m_raw <- TukeyHSD(fit_merged, conf.level = 0.95)$MergedGroup
+tukey_m_tbl <- as.data.frame(tukey_m_raw)
+tukey_m_tbl$comparison <- rownames(tukey_m_tbl)
+rownames(tukey_m_tbl) <- NULL
+tukey_m_tbl <- tukey_m_tbl[, c("comparison", "diff", "lwr", "upr", "p adj")]
+names(tukey_m_tbl)[5] <- "p_adj"
+
+tukey_m_tbl %>%
+  gt() %>%
+  tab_header(title = "Tukey HSD: Merged Group Pairwise Comparisons") %>%
+  fmt_number(columns = c(diff, lwr, upr, p_adj), decimals = 3) %>%
+  cols_label(comparison = "Comparison", diff = "Difference",
+             lwr = "Lower CI", upr = "Upper CI", p_adj = "Adjusted p")
+```
+
+# Violin Plot with Significance Brackets
+
+```{r violin-sig, fig.height=5.5, fig.width=6, message=FALSE, warning=FALSE}
+df_plot <- df_clean %>% filter(!is.na(Titer) & Titer >= 0)
+
+p_combined <- ggplot(df_plot, aes(x = MergedGroup, y = Titer, fill = MergedGroup)) +
+  geom_violin(trim = FALSE, alpha = 0.45, color = "black", bw = 0.15) +
+  geom_jitter(width = 0.18, size = 1, alpha = 0.60) +
+  scale_fill_manual(values = PALETTE_MERGED, guide = "none") +
+  scale_y_log10(labels = scales::label_scientific()) +
+  expand_limits(y = max(df_plot$Titer, na.rm = TRUE) * 5) +
+  labs(
+    x     = "Group",
+    y     = "Viral Titer (pfu/mL, log scale)",
+    title = "Viral Titers by Combined Group"
+  ) +
+  theme_classic(base_size = 13) +
+  theme(
+    axis.text.x      = element_text(angle = 30, hjust = 1),
+    panel.grid.minor = element_blank()
+  ) +
+  stat_compare_means(
+    comparisons  = COMPARISONS,
+    method       = "t.test",
+    label        = "p.format..p.signif",
+    hide.ns      = TRUE,
+    size         = 5,
+    bracket.size = 0.6,
+    step.increase = 0.15
+  )
+
+ggsave("Viral_Titer_CombinedGroups_sig.tiff", plot = p_combined,
+       width = 8, height = 5.5, units = "in", dpi = 600,
+       compression = "lzw")
+print(p_combined)
+```

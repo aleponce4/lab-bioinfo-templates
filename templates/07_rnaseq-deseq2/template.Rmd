@@ -1,0 +1,313 @@
+---
+title: "RNA-seq / DESeq2 — Differential Expression and Visualization"
+author: "Jonsson Laboratory"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# DDS_FILE: Path to a saved DESeqDataSet object (.RData).
+#   The file should contain a variable named "dds" that has already been
+#   processed with DESeq(). If you have a raw count matrix, run DESeq()
+#   before saving.
+#
+DDS_FILE <- "data/dds_template.RData"
+
+# COMPARISONS: Named list of contrast vectors for DESeq2::results().
+#   Format: list("Label" = c("factor_column", "numerator", "denominator"))
+#   The "Label" becomes the comparison name in all plots.
+#
+COMPARISONS <- list(
+  "Group_A vs Control" = c("group", "Group_A", "Control"),
+  "Group_B vs Control" = c("group", "Group_B", "Control"),
+  "Group_C vs Control" = c("group", "Group_C", "Control")
+)
+
+# FDR_THRESHOLD: Significance cutoff for DEG calls.
+FDR_THRESHOLD <- 0.05
+
+# LFC_THRESHOLD: |log2FoldChange| cutoff for DEG calls.
+LFC_THRESHOLD <- 1.5
+
+# GENE_SETS: Named list of gene vectors for bubble/triangle plots.
+#   Replace these with your biological pathway gene lists.
+#   One bubble plot is produced per list element.
+GENE_SETS <- list(
+  Pathway_A = c("Gene1",  "Gene2",  "Gene3",  "Gene10", "Gene20",
+                "Gene30", "Gene50"),
+  Pathway_B = c("Gene5",  "Gene15", "Gene25", "Gene35", "Gene45",
+                "Gene55", "Gene65"),
+  Pathway_C = c("Gene3",  "Gene13", "Gene23", "Gene33", "Gene43")
+)
+
+# VOLCANO_XLIM: x-axis range for volcano plots. Adjust to your data.
+VOLCANO_XLIM <- c(-10, 10)
+
+# VOLCANO_YLIM: Per-comparison y-axis limits (-log10 scale).
+#   Must have the same length as COMPARISONS, or set to a single value
+#   to use for all plots (e.g., VOLCANO_YLIM <- 50).
+VOLCANO_YLIM <- 50   # single value → same limit for all
+
+# OUTPUT_DIR: Top-level folder for saved plots.
+OUTPUT_DIR <- "Plots"
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(DESeq2)
+library(SummarizedExperiment)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(tidyverse)
+library(stringr)
+library(viridis)
+library(svglite)
+library(ggpubr)
+library(patchwork)
+library(scales)
+library(RColorBrewer)
+
+for (sub in c("Volcano", "Bubble_Plots", "Triangle", "PCA")) {
+  dir.create(file.path(OUTPUT_DIR, sub), recursive = TRUE, showWarnings = FALSE)
+}
+```
+
+# Load DESeqDataSet
+
+```{r load-dds}
+load(DDS_FILE)   # loads variable 'dds'
+cat("Samples:", ncol(dds), "\n")
+cat("Genes:  ", nrow(dds), "\n")
+print(colData(dds))
+```
+
+# Extract DESeq2 Results
+
+```{r deseq-results}
+results_list <- lapply(names(COMPARISONS), function(label) {
+  contrast <- COMPARISONS[[label]]
+  res <- results(dds, contrast = contrast, alpha = FDR_THRESHOLD)
+  as.data.frame(res) %>%
+    rownames_to_column("Gene") %>%
+    mutate(
+      Comparison  = label,
+      Gene        = toupper(Gene),
+      significant = !is.na(padj) & padj < FDR_THRESHOLD & abs(log2FoldChange) >= LFC_THRESHOLD,
+      direction   = case_when(
+        significant & log2FoldChange > 0 ~ "Up",
+        significant & log2FoldChange < 0 ~ "Down",
+        TRUE                             ~ "NS"
+      )
+    )
+})
+names(results_list) <- names(COMPARISONS)
+
+all_results <- bind_rows(results_list)
+
+# Summary
+all_results %>%
+  group_by(Comparison, direction) %>%
+  count() %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n, values_fill = 0)
+```
+
+# Volcano Plots
+
+```{r volcano-plots, fig.width=6, fig.height=3, message=FALSE, warning=FALSE}
+# Color scheme (consistent with publications)
+vol_colors <- c("Up" = "#a00000", "Down" = "#2066a8", "NS" = "gray70")
+
+ylim_vec <- if (length(VOLCANO_YLIM) == 1) rep(VOLCANO_YLIM, length(COMPARISONS))
+            else VOLCANO_YLIM
+
+volcano_plots <- lapply(seq_along(results_list), function(i) {
+  label <- names(results_list)[i]
+  df    <- results_list[[i]]
+
+  ggplot(df, aes(x = log2FoldChange, y = -log10(padj), color = direction)) +
+    geom_point(alpha = 0.5, size = 0.8) +
+    geom_hline(yintercept = -log10(FDR_THRESHOLD),
+               linetype = "dashed", color = "darkgrey", linewidth = 0.25) +
+    geom_vline(xintercept = c(-LFC_THRESHOLD, LFC_THRESHOLD),
+               linetype = "dashed", color = "darkgrey", linewidth = 0.25) +
+    scale_color_manual(values = vol_colors) +
+    scale_x_continuous(limits = VOLCANO_XLIM) +
+    scale_y_continuous(limits = c(0, ylim_vec[i])) +
+    labs(title = label, x = "log\u2082 Fold Change", y = "-log\u2081\u2080(FDR)") +
+    theme_classic(base_size = 10, base_family = "Arial") +
+    theme(
+      plot.title   = element_text(size = 10, face = "bold", hjust = 0.5),
+      axis.title   = element_text(size = 10),
+      axis.text    = element_text(size = 9),
+      legend.position = "none",
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4)
+    )
+})
+names(volcano_plots) <- names(results_list)
+
+# Print individually
+for (nm in names(volcano_plots)) print(volcano_plots[[nm]])
+
+# Combined panel
+vol_combined <- wrap_plots(volcano_plots, nrow = 1) +
+  plot_layout(guides = "collect")
+
+ggsave(file.path(OUTPUT_DIR, "Volcano", "volcano_grid.svg"),
+       plot = vol_combined,
+       width = 6 * length(volcano_plots), height = 3,
+       device = "svg")
+print(vol_combined)
+```
+
+# PCA Plot
+
+```{r pca-plot, fig.width=6, fig.height=3}
+vst_data <- vst(dds, blind = TRUE)
+pca_data <- plotPCA(vst_data, intgroup = "group", returnData = TRUE)
+pct_var  <- round(100 * attr(pca_data, "percentVar"))
+
+p_pca <- ggplot(pca_data, aes(x = PC1, y = PC2, color = group)) +
+  geom_point(size = 3) +
+  labs(
+    title = "PCA — Variance-Stabilized Counts",
+    x = paste0("PC1: ", pct_var[1], "% variance"),
+    y = paste0("PC2: ", pct_var[2], "% variance"),
+    color = "Group"
+  ) +
+  theme_classic(base_size = 10, base_family = "Arial") +
+  theme(
+    plot.title   = element_text(size = 10, face = "bold", hjust = 0.5),
+    axis.title   = element_text(size = 10),
+    axis.text    = element_text(size = 9),
+    legend.title = element_text(size = 10),
+    legend.text  = element_text(size = 9),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4)
+  )
+
+ggsave(file.path(OUTPUT_DIR, "PCA", "pca_plot.svg"),
+       plot = p_pca, width = 6, height = 3, device = "svg")
+print(p_pca)
+```
+
+# Bubble Plots (Gene Set Visualization)
+
+```{r bubble-fn}
+make_bubble_plot <- function(pathway_name, genes, data) {
+  genes_up <- toupper(genes)
+  pdata <- data %>%
+    filter(Gene %in% genes_up) %>%
+    mutate(
+      log_padj   = ifelse(!is.na(padj) & padj > 0, -log10(padj), NA_real_),
+      color_group = ifelse(significant, "significant", "nonsignificant"),
+      Gene        = factor(Gene, levels = rev(genes_up)),
+      Comparison  = factor(Comparison, levels = names(COMPARISONS))
+    )
+
+  ggplot() +
+    geom_point(
+      data = filter(pdata, color_group == "nonsignificant"),
+      aes(x = Comparison, y = Gene),
+      size = 1.5, color = "darkgrey", alpha = 0.5
+    ) +
+    geom_point(
+      data = filter(pdata, color_group == "significant"),
+      aes(x = Comparison, y = Gene,
+          size = abs(log2FoldChange), color = log_padj),
+      alpha = 0.8
+    ) +
+    scale_size_continuous(
+      name   = expression("Log"[2] * " Fold Change"),
+      range  = c(2, 10), breaks = c(1.5, 3, 6, 12), limits = c(1.5, 12)
+    ) +
+    scale_color_viridis_c(
+      option = "plasma", direction = -1, name = "-log10(FDR)",
+      limits = c(0, 20), oob = squish,
+      breaks = c(0, 5, 10, 15, 20), labels = c("0","5","10","15","20")
+    ) +
+    scale_y_discrete(position = "right") +
+    theme_classic(base_size = 13) +
+    theme(
+      plot.title   = element_text(size = 18, face = "bold", hjust = 0.5, family = "Arial"),
+      axis.text.x  = element_text(size = 12, angle = 45, hjust = 1, face = "bold", family = "Arial"),
+      axis.text.y  = element_text(size = 12, face = "italic", family = "Arial"),
+      legend.title = element_text(size = 11, family = "Arial"),
+      legend.text  = element_text(size = 10, family = "Arial"),
+      legend.position = "left",
+      panel.border    = element_rect(color = "black", fill = NA, linewidth = 0.6)
+    ) +
+    labs(title = pathway_name, x = "", y = "")
+}
+```
+
+```{r bubble-plots, fig.width=8, fig.height=9, message=FALSE, warning=FALSE}
+for (nm in names(GENE_SETS)) {
+  p <- make_bubble_plot(nm, GENE_SETS[[nm]], all_results)
+  print(p)
+  ggsave(file.path(OUTPUT_DIR, "Bubble_Plots", paste0(nm, ".svg")),
+         plot = p, device = "svg", width = 8, height = 9)
+}
+```
+
+# Triangle / Directional Bubble Plots
+
+```{r triangle-plots, fig.width=5, fig.height=8, message=FALSE, warning=FALSE}
+make_triangle_plot <- function(pathway_name, genes, data) {
+  genes_up <- toupper(genes)
+  pdata <- data %>%
+    filter(Gene %in% genes_up, significant) %>%
+    mutate(
+      log_padj   = ifelse(!is.na(padj) & padj > 0, -log10(padj), NA_real_),
+      shape_code  = ifelse(log2FoldChange > 0, 24, 25),  # 24=up, 25=down
+      Gene        = factor(Gene, levels = rev(genes_up)),
+      Comparison  = factor(Comparison, levels = names(COMPARISONS))
+    )
+
+  ggplot(pdata, aes(x = Comparison, y = Gene,
+                    fill = log_padj, shape = direction,
+                    size = abs(log2FoldChange))) +
+    geom_point(alpha = 0.85, stroke = 0.3) +
+    scale_shape_manual(values = c("Up" = 24, "Down" = 25), guide = "none") +
+    scale_fill_viridis_c(option = "plasma", direction = -1, name = "-log10(FDR)",
+                         limits = c(0, 20), oob = squish) +
+    scale_size_continuous(name   = expression("|log"[2]*"FC|"),
+                          range  = c(2, 8)) +
+    scale_y_discrete(position = "right") +
+    theme_classic(base_size = 13, base_family = "Arial") +
+    theme(
+      plot.title   = element_text(size = 18, face = "bold", hjust = 0.5),
+      axis.text.x  = element_text(size = 12, angle = 45, hjust = 1, face = "bold"),
+      axis.text.y  = element_text(size = 12, face = "italic"),
+      legend.position = "left",
+      panel.border    = element_rect(color = "black", fill = NA, linewidth = 0.6)
+    ) +
+    labs(title = pathway_name, x = "", y = "")
+}
+
+for (nm in names(GENE_SETS)) {
+  p <- make_triangle_plot(nm, GENE_SETS[[nm]], all_results)
+  print(p)
+  ggsave(file.path(OUTPUT_DIR, "Triangle", paste0(nm, "_triangle.svg")),
+         plot = p, device = "svg", width = 5, height = 8)
+}
+```
+
+# Export DEG Tables
+
+```{r export}
+for (comp in names(results_list)) {
+  safe_name <- gsub("[^A-Za-z0-9_-]", "_", comp)
+  write_csv(results_list[[comp]],
+            file.path(OUTPUT_DIR, paste0("DEGs_", safe_name, ".csv")))
+}
+message("Exported DEG tables to ", OUTPUT_DIR)
+```

@@ -1,0 +1,256 @@
+---
+title: "Phylo-Geographic Analysis — Isolation by Distance & Scatter Pies"
+author: "Jonsson Laboratory"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# Input files:
+S_FASTA    <- "data/S_aligned.fasta"   # Aligned S-segment FASTA
+M_FASTA    <- "data/M_aligned.fasta"   # Aligned M-segment FASTA  (optional)
+TREEFILE   <- "data/S_tree.nwk"        # Newick tree from IQ-TREE or similar
+COORDS_FILE<- "data/coordinates.csv"   # Columns: SampleID, Longitude, Latitude
+METADATA_FILE <- "data/metadata.csv"   # Columns: SampleID, Clade (+ optional extras)
+
+# Column names in COORDS_FILE and METADATA_FILE that link to FASTA tip labels.
+SAMPLE_COL <- "SampleID"
+
+# Columns in METADATA_FILE used for clade coloring.
+CLADE_COL  <- "Clade"
+
+# CLADE_COLORS: Named color vector (Okabe-Ito palette).
+#   Names must match the unique values in METADATA_FILE[[CLADE_COL]].
+CLADE_COLORS <- c(
+  "Clade_A" = "#E69F00",   # Orange
+  "Clade_B" = "#56B4E9",   # Sky blue
+  "Clade_C" = "#009E73",   # Bluish green
+  "Clade_D" = "#0072B2"    # Blue
+)
+
+# PATHOGEN_NAME: Used in plot titles and axis labels.
+PATHOGEN_NAME <- "Pathogen X"
+
+# Mantel test: number of permutations (increase to 99999 for publication).
+MANTEL_NPERM <- 999
+
+# Map extent (degrees): lon/lat range around your sampling area.
+MAP_LON <- c(-72, -63)
+MAP_LAT <- c(-30, -20)
+
+# OUTPUT_DIR: Where to save plots.
+OUTPUT_DIR <- "Plots"
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(ape)
+library(vegan)
+library(geosphere)
+library(Biostrings)
+library(tidyverse)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggspatial)
+library(scatterpie)
+library(svglite)
+library(patchwork)
+library(ragg)
+
+dir.create(file.path(OUTPUT_DIR, "Maps"),    recursive = TRUE, showWarnings = FALSE)
+dir.create(file.path(OUTPUT_DIR, "Mantel"),  recursive = TRUE, showWarnings = FALSE)
+```
+
+# Load Data
+
+```{r load-data, message=FALSE}
+# FASTA sequences
+seqs_S <- readDNAStringSet(S_FASTA)
+
+# Phylogenetic tree
+tree_S <- read.tree(TREEFILE)
+
+# Metadata & coordinates
+coords   <- read_csv(COORDS_FILE, show_col_types = FALSE)
+metadata <- read_csv(METADATA_FILE, show_col_types = FALSE)
+
+# Combine
+sample_data <- coords %>%
+  left_join(metadata, by = SAMPLE_COL) %>%
+  filter(!is.na(Longitude), !is.na(Latitude))
+
+cat("Sequences loaded:", length(seqs_S), "\n")
+cat("Samples with coordinates:", nrow(sample_data), "\n")
+print(head(sample_data))
+```
+
+# Replicate Agreement / Sequence Alignment QC
+
+```{r seq-qc}
+seq_widths <- width(seqs_S)
+cat(sprintf("S alignment: %d sequences, length %d–%d bp\n",
+            length(seq_widths), min(seq_widths), max(seq_widths)))
+
+# Count ambiguous bases per sequence
+ambig_counts <- sapply(as.character(seqs_S), function(s)
+  sum(strsplit(s, "")[[1]] %in% c("N","R","Y","S","W","K","M","B","D","H","V")))
+
+data.frame(
+  sequence    = names(seqs_S),
+  length      = seq_widths,
+  ambig_bases = ambig_counts
+) %>% arrange(desc(ambig_bases))
+```
+
+# Isolation by Distance (Mantel Test)
+
+```{r mantel-test, message=FALSE}
+# ── 1. Patristic distance matrix from tree ─────────────────────────────────────
+patristic_mat <- cophenetic.phylo(tree_S)
+
+# ── 2. Geographic distance matrix (great-circle, km) ──────────────────────────
+# Match order to tree tips
+tip_ids <- tree_S$tip.label
+
+# Extract SampleID from tip label (adjust regex to your naming convention)
+tip_sample_ids <- str_extract(tip_ids, "Sample_[0-9]+")
+
+coords_ordered <- sample_data %>%
+  filter(get(SAMPLE_COL) %in% tip_sample_ids) %>%
+  slice(match(tip_sample_ids, get(SAMPLE_COL)))
+
+geo_mat <- distm(
+  cbind(coords_ordered$Longitude, coords_ordered$Latitude),
+  fun = distHaversine
+) / 1000   # → km
+
+rownames(geo_mat) <- colnames(geo_mat) <- coords_ordered[[SAMPLE_COL]]
+
+# ── 3. Mantel test ─────────────────────────────────────────────────────────────
+# Subset to shared taxa
+shared  <- intersect(rownames(patristic_mat), rownames(geo_mat))
+pat_sub <- patristic_mat[shared, shared]
+geo_sub <- geo_mat[shared, shared]
+
+mantel_result <- mantel(pat_sub, geo_sub,
+                         method  = "pearson",
+                         permutations = MANTEL_NPERM)
+print(mantel_result)
+
+# ── 4. Scatter plot ────────────────────────────────────────────────────────────
+ibd_df <- data.frame(
+  geographic  = as.vector(geo_sub[lower.tri(geo_sub)]),
+  phylogenetic = as.vector(pat_sub[lower.tri(pat_sub)])
+)
+
+p_ibd <- ggplot(ibd_df, aes(x = geographic, y = phylogenetic)) +
+  geom_point(alpha = 0.5, size = 1.5, color = "steelblue") +
+  geom_smooth(method = "lm", color = "steelblue", se = TRUE) +
+  labs(
+    title = paste("Isolation by Distance —", PATHOGEN_NAME),
+    subtitle = sprintf("Mantel r = %.3f,  p = %.3f (n_perm = %d)",
+                       mantel_result$statistic, mantel_result$signif, MANTEL_NPERM),
+    x = "Geographic distance (km)",
+    y = "Patristic distance (branch length)"
+  ) +
+  theme_bw(base_size = 10, base_family = "Arial")
+
+ggsave(file.path(OUTPUT_DIR, "Mantel", "isolation_by_distance.tiff"),
+       plot = p_ibd, width = 3, height = 3, dpi = 300,
+       device = "tiff", compression = "lzw")
+print(p_ibd)
+```
+
+# Scatter Pie Map
+
+```{r scatter-pie, fig.width=5, fig.height=4, message=FALSE, warning=FALSE}
+# ── Summarize clade composition per location ───────────────────────────────────
+# (when multiple samples share a location, show their clade proportions as a pie)
+pie_data <- sample_data %>%
+  group_by(Longitude, Latitude, !!sym(CLADE_COL)) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  tidyr::pivot_wider(names_from = all_of(CLADE_COL), values_from = n, values_fill = 0) %>%
+  mutate(radius = 0.4)   # pie radius in degrees; adjust to your map scale
+
+# Country polygons
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+p_spie <- ggplot() +
+  geom_sf(data = world, fill = "grey90", color = "white", linewidth = 0.2) +
+  geom_scatterpie(
+    data    = pie_data,
+    aes(x = Longitude, y = Latitude, r = radius),
+    cols    = intersect(names(CLADE_COLORS), names(pie_data)),
+    alpha   = 0.85, color = "black", linewidth = 0.2
+  ) +
+  scale_fill_manual(values = CLADE_COLORS, name = "Clade") +
+  coord_sf(xlim = MAP_LON, ylim = MAP_LAT, expand = FALSE) +
+  annotation_scale(location = "br", width_hint = 0.25) +
+  labs(title = paste(PATHOGEN_NAME, "— Geographic Distribution"),
+       x = NULL, y = NULL) +
+  theme_bw(base_size = 9, base_family = "Arial") +
+  theme(
+    legend.position   = "top",
+    legend.direction  = "horizontal",
+    legend.text       = element_text(size = 6),
+    legend.key.size   = unit(3, "pt"),
+    panel.grid.major  = element_line(color = "grey92", linewidth = 0.2),
+    panel.border      = element_rect(color = "black", linewidth = 0.35),
+    axis.text         = element_text(size = 8),
+    plot.margin       = margin(4, 4, 4, 4, "pt")
+  )
+
+ggsave(file.path(OUTPUT_DIR, "Maps", "scatter_pie.tiff"),
+       plot = p_spie, width = 3, height = 2, dpi = 600,
+       device = "tiff", compression = "lzw")
+ggsave(file.path(OUTPUT_DIR, "Maps", "scatter_pie.svg"),
+       plot = p_spie, width = 3, height = 2, device = "svg")
+print(p_spie)
+```
+
+# Mantel Correlogram
+
+```{r mantel-correlogram, message=FALSE, warning=FALSE}
+# Distance class boundaries (km) — adjust to your study area
+dist_breaks <- quantile(as.vector(geo_sub[lower.tri(geo_sub)]),
+                         probs = seq(0, 1, by = 0.25))
+
+# Mantel correlogram (vegan)
+mcor <- mantel.correlog(
+  D.eco  = pat_sub,
+  D.geo  = geo_sub,
+  nperm  = MANTEL_NPERM,
+  cutoff = FALSE
+)
+
+mcor_df <- as.data.frame(mcor$mantel.res) %>%
+  mutate(sig = ifelse(Pr <= 0.05, "Significant", "NS"))
+
+p_mcor <- ggplot(mcor_df, aes(x = `class.index`, y = Mantel.cor, fill = sig)) +
+  geom_bar(stat = "identity", width = diff(range(mcor_df$`class.index`)) / nrow(mcor_df) * 0.8) +
+  geom_hline(yintercept = 0, color = "black", linewidth = 0.4) +
+  scale_fill_manual(values = c("Significant" = "steelblue", "NS" = "grey70"),
+                    name = NULL) +
+  labs(title = paste("Mantel Correlogram —", PATHOGEN_NAME),
+       x = "Geographic distance class (km)",
+       y = "Mantel r") +
+  theme_bw(base_size = 10, base_family = "Arial") +
+  theme(legend.position = c(0.8, 0.75),
+        legend.background = element_rect(color = "black"),
+        legend.key = element_rect(fill = "transparent"))
+
+ggsave(file.path(OUTPUT_DIR, "Mantel", "mantel_correlogram.tiff"),
+       plot = p_mcor, width = 3, height = 2, dpi = 300,
+       device = "tiff", compression = "lzw")
+print(p_mcor)
+```

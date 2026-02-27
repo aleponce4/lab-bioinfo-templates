@@ -4,10 +4,8 @@
 # Run from the template folder: Rscript data/simulate_data.R
 
 set.seed(42)
-library(tidyr)
 
-out_dir <- file.path(dirname(rstudioapi::getSourceEditorContext()$path), "")
-if (!interactive()) out_dir <- "data/"
+out_dir <- "data/"   # script is always run from the template directory
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 cell_types <- c("CellType_A", "CellType_B", "CellType_C", "CellType_D")
@@ -39,6 +37,6 @@ for (cond in conditions) {
   df3 <- df2
   colnames(df3) <- paste0(cell_types, ".1")
   out <- cbind(df2, df3)
-  write.csv(out, file = paste0("data/", cond, ".csv"), row.names = FALSE)
+  write.csv(out, file = paste0(out_dir, cond, ".csv"), row.names = FALSE)
   message("Wrote data/", cond, ".csv")
 }

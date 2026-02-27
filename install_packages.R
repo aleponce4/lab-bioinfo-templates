@@ -41,6 +41,7 @@ bioc_pkgs <- c(
   "org.Hs.eg.db",        # human
   "clusterProfiler",     # 06_go-enrichment
   "enrichplot",
+  "ggtree",              # transitive dep of enrichplot; explicit pin ensures ggplot2-compatible version
   "GOplot",
   "ggVennDiagram",
   "ReactomePA"

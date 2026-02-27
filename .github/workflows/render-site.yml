@@ -47,8 +47,9 @@ jobs:
       - name: Generate synthetic R data (all templates)
         run: |
           for script in templates/*/data/simulate_data.R; do
-            echo "▶ $script"
-            Rscript "$script"
+            template_dir=$(dirname "$(dirname "$script")")
+            echo "▶ $script  (cwd: $template_dir)"
+            (cd "$template_dir" && Rscript data/simulate_data.R)
           done
         shell: bash
 
@@ -56,7 +57,7 @@ jobs:
         shell: bash -l {0}
         run: |
           conda activate jonsson-bioinfo
-          python templates/08_vcf-mutation-analysis/data/simulate_data.py
+          (cd templates/08_vcf-mutation-analysis && python data/simulate_data.py)
 
       # ── 5. Quarto setup ──────────────────────────────────────────────────────
       - name: Set up Quarto

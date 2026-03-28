@@ -46,8 +46,9 @@ jobs:
           r-version: "4.5"
           use-public-rspm: true   # binary packages → faster install
 
-      - name: Cache R packages
-        uses: actions/cache@v4
+      - name: Restore R package cache
+        id: cache-r-packages
+        uses: actions/cache/restore@v5
         with:
           path: ~/R          # same location setup-r uses; avoids env.R_LIBS_USER linter warning
           key: r-pkgs-${{ runner.os }}-r-4.5-${{ hashFiles('install_packages.R', '.github/workflows/render-site.yml') }}
@@ -62,6 +63,24 @@ jobs:
         run: |
           Rscript -e 'pkgs <- c("clusterProfiler", "enrichplot", "ggtree", "ggrepel"); invisible(lapply(pkgs, require, character.only = TRUE)); cat("Critical R packages load successfully\n")'
 
+      - name: Save R package cache
+        if: steps.cache-r-packages.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ~/R
+          key: ${{ steps.cache-r-packages.outputs.cache-primary-key }}
+
+      - name: Restore Python package cache
+        id: cache-python-packages
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ~/.cache/pip
+            ~/conda_pkgs_dir
+          key: py-pkgs-${{ runner.os }}-${{ hashFiles('environment.yml', '.github/workflows/render-site.yml') }}
+          restore-keys: |
+            py-pkgs-${{ runner.os }}-
+
       # ── 4. Python / conda setup ──────────────────────────────────────────────
       - name: Set up Miniconda
         uses: conda-incubator/setup-miniconda@v3
@@ -69,6 +88,16 @@ jobs:
           activate-environment: jonsson-bioinfo
           environment-file: environment.yml
           auto-activate: false
+          use-only-tar-bz2: true
+
+      - name: Save Python package cache
+        if: steps.cache-python-packages.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ~/.cache/pip
+            ~/conda_pkgs_dir
+          key: ${{ steps.cache-python-packages.outputs.cache-primary-key }}
 
       # ── 5. Synthetic data generation ─────────────────────────────────────────
       - name: Generate synthetic R data (all templates)

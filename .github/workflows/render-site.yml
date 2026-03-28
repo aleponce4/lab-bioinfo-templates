@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      CONDA_PKGS_DIRS: ${{ runner.temp }}/conda-pkgs
+      CONDA_PKGS_DIRS: /home/runner/conda-pkgs
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ${{ runner.temp }}/conda-pkgs
+            /home/runner/conda-pkgs
           key: py-pkgs-${{ runner.os }}-${{ hashFiles('environment.yml') }}
           restore-keys: |
             py-pkgs-${{ runner.os }}-
@@ -104,7 +104,7 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ${{ runner.temp }}/conda-pkgs
+            /home/runner/conda-pkgs
           key: ${{ steps.cache-python-packages.outputs.cache-primary-key }}
 
       - name: Register Jupyter kernel

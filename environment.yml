@@ -6,6 +6,7 @@ channels:
 dependencies:
   - python=3.11
   - pip
+  - pyyaml
   - pip:
       - pandas>=2.0
       - vcfpy>=0.13

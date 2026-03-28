@@ -12,6 +12,8 @@ jobs:
   render:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      CONDA_PKGS_DIRS: ${{ runner.temp }}/conda-pkgs
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────────────────
@@ -76,7 +78,7 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/conda_pkgs_dir
+            ${{ runner.temp }}/conda-pkgs
           key: py-pkgs-${{ runner.os }}-${{ hashFiles('environment.yml', '.github/workflows/render-site.yml') }}
           restore-keys: |
             py-pkgs-${{ runner.os }}-
@@ -96,7 +98,7 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/conda_pkgs_dir
+            ${{ runner.temp }}/conda-pkgs
           key: ${{ steps.cache-python-packages.outputs.cache-primary-key }}
 
       - name: Register Jupyter kernel
@@ -127,6 +129,13 @@ jobs:
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: "1.5.57"
+
+      - name: Prepare Quarto output directories
+        run: |
+          mkdir -p docs/templates
+          for dir in templates/*; do
+            [ -d "$dir" ] && mkdir -p "docs/$dir"
+          done
 
       # ── 7. Render site ───────────────────────────────────────────────────────
       - name: Render Quarto site

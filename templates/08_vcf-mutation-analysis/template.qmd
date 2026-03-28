@@ -50,6 +50,4 @@ import subprocess, sys
 subprocess.run([sys.executable, "data/simulate_data.py"], check=True)
 ```
 
-```{python}
-#| child: template.ipynb
-```
+{{< embed template.ipynb >}}

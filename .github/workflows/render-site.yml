@@ -41,18 +41,26 @@ jobs:
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
-          r-version: "4.4"
+          # Keep R aligned with the current Bioconductor release used by
+          # clusterProfiler/enrichplot/ggtree during site rendering.
+          r-version: "4.5"
           use-public-rspm: true   # binary packages → faster install
 
       - name: Cache R packages
         uses: actions/cache@v4
         with:
           path: ~/R          # same location setup-r uses; avoids env.R_LIBS_USER linter warning
-          key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
-          restore-keys: r-pkgs-${{ runner.os }}-
+          key: r-pkgs-${{ runner.os }}-r-4.5-${{ hashFiles('install_packages.R', '.github/workflows/render-site.yml') }}
+          restore-keys: |
+            r-pkgs-${{ runner.os }}-r-4.5-
+            r-pkgs-${{ runner.os }}-
 
       - name: Install R packages
         run: Rscript install_packages.R
+
+      - name: Validate critical R packages
+        run: |
+          Rscript -e 'pkgs <- c("clusterProfiler", "enrichplot", "ggtree", "ggrepel"); invisible(lapply(pkgs, require, character.only = TRUE)); cat("Critical R packages load successfully\n")'
 
       # ── 4. Python / conda setup ──────────────────────────────────────────────
       - name: Set up Miniconda
@@ -60,7 +68,7 @@ jobs:
         with:
           activate-environment: jonsson-bioinfo
           environment-file: environment.yml
-          auto-activate-base: false
+          auto-activate: false
 
       # ── 5. Synthetic data generation ─────────────────────────────────────────
       - name: Generate synthetic R data (all templates)

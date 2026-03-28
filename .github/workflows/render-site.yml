@@ -20,6 +20,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Prepare cache directories
+        run: |
+          mkdir -p ~/R
+          mkdir -p ~/.cache/pip
+          mkdir -p "${CONDA_PKGS_DIRS}"
+
       # ── 2. System dependencies (needed before R pkg compilation) ────────────
       - name: Install system dependencies
         run: |
@@ -53,7 +59,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ~/R          # same location setup-r uses; avoids env.R_LIBS_USER linter warning
-          key: r-pkgs-${{ runner.os }}-r-4.5-${{ hashFiles('install_packages.R', '.github/workflows/render-site.yml') }}
+          key: r-pkgs-${{ runner.os }}-r-4.5-${{ hashFiles('install_packages.R') }}
           restore-keys: |
             r-pkgs-${{ runner.os }}-r-4.5-
             r-pkgs-${{ runner.os }}-
@@ -79,7 +85,7 @@ jobs:
           path: |
             ~/.cache/pip
             ${{ runner.temp }}/conda-pkgs
-          key: py-pkgs-${{ runner.os }}-${{ hashFiles('environment.yml', '.github/workflows/render-site.yml') }}
+          key: py-pkgs-${{ runner.os }}-${{ hashFiles('environment.yml') }}
           restore-keys: |
             py-pkgs-${{ runner.os }}-
 
@@ -129,6 +135,22 @@ jobs:
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: "1.5.57"
+
+      - name: Validate Python render environment
+        shell: bash -l {0}
+        run: |
+          conda activate jonsson-bioinfo
+          python - <<'PY'
+          import ipykernel
+          import nbconvert
+          import nbformat
+          import vcfpy
+          import yaml
+
+          print("Python render dependencies load successfully")
+          PY
+          jupyter kernelspec list
+          quarto check jupyter
 
       - name: Prepare Quarto output directories
         run: |

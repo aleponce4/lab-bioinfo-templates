@@ -190,6 +190,22 @@ dat_long %>%
 # Two-Way ANOVA (per Analyte)
 
 ```{r anova}
+effect_map <- c(
+  "(Intercept)" = "Intercept",
+  setNames(
+    paste0(FACTOR1_LEVELS[2], " vs ", FACTOR1_LEVELS[1]),
+    paste0("Factor1", FACTOR1_LEVELS[2])
+  ),
+  setNames(
+    paste0(FACTOR2_LEVELS[2], " vs ", FACTOR2_LEVELS[1]),
+    paste0("Factor2", FACTOR2_LEVELS[2])
+  ),
+  setNames(
+    "Interaction",
+    paste0("Factor1", FACTOR1_LEVELS[2], ":Factor2", FACTOR2_LEVELS[2])
+  )
+)
+
 res_lm <- dat_long %>%
   group_by(Analyte) %>%
   group_modify(~ {
@@ -198,12 +214,7 @@ res_lm <- dat_long %>%
   }) %>%
   ungroup() %>%
   mutate(
-    effect = recode(term,
-      "(Intercept)"                                          = "Intercept",
-      paste0("Factor1", FACTOR1_LEVELS[2])                  = paste0(FACTOR1_LEVELS[2], " vs ", FACTOR1_LEVELS[1]),
-      paste0("Factor2", FACTOR2_LEVELS[2])                  = paste0(FACTOR2_LEVELS[2], " vs ", FACTOR2_LEVELS[1]),
-      paste0("Factor1", FACTOR1_LEVELS[2], ":Factor2", FACTOR2_LEVELS[2]) = "Interaction"
-    ),
+    effect      = coalesce(unname(effect_map[term]), term),
     adj.p       = p.adjust(p.value, method = "BH"),
     fold_change = if_else(effect == "Intercept", NA_real_, 10^estimate)
   ) %>%

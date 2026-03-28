@@ -99,6 +99,13 @@ jobs:
             ~/conda_pkgs_dir
           key: ${{ steps.cache-python-packages.outputs.cache-primary-key }}
 
+      - name: Register Jupyter kernel
+        shell: bash -l {0}
+        run: |
+          conda activate jonsson-bioinfo
+          python -m ipykernel install --user --name jonsson-bioinfo --display-name jonsson-bioinfo
+          jupyter kernelspec list
+
       # ── 5. Synthetic data generation ─────────────────────────────────────────
       - name: Generate synthetic R data (all templates)
         run: |

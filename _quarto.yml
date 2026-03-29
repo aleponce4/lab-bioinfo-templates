@@ -2,6 +2,9 @@ project:
   type: website
   output-dir: docs
   execute-dir: file
+  render:
+    - index.qmd
+    - templates/*/template.qmd
 
 website:
   title: "Jonsson Lab Bioinformatics Templates"
@@ -69,6 +72,6 @@ format:
 
 execute:
   freeze: auto
-  cache: true
+  cache: false
   warning: false
   message: false

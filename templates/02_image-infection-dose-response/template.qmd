@@ -30,13 +30,5 @@ All plots use **Arial 8pt** global theme tuned for **4 × 3 inch** publication f
 TIFF output at 600 dpi with LZW compression via `ragg`.
 :::
 
----
-
-```{r}
-#| label: simulate
-#| include: false
-source("data/simulate_data.R")
-```
-
 ```{r child="template.Rmd"}
 ```

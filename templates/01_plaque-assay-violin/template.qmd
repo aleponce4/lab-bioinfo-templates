@@ -24,13 +24,5 @@ counts per animal across multiple treatment groups, and you want to visualize ti
 distributions and test for significant differences.
 :::
 
----
-
-```{r}
-#| label: simulate
-#| include: false
-source("data/simulate_data.R")
-```
-
 ```{r child="template.Rmd"}
 ```

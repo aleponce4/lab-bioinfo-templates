@@ -30,13 +30,5 @@ experiment (e.g., disease status × treatment). Adapt `FACTOR1_LEVELS` and
 **Okabe-Ito palette** is used throughout — colorblind-safe for all four groups.
 :::
 
----
-
-```{r}
-#| label: simulate
-#| include: false
-source("data/simulate_data.R")
-```
-
 ```{r child="template.Rmd"}
 ```

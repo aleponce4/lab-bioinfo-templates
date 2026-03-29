@@ -103,7 +103,7 @@ library(ragg)
 ```
 
 ```{r global-theme}
-base_family <- "Arial"
+base_family <- "sans"
 
 theme_set(
   theme_classic(base_size = 8, base_family = base_family) +
@@ -155,7 +155,13 @@ master_df <- process_plate_files(NUCLEUS_FILE, VIRUS_FILE)
 
 # Standardize and annotate wells
 master_df_annotated <- master_df %>%
-  dplyr::mutate(WellName_std = str_remove(WellName, "-0|(?<=[A-Z])-(?=[1-9][0-9])")) %>%
+  dplyr::mutate(
+    WellName_std = str_replace(
+      str_to_upper(WellName),
+      "^([A-H])-?0*([1-9][0-9]?).*$",
+      "\\1\\2"
+    )
+  ) %>%
   dplyr::left_join(PLATE_MAP, by = c("WellName_std" = "WellName")) %>%
   dplyr::filter(!is.na(Treatment)) %>%
   dplyr::select(-WellName_std) %>%

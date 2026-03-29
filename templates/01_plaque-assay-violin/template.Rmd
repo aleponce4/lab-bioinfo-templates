@@ -163,14 +163,10 @@ df_clean <- df %>%
     Titer      = all_of(TITER_COL)
   ) %>%
   mutate(
-    ShortGroup = factor(
-      recode(Group, !!!GROUP_MAP),
-      levels = GROUP_ORDER
-    ),
-    MergedGroup = factor(
-      recode(ShortGroup, !!!MERGE_MAP),
-      levels = MERGE_ORDER
-    ),
+    ShortGroup  = coalesce(unname(GROUP_MAP[Group]), Group),
+    MergedGroup = coalesce(unname(MERGE_MAP[ShortGroup]), ShortGroup),
+    ShortGroup  = factor(ShortGroup, levels = GROUP_ORDER),
+    MergedGroup = factor(MergedGroup, levels = MERGE_ORDER),
     mean_plaques  = (Plaques_R1 + Plaques_R2) / 2,
     diff_plaques  = Plaques_R1 - Plaques_R2,
     Titer_pseudo  = Titer + 1,

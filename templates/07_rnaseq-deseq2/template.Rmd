@@ -144,7 +144,7 @@ volcano_plots <- lapply(seq_along(results_list), function(i) {
     scale_x_continuous(limits = VOLCANO_XLIM) +
     scale_y_continuous(limits = c(0, ylim_vec[i])) +
     labs(title = label, x = "log\u2082 Fold Change", y = "-log\u2081\u2080(FDR)") +
-    theme_classic(base_size = 10, base_family = "Arial") +
+    theme_classic(base_size = 10, base_family = "sans") +
     theme(
       plot.title   = element_text(size = 10, face = "bold", hjust = 0.5),
       axis.title   = element_text(size = 10),
@@ -184,7 +184,7 @@ p_pca <- ggplot(pca_data, aes(x = PC1, y = PC2, color = group)) +
     y = paste0("PC2: ", pct_var[2], "% variance"),
     color = "Group"
   ) +
-  theme_classic(base_size = 10, base_family = "Arial") +
+  theme_classic(base_size = 10, base_family = "sans") +
   theme(
     plot.title   = element_text(size = 10, face = "bold", hjust = 0.5),
     axis.title   = element_text(size = 10),
@@ -237,11 +237,11 @@ make_bubble_plot <- function(pathway_name, genes, data) {
     scale_y_discrete(position = "right") +
     theme_classic(base_size = 13) +
     theme(
-      plot.title   = element_text(size = 18, face = "bold", hjust = 0.5, family = "Arial"),
-      axis.text.x  = element_text(size = 12, angle = 45, hjust = 1, face = "bold", family = "Arial"),
-      axis.text.y  = element_text(size = 12, face = "italic", family = "Arial"),
-      legend.title = element_text(size = 11, family = "Arial"),
-      legend.text  = element_text(size = 10, family = "Arial"),
+      plot.title   = element_text(size = 18, face = "bold", hjust = 0.5, family = "sans"),
+      axis.text.x  = element_text(size = 12, angle = 45, hjust = 1, face = "bold", family = "sans"),
+      axis.text.y  = element_text(size = 12, face = "italic", family = "sans"),
+      legend.title = element_text(size = 11, family = "sans"),
+      legend.text  = element_text(size = 10, family = "sans"),
       legend.position = "left",
       panel.border    = element_rect(color = "black", fill = NA, linewidth = 0.6)
     ) +
@@ -282,7 +282,7 @@ make_triangle_plot <- function(pathway_name, genes, data) {
     scale_size_continuous(name   = expression("|log"[2]*"FC|"),
                           range  = c(2, 8)) +
     scale_y_discrete(position = "right") +
-    theme_classic(base_size = 13, base_family = "Arial") +
+    theme_classic(base_size = 13, base_family = "sans") +
     theme(
       plot.title   = element_text(size = 18, face = "bold", hjust = 0.5),
       axis.text.x  = element_text(size = 12, angle = 45, hjust = 1, face = "bold"),

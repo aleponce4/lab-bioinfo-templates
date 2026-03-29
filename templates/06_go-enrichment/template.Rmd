@@ -161,14 +161,14 @@ make_bubble_plot <- function(pathway_name, genes, data) {
     scale_y_discrete(position = "right") +
     theme_classic() +
     theme(
-      plot.title   = element_text(size = 18, face = "bold", hjust = 0.5, family = "Arial"),
-      axis.title.x = element_text(size = 16, family = "Arial"),
-      axis.title.y = element_text(size = 16, family = "Arial"),
+      plot.title   = element_text(size = 18, face = "bold", hjust = 0.5, family = "sans"),
+      axis.title.x = element_text(size = 16, family = "sans"),
+      axis.title.y = element_text(size = 16, family = "sans"),
       axis.text.x  = element_text(size = 14, angle = 45, hjust = 1,
-                                  face = "bold", family = "Arial"),
-      axis.text.y  = element_text(size = 14, face = "italic", family = "Arial"),
-      legend.title = element_text(size = 12, family = "Arial"),
-      legend.text  = element_text(size = 10, family = "Arial"),
+                                  face = "bold", family = "sans"),
+      axis.text.y  = element_text(size = 14, face = "italic", family = "sans"),
+      legend.title = element_text(size = 12, family = "sans"),
+      legend.text  = element_text(size = 10, family = "sans"),
       legend.key.size   = unit(0.4, "cm"),
       legend.spacing.y  = unit(0.2, "cm"),
       legend.position   = "left"

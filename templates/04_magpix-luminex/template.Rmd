@@ -313,7 +313,7 @@ p_heat <- ggplot(heatmap_data,
     title   = "Analyte-wise Effects of Treatments",
     caption = "Non-significant tiles masked to 0 (FDR < 0.05)"
   ) +
-  theme_classic(base_size = 13, base_family = "Arial") +
+  theme_classic(base_size = 13, base_family = "sans") +
   theme(
     legend.position  = "right",
     legend.direction = "vertical",
@@ -377,7 +377,7 @@ get_pval_df <- function(pdat) {
 
 # ── Theme shared by all analyte plots ─────────────────────────────────────────
 plot_theme <- function() {
-  theme_classic(base_size = 14, base_family = "Arial") +
+    theme_classic(base_size = 14, base_family = "sans") +
     theme(
       legend.position = "none",
       axis.line       = element_line(linewidth = 0.6),

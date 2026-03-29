@@ -163,7 +163,7 @@ p_ibd <- ggplot(ibd_df, aes(x = geographic, y = phylogenetic)) +
     x = "Geographic distance (km)",
     y = "Patristic distance (branch length)"
   ) +
-  theme_bw(base_size = 10, base_family = "Arial")
+  theme_bw(base_size = 10, base_family = "sans")
 
 ggsave(file.path(OUTPUT_DIR, "Mantel", "isolation_by_distance.tiff"),
        plot = p_ibd, width = 3, height = 3, dpi = 300,
@@ -198,7 +198,7 @@ p_spie <- ggplot() +
   annotation_scale(location = "br", width_hint = 0.25) +
   labs(title = paste(PATHOGEN_NAME, "— Geographic Distribution"),
        x = NULL, y = NULL) +
-  theme_bw(base_size = 9, base_family = "Arial") +
+  theme_bw(base_size = 9, base_family = "sans") +
   theme(
     legend.position   = "top",
     legend.direction  = "horizontal",
@@ -244,7 +244,7 @@ p_mcor <- ggplot(mcor_df, aes(x = `class.index`, y = Mantel.cor, fill = sig)) +
   labs(title = paste("Mantel Correlogram —", PATHOGEN_NAME),
        x = "Geographic distance class (km)",
        y = "Mantel r") +
-  theme_bw(base_size = 10, base_family = "Arial") +
+  theme_bw(base_size = 10, base_family = "sans") +
   theme(legend.position = c(0.8, 0.75),
         legend.background = element_rect(color = "black"),
         legend.key = element_rect(fill = "transparent"))

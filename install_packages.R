@@ -9,13 +9,13 @@ cran_pkgs <- c(
   # Core tidyverse
   "tidyverse", "readr", "readxl", "writexl", "janitor", "stringr",
   # Plotting
-  "ggplot2", "ggpubr", "ggridges", "ggrepel", "ggbeeswarm", "ggh4x",
+  "ggplot2", "ggpubr", "ggridges", "ggrepel", "ggbeeswarm", "ggh4x", "hexbin",
   "viridis", "RColorBrewer", "scales", "patchwork", "svglite", "ragg",
   "scatterpie", "ggspatial",
   # Statistics
   "car", "broom", "rstatix", "emmeans", "coin", "drc", "vegan",
   # Spatial / maps
-  "sf", "rnaturalearth", "rnaturalearthdata", "gtools",
+  "sf", "rnaturalearth", "rnaturalearthdata", "gtools", "ape",
   # Misc
   "knitr", "DT", "gt", "here", "forcats", "geosphere", "survival"
 )

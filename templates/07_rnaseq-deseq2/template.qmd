@@ -29,13 +29,5 @@ visualize differential expression across multiple comparisons alongside curated 
 Triangle (up/down triangles, viridis fill) · PCA (theme_classic, Arial 10pt)
 :::
 
----
-
-```{r}
-#| label: simulate
-#| include: false
-source("data/simulate_data.R")
-```
-
 ```{r child="template.Rmd"}
 ```

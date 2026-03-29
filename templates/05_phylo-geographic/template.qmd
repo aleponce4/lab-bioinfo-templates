@@ -31,13 +31,5 @@ The scatter pie radius (`radius` column in `pie_data`) is in degrees — adjust 
 to scale pies appropriately for your map extent.
 :::
 
----
-
-```{r}
-#| label: simulate
-#| include: false
-source("data/simulate_data.R")
-```
-
 ```{r child="template.Rmd"}
 ```

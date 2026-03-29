@@ -7,9 +7,6 @@ description: |
   and entropy heatmaps per tissue type, and runs Kruskal–Wallis tests to compare
   mutation frequencies across tissue sources.
 categories: [genomics, virology, VCF, mutation, entropy]
-execute:
-  engine: jupyter
-  kernel: jonsson-bioinfo
 ---
 
 ## Overview
@@ -43,11 +40,22 @@ before rendering. The `vcfpy` package is only available via conda/pip.
 
 ---
 
-```{python}
-#| label: simulate
-#| include: false
-import subprocess, sys
-subprocess.run([sys.executable, "data/simulate_data.py"], check=True)
+## Notebook Template
+
+This template is distributed as a Jupyter notebook rather than an embedded Quarto
+page. Download [template.ipynb](template.ipynb), activate the
+`jonsson-bioinfo` environment, and run the notebook directly in Jupyter Lab or
+VS Code.
+
+```bash
+conda env create -f environment.yml
+conda activate jonsson-bioinfo
+jupyter lab template.ipynb
 ```
 
-{{< embed template.ipynb >}}
+The notebook will generate:
+
+- mutation frequency plots
+- entropy heatmaps
+- Kruskal-Wallis summary tables
+- CSV exports in the `Plots/` directory

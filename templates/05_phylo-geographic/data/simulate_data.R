@@ -49,12 +49,17 @@ site_lookup <- data.frame(
 site_assignments <- rep(site_lookup$Site, length.out = n_taxa)
 site_assignments <- sample(site_assignments, n_taxa, replace = FALSE)
 
-coords <- data.frame(
-  SampleID = taxa_names,
-  Site = site_assignments
-) |>
-  merge(site_lookup, by = "Site", sort = FALSE) |>
-  .[match(taxa_names, .$SampleID), c("SampleID", "Longitude", "Latitude")]
+coords_joined <- merge(
+  data.frame(
+    SampleID = taxa_names,
+    Site = site_assignments
+  ),
+  site_lookup,
+  by = "Site",
+  sort = FALSE
+)
+
+coords <- coords_joined[match(taxa_names, coords_joined$SampleID), c("SampleID", "Longitude", "Latitude")]
 
 write.csv(coords, "data/coordinates.csv", row.names = FALSE)
 

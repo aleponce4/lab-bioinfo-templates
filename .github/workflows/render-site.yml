@@ -48,7 +48,9 @@ jobs:
             libharfbuzz-dev \
             libfribidi-dev \
             libxml2-dev \
-            libssl-dev
+            libssl-dev \
+            libglpk-dev \
+            libgmp-dev
 
       # ── 3. R setup ───────────────────────────────────────────────────────────
       - name: Set up R

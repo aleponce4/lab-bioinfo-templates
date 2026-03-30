@@ -29,9 +29,10 @@ inst    <- rownames(installed.packages())
 missing <- pkgs[!pkgs %in% inst]
 
 if (length(missing) > 0) {
-  cat("MISSING packages (imported in templates but not in install_packages.R):\n",
+  cat("MISSING packages (imported in templates but not installed — check install_packages.R and system deps):\n",
       paste0("  - ", missing, collapse = "\n"), "\n", sep = "")
-  cat("\nAdd them to install_packages.R before pushing.\n")
+  cat("\nIf these packages ARE in install_packages.R, their installation failed silently.\n")
+  cat("Check the 'Install R packages' step log above for errors.\n")
   quit(status = 1)
 }
 

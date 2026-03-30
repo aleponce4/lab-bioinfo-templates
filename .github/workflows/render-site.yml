@@ -15,6 +15,7 @@ jobs:
     env:
       CONDA_PKGS_DIRS: /home/runner/conda-pkgs
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+      R_LIBS_USER: /home/runner/R/library
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ jobs:
 
       - name: Prepare cache directories
         run: |
-          mkdir -p ~/R
+          mkdir -p "${R_LIBS_USER}"
           mkdir -p ~/.cache/pip
           mkdir -p "${CONDA_PKGS_DIRS}"
 
@@ -59,7 +60,7 @@ jobs:
         id: cache-r-packages
         uses: actions/cache/restore@v5
         with:
-          path: ~/R          # same location setup-r uses; avoids env.R_LIBS_USER linter warning
+          path: ${{ env.R_LIBS_USER }}
           key: r-pkgs-${{ runner.os }}-r-4.5-${{ hashFiles('install_packages.R') }}
           restore-keys: |
             r-pkgs-${{ runner.os }}-r-4.5-
@@ -76,7 +77,7 @@ jobs:
         if: steps.cache-r-packages.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: ~/R
+          path: ${{ env.R_LIBS_USER }}
           key: ${{ steps.cache-r-packages.outputs.cache-primary-key }}
 
       - name: Restore Python package cache
@@ -155,7 +156,7 @@ jobs:
 
       # ── 7. Render site ───────────────────────────────────────────────────────
       - name: Render Quarto site
-        run: bash scripts/ci-preflight.sh --render-only
+        run: bash scripts/ci-preflight.sh --render-only --keep-going
 
       # ── 8. Deploy to GitHub Pages ─────────────────────────────────────────────
       - name: Deploy to GitHub Pages

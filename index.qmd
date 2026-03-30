@@ -23,6 +23,92 @@ Each template:
 
 ---
 
+## Browse by Section
+
+Click a template card to open the fully rendered analysis page with its example plots.
+
+### Infection & Virology
+
+::: {.columns}
+::: {.column width="33%"}
+#### 01 · Plaque Assay + Violin Plots
+
+Replicate QC, one-way ANOVA, Tukey HSD, and violin plots for plaque assay titres.
+
+[Open Template](templates/01_plaque-assay-violin/template.html){.btn .btn-primary}
+:::
+
+::: {.column width="33%"}
+#### 02 · Image Infection + Dose-Response
+
+CQ1-style gating, infection thresholding, EC50/CC50 estimation, and dose-response plots.
+
+[Open Template](templates/02_image-infection-dose-response/template.html){.btn .btn-primary}
+:::
+
+::: {.column width="33%"}
+#### 03 · Multi-Condition ANOVA
+
+Welch ANOVA with planned contrasts and Holm correction across conditions or cell types.
+
+[Open Template](templates/03_multicondition-anova/template.html){.btn .btn-primary}
+:::
+:::
+
+### Immunology
+
+::: {.columns}
+::: {.column width="50%"}
+#### 04 · MagPix / Luminex Multiplex
+
+Two-way ANOVA, emmeans contrasts, FDR correction, and cytokine visualization panels.
+
+[Open Template](templates/04_magpix-luminex/template.html){.btn .btn-primary}
+:::
+:::
+
+### Phylogenetics
+
+::: {.columns}
+::: {.column width="50%"}
+#### 05 · Phylo-Geographic Analysis
+
+Isolation-by-distance testing, scatter pie maps, and Mantel correlograms for pathogen datasets.
+
+[Open Template](templates/05_phylo-geographic/template.html){.btn .btn-primary}
+:::
+:::
+
+### Genomics & Transcriptomics
+
+::: {.columns}
+::: {.column width="33%"}
+#### 06 · GO Enrichment Analysis
+
+GO and KEGG enrichment across comparisons with bubble plots and export tables.
+
+[Open Template](templates/06_go-enrichment/template.html){.btn .btn-primary}
+:::
+
+::: {.column width="33%"}
+#### 07 · RNA-seq / DESeq2
+
+DESeq2 result visualization with volcano, PCA, bubble, and triangle plots.
+
+[Open Template](templates/07_rnaseq-deseq2/template.html){.btn .btn-primary}
+:::
+
+::: {.column width="33%"}
+#### 08 · VCF Mutation Analysis
+
+Mutation-frequency summaries and entropy heatmaps from per-sample VCF files.
+
+[Open Template](templates/08_vcf-mutation-analysis/template.html){.btn .btn-primary}
+:::
+:::
+
+---
+
 ## Template Gallery
 
 ```{r}
@@ -33,14 +119,14 @@ library(DT)
 templates <- data.frame(
   `#` = c("01", "02", "03", "04", "05", "06", "07", "08"),
   Template = c(
-    "[Plaque Assay + Violin Plots](templates/01_plaque-assay-violin/template.qmd)",
-    "[Image Infection + Dose-Response](templates/02_image-infection-dose-response/template.qmd)",
-    "[Multi-Condition ANOVA](templates/03_multicondition-anova/template.qmd)",
-    "[MagPix / Luminex Multiplex](templates/04_magpix-luminex/template.qmd)",
-    "[Phylo-Geographic Analysis](templates/05_phylo-geographic/template.qmd)",
-    "[GO Enrichment Analysis](templates/06_go-enrichment/template.qmd)",
-    "[RNA-seq / DESeq2](templates/07_rnaseq-deseq2/template.qmd)",
-    "[VCF Mutation Analysis](templates/08_vcf-mutation-analysis/template.qmd)"
+    "<a href='templates/01_plaque-assay-violin/template.html'>Plaque Assay + Violin Plots</a>",
+    "<a href='templates/02_image-infection-dose-response/template.html'>Image Infection + Dose-Response</a>",
+    "<a href='templates/03_multicondition-anova/template.html'>Multi-Condition ANOVA</a>",
+    "<a href='templates/04_magpix-luminex/template.html'>MagPix / Luminex Multiplex</a>",
+    "<a href='templates/05_phylo-geographic/template.html'>Phylo-Geographic Analysis</a>",
+    "<a href='templates/06_go-enrichment/template.html'>GO Enrichment Analysis</a>",
+    "<a href='templates/07_rnaseq-deseq2/template.html'>RNA-seq / DESeq2</a>",
+    "<a href='templates/08_vcf-mutation-analysis/template.html'>VCF Mutation Analysis</a>"
   ),
   Category = c(
     "Infection & Virology", "Infection & Virology", "Infection & Virology",

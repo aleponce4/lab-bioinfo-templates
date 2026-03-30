@@ -234,7 +234,7 @@ mcor <- mantel.correlog(
 )
 
 mcor_df <- as.data.frame(mcor$mantel.res) %>%
-  mutate(sig = ifelse(Pr <= 0.05, "Significant", "NS"))
+  mutate(sig = ifelse(`Pr(>|r|)` <= 0.05, "Significant", "NS"))
 
 p_mcor <- ggplot(mcor_df, aes(x = `class.index`, y = Mantel.cor, fill = sig)) +
   geom_bar(stat = "identity", width = diff(range(mcor_df$`class.index`)) / nrow(mcor_df) * 0.8) +

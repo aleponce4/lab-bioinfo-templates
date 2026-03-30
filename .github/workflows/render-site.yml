@@ -3,7 +3,15 @@ name: Render Quarto Site → GitHub Pages
 on:
   push:
     branches: [main]
-  workflow_dispatch:   # allow manual runs from the Actions tab
+  workflow_dispatch:
+    inputs:
+      page:
+        description: |
+          Render a single page (leave empty for full site).
+          Use the path relative to repo root, e.g.:
+            templates/05_phylo-geographic/template.qmd
+        required: false
+        default: ''
 
 permissions:
   contents: write      # needed for peaceiris/actions-gh-pages
@@ -13,8 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      CONDA_PKGS_DIRS: /home/runner/conda-pkgs
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       R_LIBS_USER: /home/runner/R/library
 
     steps:
@@ -22,11 +28,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Prepare cache directories
-        run: |
-          mkdir -p "${R_LIBS_USER}"
-          mkdir -p ~/.cache/pip
-          mkdir -p "${CONDA_PKGS_DIRS}"
+      - name: Prepare R library directory
+        run: mkdir -p "${R_LIBS_USER}"
 
       # ── 2. System dependencies (needed before R pkg compilation) ────────────
       - name: Install system dependencies
@@ -51,8 +54,6 @@ jobs:
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
         with:
-          # Keep R aligned with the current Bioconductor release used by
-          # clusterProfiler/enrichplot/ggtree during site rendering.
           r-version: "4.5"
           use-public-rspm: true   # binary packages → faster install
 
@@ -69,9 +70,8 @@ jobs:
       - name: Install R packages
         run: Rscript install_packages.R
 
-      - name: Validate critical R packages
-        run: |
-          Rscript -e 'pkgs <- c("clusterProfiler", "enrichplot", "ggtree", "ggrepel"); invisible(lapply(pkgs, require, character.only = TRUE)); cat("Critical R packages load successfully\n")'
+      - name: Validate R packages (template-aware)
+        run: Rscript scripts/validate_packages.R
 
       - name: Save R package cache
         if: steps.cache-r-packages.outputs.cache-hit != 'true'
@@ -80,90 +80,54 @@ jobs:
           path: ${{ env.R_LIBS_USER }}
           key: ${{ steps.cache-r-packages.outputs.cache-primary-key }}
 
-      - name: Restore Python package cache
-        id: cache-python-packages
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            ~/.cache/pip
-            /home/runner/conda-pkgs
-          key: py-pkgs-${{ runner.os }}-${{ hashFiles('environment.yml') }}
-          restore-keys: |
-            py-pkgs-${{ runner.os }}-
-
-      # ── 4. Python / conda setup ──────────────────────────────────────────────
-      - name: Set up Miniconda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          activate-environment: jonsson-bioinfo
-          environment-file: environment.yml
-          auto-activate: false
-          use-only-tar-bz2: true
-
-      - name: Save Python package cache
-        if: steps.cache-python-packages.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: |
-            ~/.cache/pip
-            /home/runner/conda-pkgs
-          key: ${{ steps.cache-python-packages.outputs.cache-primary-key }}
-
-      - name: Register Jupyter kernel
-        shell: bash -l {0}
-        run: |
-          conda activate jonsson-bioinfo
-          python -m ipykernel install --user --name jonsson-bioinfo --display-name jonsson-bioinfo
-          jupyter kernelspec list
-
-      # ── 5. Synthetic data generation ─────────────────────────────────────────
-      - name: Generate synthetic R data (all templates)
-        run: |
-          for script in templates/*/data/simulate_data.R; do
-            template_dir=$(dirname "$(dirname "$script")")
-            echo "▶ $script  (cwd: $template_dir)"
-            (cd "$template_dir" && Rscript data/simulate_data.R)
-          done
+      # ── 4. Synthetic data generation ─────────────────────────────────────────
+      # When a single page is targeted (workflow_dispatch with page input), only
+      # run simulate_data for that template directory — skips the other 7 scripts
+      # and cuts several minutes off targeted troubleshooting runs.
+      - name: Generate synthetic R data
         shell: bash
-
-      - name: Generate synthetic Python data (template 08)
-        shell: bash -l {0}
         run: |
-          conda activate jonsson-bioinfo
-          (cd templates/08_vcf-mutation-analysis && python data/simulate_data.py)
+          PAGE="${{ github.event.inputs.page }}"
+          if [[ -n "$PAGE" ]]; then
+            TMPL_DIR=$(dirname "$PAGE")
+            SCRIPT="$TMPL_DIR/data/simulate_data.R"
+            if [[ -f "$SCRIPT" ]]; then
+              echo "▶ $SCRIPT  (targeted, cwd: $TMPL_DIR)"
+              (cd "$TMPL_DIR" && Rscript data/simulate_data.R)
+            else
+              echo "No simulate_data.R for $TMPL_DIR — skipping data generation"
+            fi
+          else
+            for script in templates/*/data/simulate_data.R; do
+              template_dir=$(dirname "$(dirname "$script")")
+              echo "▶ $script  (cwd: $template_dir)"
+              (cd "$template_dir" && Rscript data/simulate_data.R)
+            done
+          fi
 
-      # ── 6. Quarto setup ──────────────────────────────────────────────────────
+      # ── 5. Quarto setup ──────────────────────────────────────────────────────
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: "1.5.57"
 
-      - name: Validate Python render environment
-        shell: bash -l {0}
-        run: |
-          conda activate jonsson-bioinfo
-          python - <<'PY'
-          import ipykernel
-          import nbconvert
-          import nbformat
-          import vcfpy
-          import yaml
-
-          print("Python render dependencies load successfully")
-          PY
-          jupyter kernelspec list
-          quarto check jupyter
-
-      # ── 7. Render site ───────────────────────────────────────────────────────
+      # ── 6. Render site ───────────────────────────────────────────────────────
       - name: Render Quarto site
-        run: bash scripts/ci-preflight.sh --render-only --keep-going
+        run: |
+          PAGE="${{ github.event.inputs.page }}"
+          if [ -n "$PAGE" ]; then
+            bash scripts/ci-preflight.sh --render-only --keep-going --page "$PAGE"
+          else
+            bash scripts/ci-preflight.sh --render-only --keep-going
+          fi
 
-      # ── 8. Deploy to GitHub Pages ─────────────────────────────────────────────
+      # ── 7. Deploy to GitHub Pages ─────────────────────────────────────────────
       - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.page == '')
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
           publish_branch: gh-pages
-          force_orphan: true          # keep gh-pages branch clean
+          force_orphan: true
           commit_message: "Deploy rendered site [skip ci]"

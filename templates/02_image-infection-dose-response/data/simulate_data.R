@@ -6,8 +6,6 @@
 set.seed(123)
 
 # ── Parameters ────────────────────────────────────────────────────────────────
-doses_uM  <- c(0, 4, 8, 12, 16, 20)   # treatment concentrations (0 = virus only)
-n_wells   <- 2                          # replicate wells per dose
 n_cells   <- 400                        # cells per well
 
 ic50      <- 8                          # true IC50 (µM)
@@ -44,18 +42,27 @@ for (w in mock_rows) {
 }
 all_wells[["C11"]] <- make_cells("C11", "Mock+Ab", NA, n_cells, 0.00)
 
-# ── Virus only + dose series ──────────────────────────────────────────────────
-for (d in seq_along(doses_uM)) {
-  conc <- doses_uM[d]
-  # 4PL: infection fraction = 1 / (1 + (conc/IC50)^hill)
-  inf_pct <- ifelse(conc == 0, 0.65,
-                    0.65 / (1 + (conc / ic50)^hill))
-  for (r in seq_len(n_wells)) {
-    w <- paste0("E", r + 2, "_", conc, "uM")
-    if (conc == 0) w <- paste0("C", 7 + r - 1)
-    all_wells[[w]] <- make_cells(w, ifelse(conc == 0, "Virus Only", "Virus + Compound"),
-                                 conc, n_cells, inf_pct)
-  }
+# ── Virus only (dose = 0): wells C7, C8 — matches PLATE_MAP ─────────────────
+for (r in 1:2) {
+  w <- paste0("C", 7 + r - 1)
+  all_wells[[w]] <- make_cells(w, "Virus Only", 0, n_cells, 0.65)
+}
+
+# ── Virus + Compound dose series ──────────────────────────────────────────────
+# Well layout mirrors PLATE_MAP exactly:
+#   column 3=20µM, 4=16µM, 5=12µM, 6=8µM, 7=4µM
+#   row E = replicate 1, row F = replicate 2
+vc_layout <- data.frame(
+  conc = rep(c(20, 16, 12, 8, 4), 2),
+  well = c("E3", "E4", "E5", "E6", "E7",
+           "F3", "F4", "F5", "F6", "F7"),
+  stringsAsFactors = FALSE
+)
+for (i in seq_len(nrow(vc_layout))) {
+  conc <- vc_layout$conc[i]
+  w    <- vc_layout$well[i]
+  inf_pct <- 0.65 / (1 + (conc / ic50)^hill)
+  all_wells[[w]] <- make_cells(w, "Virus + Compound", conc, n_cells, inf_pct)
 }
 
 # ── Toxicity controls ─────────────────────────────────────────────────────────

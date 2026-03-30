@@ -79,12 +79,6 @@ library(svglite)
 library(patchwork)
 library(scales)
 
-# Load organism DB
-if (!requireNamespace(ORG_DB, quietly = TRUE)) {
-  BiocManager::install(ORG_DB, ask = FALSE)
-}
-org_db <- get(ORG_DB, envir = asNamespace(ORG_DB))
-
 dir.create(file.path(OUTPUT_DIR, "Bubble_Plots"),    recursive = TRUE, showWarnings = FALSE)
 dir.create(file.path(OUTPUT_DIR, "Enrichment"),      recursive = TRUE, showWarnings = FALSE)
 dir.create(file.path(OUTPUT_DIR, "Pathway_Heatmaps"),recursive = TRUE, showWarnings = FALSE)

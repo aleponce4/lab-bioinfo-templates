@@ -9,19 +9,15 @@
 
 set.seed(42)
 
-# ── Packages ──────────────────────────────────────────────────────────────────
-for (pkg in c("ape", "Biostrings")) {
-  if (!requireNamespace(pkg, quietly = TRUE))
-    BiocManager::install(pkg, ask = FALSE)
-}
 library(ape)
 library(Biostrings)
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 n_taxa    <- 10
 clades    <- c("Clade_A", "Clade_B", "Clade_C", "Clade_D")
-clade_asgn<- sample(clades, n_taxa, replace = TRUE)
-taxa_names <- paste0("Sample_", seq_len(n_taxa), "_|_", clade_asgn)
+clade_asgn <- sample(clades, n_taxa, replace = TRUE)
+# Keep tip labels as plain "Sample_N" — the template regex extracts this exact pattern
+taxa_names <- paste0("Sample_", seq_len(n_taxa))
 
 # ── Simulate FASTA ─────────────────────────────────────────────────────────────
 sim_fasta <- function(n, len, names) {

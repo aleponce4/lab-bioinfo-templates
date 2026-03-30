@@ -29,5 +29,8 @@ visualize differential expression across multiple comparisons alongside curated 
 Triangle (up/down triangles, viridis fill) · PCA (theme_classic, Arial 10pt)
 :::
 
+[Back to Gallery](../../index.html){.btn .btn-outline-secondary}
+[Open Template File](template.Rmd){.btn .btn-primary}
+
 ```{r child="template.Rmd"}
 ```

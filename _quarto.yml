@@ -53,7 +53,7 @@ website:
               href: templates/05_phylo-geographic/template.qmd
 
   page-footer:
-    left: "Jonsson Laboratory · UCLA"
+    left: "Jonsson Laboratory · UTHSC"
     right: "Built with [Quarto](https://quarto.org)"
 
 format:

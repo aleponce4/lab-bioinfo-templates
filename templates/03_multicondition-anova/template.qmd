@@ -26,5 +26,8 @@ across several cell types or treatment groups, and you need to test whether a re
 group differs from the others, accounting for potential heteroscedasticity.
 :::
 
+[Back to Gallery](../../index.html){.btn .btn-outline-secondary}
+[Open Template File](template.Rmd){.btn .btn-primary}
+
 ```{r child="template.Rmd"}
 ```

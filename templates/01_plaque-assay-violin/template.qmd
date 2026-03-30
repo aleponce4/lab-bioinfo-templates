@@ -24,5 +24,8 @@ counts per animal across multiple treatment groups, and you want to visualize ti
 distributions and test for significant differences.
 :::
 
+[Back to Gallery](../../index.html){.btn .btn-outline-secondary}
+[Open Template File](template.Rmd){.btn .btn-primary}
+
 ```{r child="template.Rmd"}
 ```

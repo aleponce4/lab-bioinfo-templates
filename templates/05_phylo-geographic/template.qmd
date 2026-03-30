@@ -31,5 +31,8 @@ The scatter pie radius (`radius` column in `pie_data`) is in degrees — adjust 
 to scale pies appropriately for your map extent.
 :::
 
+[Back to Gallery](../../index.html){.btn .btn-outline-secondary}
+[Open Template File](template.Rmd){.btn .btn-primary}
+
 ```{r child="template.Rmd"}
 ```

@@ -31,27 +31,16 @@ jobs:
       - name: Prepare R library directory
         run: mkdir -p "${R_LIBS_USER}"
 
-      # ── 2. System dependencies (needed before R pkg compilation) ────────────
+      # ── 2. System dependencies (cached across runs) ──────────────────────────
       - name: Install system dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y \
-            libcurl4-openssl-dev \
-            libjpeg-dev \
-            libpng-dev \
-            libudunits2-dev \
-            libgdal-dev \
-            libgeos-dev \
-            libproj-dev \
-            libfontconfig1-dev \
-            libfreetype6-dev \
-            libharfbuzz-dev \
-            libfribidi-dev \
-            libxml2-dev \
-            libssl-dev \
-            libglpk-dev \
-            libgmp-dev \
-            libcairo2-dev
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: >-
+            libcurl4-openssl-dev libjpeg-dev libpng-dev libudunits2-dev
+            libgdal-dev libgeos-dev libproj-dev libfontconfig1-dev
+            libfreetype6-dev libharfbuzz-dev libfribidi-dev libxml2-dev
+            libssl-dev libglpk-dev libgmp-dev libcairo2-dev
+          version: 1.0
 
       # ── 3. R setup ───────────────────────────────────────────────────────────
       - name: Set up R

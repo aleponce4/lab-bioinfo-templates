@@ -171,7 +171,7 @@ print(vol_combined)
 # PCA Plot
 
 ```{r pca-plot, fig.width=6, fig.height=3}
-vst_data <- vst(dds, blind = TRUE)
+vst_data <- varianceStabilizingTransformation(dds, blind = TRUE)
 pca_data <- plotPCA(vst_data, intgroup = "group", returnData = TRUE)
 pct_var  <- round(100 * attr(pca_data, "percentVar"))
 

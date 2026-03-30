@@ -233,7 +233,7 @@ mcor <- mantel.correlog(
   cutoff = FALSE
 )
 
-mcor_df <- as.data.frame(mcor$mantel.res) %>%
+mcor_df <- as.data.frame(mcor$mantel.res, check.names = FALSE) %>%
   mutate(sig = ifelse(`Pr(>|r|)` <= 0.05, "Significant", "NS"))
 
 p_mcor <- ggplot(mcor_df, aes(x = `class.index`, y = Mantel.cor, fill = sig)) +

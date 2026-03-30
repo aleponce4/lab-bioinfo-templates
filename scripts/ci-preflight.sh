@@ -53,6 +53,49 @@ require_cmd() {
   fi
 }
 
+# ── Static preflight: catches obvious regressions without running anything ────
+static_preflight() {
+  local errors=0
+
+  echo "==> Running static preflight checks"
+
+  # 1. No runtime package installs in simulate_data scripts or template Rmd files.
+  #    install_packages.R is the single source of truth for dependencies.
+  for f in templates/*/data/simulate_data.R templates/*/template.Rmd; do
+    [[ -f "$f" ]] || continue
+    if grep -qE "BiocManager::install|install\.packages" "$f"; then
+      echo "  ERROR: runtime package install found in $f" >&2
+      errors=$((errors + 1))
+    fi
+  done
+
+  # 2. Every simulate_data.R must produce the data file(s) its template.Rmd reads.
+  #    We detect the DATA_FILE / DDS_FILE assignment and check the path exists
+  #    relative to the template directory (after data generation has run).
+  #    Skip this sub-check when --render-only is set (data not yet generated).
+  if [[ $RENDER_ONLY -eq 0 ]]; then
+    for rmd in templates/*/template.Rmd; do
+      [[ -f "$rmd" ]] || continue
+      tmpl_dir=$(dirname "$rmd")
+      while IFS= read -r assignment; do
+        data_path=$(echo "$assignment" | sed 's/.*<- *"\(.*\)".*/\1/')
+        full_path="$tmpl_dir/$data_path"
+        if [[ ! -f "$full_path" ]]; then
+          echo "  ERROR: $rmd declares $data_path but $full_path does not exist" >&2
+          errors=$((errors + 1))
+        fi
+      done < <(grep -E '^\s*(DATA_FILE|DDS_FILE)\s*<-\s*"' "$rmd" || true)
+    done
+  fi
+
+  if [[ $errors -gt 0 ]]; then
+    echo "Static preflight failed with $errors error(s). Fix before rendering." >&2
+    return 1
+  fi
+
+  echo "==> Static preflight passed"
+}
+
 prepare_output_dirs() {
   rm -rf docs
 
@@ -206,6 +249,8 @@ main() {
     echo "--page must be one of the configured site pages." >&2
     exit 2
   fi
+
+  static_preflight || exit 1
 
   if [[ $RENDER_ONLY -eq 0 ]]; then
     require_cmd Rscript

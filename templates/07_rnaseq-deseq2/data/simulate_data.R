@@ -4,11 +4,6 @@
 
 set.seed(42)
 
-if (!requireNamespace("DESeq2", quietly = TRUE))
-  BiocManager::install("DESeq2", ask = FALSE)
-if (!requireNamespace("SummarizedExperiment", quietly = TRUE))
-  BiocManager::install("SummarizedExperiment", ask = FALSE)
-
 library(DESeq2)
 
 # ── Parameters ────────────────────────────────────────────────────────────────

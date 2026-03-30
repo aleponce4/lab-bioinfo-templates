@@ -368,7 +368,7 @@ p_combined <- ggplot(df_plot, aes(x = MergedGroup, y = Titer, fill = MergedGroup
   stat_compare_means(
     comparisons  = COMPARISONS,
     method       = "t.test",
-    label        = "p.format..p.signif",
+    label        = "p.signif",
     hide.ns      = TRUE,
     size         = 5,
     bracket.size = 0.6,

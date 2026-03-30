@@ -914,7 +914,8 @@ if (isTRUE(OPTIONAL_MODULES$sample_distance_heatmap)) {
   for (model_id in names(model_fits)) {
     fit_i <- model_fits[[model_id]]
     vst_mat <- SummarizedExperiment::assay(fit_i$vsd)
-    sample_dist <- as.matrix(stats::dist(t(vst_mat)))
+    sample_dist <- stats::dist(t(vst_mat))
+    sample_dist_mat <- as.matrix(sample_dist)
     annotation_df <- fit_i$metadata %>%
       select(any_of(intersect(c(PCA_COLOR_COLUMN, "pair_id"), names(fit_i$metadata))))
     if (ncol(annotation_df) == 0) {
@@ -922,7 +923,7 @@ if (isTRUE(OPTIONAL_MODULES$sample_distance_heatmap)) {
     }
 
     p_dist <- pheatmap::pheatmap(
-      sample_dist,
+      sample_dist_mat,
       annotation_col = annotation_df,
       annotation_row = annotation_df,
       clustering_distance_rows = sample_dist,

@@ -106,7 +106,7 @@ library(ragg)
 base_family <- "sans"
 
 theme_set(
-  theme_classic(base_size = 8, base_family = base_family) +
+  theme_bw(base_size = 8, base_family = base_family) +
     theme(
       plot.title   = element_text(face = "bold", size = 10, margin = margin(b = 4)),
       axis.title   = element_text(face = "bold", size = 9),
@@ -114,7 +114,9 @@ theme_set(
       legend.title = element_text(size = 8),
       legend.text  = element_text(size = 8),
       axis.line    = element_line(linewidth = 0.6),
-      axis.ticks   = element_line(linewidth = 0.6)
+      axis.ticks   = element_line(linewidth = 0.6),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
     )
 )
 
@@ -207,8 +209,13 @@ ggplot(plot_bars, aes(x = Condition, y = mean_intensity, fill = Condition)) +
   scale_fill_manual(values = fill_pal) +
   labs(title = paste("Effect of", COMPOUND_NAME, "on mean virus signal"),
        x = "Treatment", y = "Mean Virus Intensity (a.u.)") +
-  theme_classic(base_size = 14) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none")
+  theme_bw(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
 ```
 
 # Cell Gating (QC)
@@ -225,7 +232,11 @@ plot_area_intensity <- master_df_annotated %>%
   labs(title = "Nuclear Area vs. DAPI Intensity (Mock)",
        x = "Nuclear Area (pixels\u00b2)", y = "Mean DAPI Intensity (a.u.)") +
   coord_cartesian(xlim = c(0, 500)) +
-  theme_classic(base_size = 14)
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
 
 print(plot_area_intensity)
 ```
@@ -285,7 +296,7 @@ density_plot <- master_df_gated %>%
     x = "Virus channel fluorescence (a.u., log10)",
     y = "Density"
   ) +
-  theme_classic(base_size = 8) +
+  theme_bw(base_size = 8) +
   theme(
     plot.title        = element_text(face = "bold", size = 9, margin = margin(b = 3)),
     plot.subtitle     = element_text(size = 8),
@@ -298,6 +309,7 @@ density_plot <- master_df_gated %>%
     legend.position   = c(0.95, 0.95),
     legend.justification = c("right", "top"),
     legend.background = element_rect(color = "black", linewidth = 0.5),
+    panel.grid.major  = element_blank(),
     panel.grid.minor  = element_blank()
   ) +
   coord_cartesian(clip = "off")
@@ -427,7 +439,7 @@ pub_plot <- ggplot(plot_data_pct, aes(x = Condition, y = mean_pct)) +
   labs(title = paste(COMPOUND_NAME, "dose\u2013response"),
        x = paste0(COMPOUND_NAME, " dose (", DOSE_UNIT, ")"),
        y = "% infection") +
-  theme_classic() +
+  theme_bw() +
   theme(
     plot.title        = element_text(face = "bold", size = 10, margin = margin(b = 4)),
     axis.title        = element_text(face = "bold"),
@@ -435,6 +447,7 @@ pub_plot <- ggplot(plot_data_pct, aes(x = Condition, y = mean_pct)) +
     axis.line         = element_line(linewidth = 0.6),
     axis.ticks        = element_line(linewidth = 0.6),
     axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.major  = element_blank(),
     panel.grid.minor  = element_blank(),
     plot.margin       = margin(6, 8, 6, 6),
     legend.position   = "none"
@@ -534,7 +547,7 @@ p_dr <- ggplot() +
     y = "% infected cells"
   ) +
   coord_cartesian(ylim = c(0, 105), clip = "off") +
-  theme_classic(base_size = 8) +
+  theme_bw(base_size = 8) +
   theme(
     plot.title        = element_text(face = "bold", size = 9, margin = margin(b = 4)),
     axis.title        = element_text(face = "bold", size = 8),
@@ -542,6 +555,8 @@ p_dr <- ggplot() +
     axis.line         = element_line(linewidth = 0.6, colour = "black"),
     axis.ticks        = element_line(linewidth = 0.6, colour = "black"),
     axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank(),
     legend.position   = "none",
     plot.margin       = margin(6, 10, 6, 8)
   )
@@ -629,7 +644,7 @@ p_cc50 <- ggplot() +
   labs(title = paste(COMPOUND_NAME, "Cytotoxicity"),
        x = paste0("Concentration (", DOSE_UNIT, ", log10)"),
        y = "% Cell Viability") +
-  theme_classic(base_size = 8) +
+  theme_bw(base_size = 8) +
   theme(
     plot.title        = element_text(face = "bold", size = 9, margin = margin(b = 2)),
     plot.subtitle     = element_text(size = 8, margin = margin(b = 6)),
@@ -638,6 +653,8 @@ p_cc50 <- ggplot() +
     axis.line         = element_line(linewidth = 0.6, colour = "black"),
     axis.ticks        = element_line(linewidth = 0.6, colour = "black"),
     axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank(),
     legend.position   = "none",
     plot.margin       = margin(6, 10, 6, 8)
   )

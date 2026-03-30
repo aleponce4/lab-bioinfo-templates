@@ -163,7 +163,11 @@ p_ibd <- ggplot(ibd_df, aes(x = geographic, y = phylogenetic)) +
     x = "Geographic distance (km)",
     y = "Patristic distance (branch length)"
   ) +
-  theme_bw(base_size = 10, base_family = "sans")
+  theme_bw(base_size = 10, base_family = "sans") +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
 
 ggsave(file.path(OUTPUT_DIR, "Mantel", "isolation_by_distance.tiff"),
        plot = p_ibd, width = 3, height = 3, dpi = 300,
@@ -204,7 +208,8 @@ p_spie <- ggplot() +
     legend.direction  = "horizontal",
     legend.text       = element_text(size = 6),
     legend.key.size   = unit(3, "pt"),
-    panel.grid.major  = element_line(color = "grey92", linewidth = 0.2),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank(),
     panel.border      = element_rect(color = "black", linewidth = 0.35),
     axis.text         = element_text(size = 8),
     plot.margin       = margin(4, 4, 4, 4, "pt")
@@ -254,9 +259,13 @@ p_mcor <- ggplot(mcor_df, aes(x = `class.index`, y = Mantel.cor, fill = sig)) +
        x = "Geographic distance class (km)",
        y = "Mantel r") +
   theme_bw(base_size = 10, base_family = "sans") +
-  theme(legend.position = c(0.8, 0.75),
-        legend.background = element_rect(color = "black"),
-        legend.key = element_rect(fill = "transparent"))
+  theme(
+    legend.position = c(0.8, 0.75),
+    legend.background = element_rect(color = "black"),
+    legend.key = element_rect(fill = "transparent"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
 
 ggsave(file.path(OUTPUT_DIR, "Mantel", "mantel_correlogram.tiff"),
        plot = p_mcor, width = 3, height = 2, dpi = 300,

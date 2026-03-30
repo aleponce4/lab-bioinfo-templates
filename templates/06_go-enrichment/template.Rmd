@@ -49,12 +49,12 @@ COMPARISON_LABELS <- NULL   # e.g., c("Group A vs Ctrl", "Group B vs Ctrl", ...)
 #   Each element is one panel / pathway.
 #   Replace these with your gene lists of interest.
 GENE_SETS <- list(
-  Pathway_A = toupper(c("Gene1", "Gene2", "Gene3", "Gene10", "Gene20",
-                         "Gene30", "Gene50", "Gene100")),
-  Pathway_B = toupper(c("Gene5", "Gene15", "Gene25", "Gene35", "Gene45",
-                         "Gene55", "Gene65", "Gene75")),
-  Pathway_C = toupper(c("Gene2", "Gene12", "Gene22", "Gene32", "Gene42",
-                         "Gene52", "Gene62", "Gene72", "Gene82"))
+  Pathway_A = c("Stat1", "Stat2", "Irf7", "Isg15", "Ifit1",
+                "Ifit3", "Mx1", "Oas1a"),
+  Pathway_B = c("Mki67", "Top2a", "Cdk1", "Ccnb1", "Ccnb2",
+                "Aurkb", "Bub1", "Ube2c"),
+  Pathway_C = c("Il6", "Cxcl10", "Ccl2", "Nfkbia", "Socs3",
+                "Jun", "Fos", "Icam1")
 )
 
 # OUTPUT_DIR: Where to save plots and data exports.
@@ -79,6 +79,8 @@ library(svglite)
 library(patchwork)
 library(scales)
 
+org_db <- get(ORG_DB, envir = asNamespace(ORG_DB))
+
 dir.create(file.path(OUTPUT_DIR, "Bubble_Plots"),    recursive = TRUE, showWarnings = FALSE)
 dir.create(file.path(OUTPUT_DIR, "Enrichment"),      recursive = TRUE, showWarnings = FALSE)
 dir.create(file.path(OUTPUT_DIR, "Pathway_Heatmaps"),recursive = TRUE, showWarnings = FALSE)
@@ -87,8 +89,7 @@ dir.create(file.path(OUTPUT_DIR, "Pathway_Heatmaps"),recursive = TRUE, showWarni
 # Load Data
 
 ```{r load-data, message=FALSE}
-deg_all <- read_csv(DEG_FILE, show_col_types = FALSE) %>%
-  mutate(Gene = toupper(Gene))
+deg_all <- read_csv(DEG_FILE, show_col_types = FALSE)
 
 # Set factor levels for comparisons
 if (!is.null(COMPARISONS_ORDER)) {
@@ -118,11 +119,11 @@ cat("Significant DEGs (any comparison):", sum(deg_all$significant, na.rm = TRUE)
 # ── Shared bubble plot function ────────────────────────────────────────────────
 make_bubble_plot <- function(pathway_name, genes, data) {
   pdata <- data %>%
-    filter(Gene %in% toupper(genes)) %>%
+    filter(Gene %in% genes) %>%
     mutate(
       lfc_masked    = ifelse(significant, log2FoldChange, 0),
       color_group   = ifelse(significant, "significant", "nonsignificant"),
-      Gene          = factor(Gene, levels = rev(toupper(genes)))
+      Gene          = factor(Gene, levels = rev(genes))
     )
 
   p <- ggplot() +
@@ -215,7 +216,7 @@ for (nm in names(GENE_SETS)) {
   safe_name <- gsub("[^A-Za-z0-9_-]", "_", nm)
 
   wide_lfc <- deg_all %>%
-    filter(Gene %in% toupper(GENE_SETS[[nm]])) %>%
+    filter(Gene %in% GENE_SETS[[nm]]) %>%
     mutate(lfc_masked = ifelse(significant, log2FoldChange, 0)) %>%
     select(Gene, Comparison, lfc_masked) %>%
     tidyr::pivot_wider(names_from = Comparison, values_from = lfc_masked, values_fill = 0)
@@ -233,7 +234,8 @@ message("Exported wide-format CSVs to ", file.path(OUTPUT_DIR, "Pathway_Heatmaps
 run_go_enrichment <- function(comp_name, deg_data, ont = "BP") {
   sig_genes <- deg_data %>%
     filter(Comparison == comp_name, significant) %>%
-    pull(Gene)
+    pull(Gene) %>%
+    unique()
 
   if (length(sig_genes) < 5) {
     message("Skipping ", comp_name, " — fewer than 5 significant genes.")
@@ -243,14 +245,15 @@ run_go_enrichment <- function(comp_name, deg_data, ont = "BP") {
   # Map gene symbols → Entrez IDs
   gene_ids <- tryCatch(
     bitr(sig_genes, fromType = "SYMBOL", toType = "ENTREZID",
-         OrgDb = ORG_DB),
+         OrgDb = org_db),
     error = function(e) NULL
   )
   if (is.null(gene_ids) || nrow(gene_ids) == 0) return(NULL)
+  gene_ids <- gene_ids %>% distinct(ENTREZID, .keep_all = TRUE)
 
   ego <- enrichGO(
     gene          = gene_ids$ENTREZID,
-    OrgDb         = ORG_DB,
+    OrgDb         = org_db,
     ont           = ont,
     pAdjustMethod = "BH",
     pvalueCutoff  = ENRICHMENT_FDR,
@@ -299,14 +302,16 @@ for (comp in names(go_results)) {
 run_kegg_enrichment <- function(comp_name, deg_data) {
   sig_genes <- deg_data %>%
     filter(Comparison == comp_name, significant) %>%
-    pull(Gene)
+    pull(Gene) %>%
+    unique()
   if (length(sig_genes) < 5) return(NULL)
 
   gene_ids <- tryCatch(
-    bitr(sig_genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = ORG_DB),
+    bitr(sig_genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org_db),
     error = function(e) NULL
   )
   if (is.null(gene_ids) || nrow(gene_ids) == 0) return(NULL)
+  gene_ids <- gene_ids %>% distinct(ENTREZID, .keep_all = TRUE)
 
   kk <- tryCatch(
     enrichKEGG(gene         = gene_ids$ENTREZID,

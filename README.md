@@ -1,7 +1,7 @@
 # Jonsson Lab Bioinformatics Templates
 
 A centralized collection of reusable analysis templates for virology and genomics research.
-Browse the live gallery at: **https://jonsson-lab.github.io/lab-bioinfo-templates**
+Browse the live gallery at: **https://aleponce4.github.io/lab-bioinfo-templates**
 
 ## Templates
 

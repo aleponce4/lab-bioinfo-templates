@@ -1,46 +1,124 @@
 # simulate_data.R
-# Creates a synthetic DESeqDataSet (dds_template.RData) for template 07.
-# Run from template folder: Rscript data/simulate_data.R
+# Builds synthetic inputs for template 07 in both supported modes:
+# 1. count matrix + metadata
+# 2. SummarizedExperiment RDS files
 
 set.seed(42)
 
-library(DESeq2)
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(tidyr)
+  library(writexl)
+  library(SummarizedExperiment)
+  library(S4Vectors)
+})
 
-# ── Parameters ────────────────────────────────────────────────────────────────
-n_genes      <- 500
-n_samples    <- 12   # 4 groups × 3 replicates
-group_labels <- rep(c("Control", "Group_A", "Group_B", "Group_C"), each = 3)
-sample_names <- paste0(group_labels, "_rep", rep(1:3, 4))
-gene_names   <- paste0("Gene", seq_len(n_genes))
-
-# ── Simulate count matrix ──────────────────────────────────────────────────────
-base_means <- round(runif(n_genes, 50, 2000))
-counts <- matrix(
-  sapply(base_means, function(m) rnbinom(n_samples, mu = m, size = 10)),
-  nrow = n_genes, ncol = n_samples,
-  dimnames = list(gene_names, sample_names)
+gene_sets <- list(
+  Interferon_Response = c("Stat1", "Stat2", "Irf7", "Isg15", "Ifit1", "Ifit3", "Mx1", "Oas1a"),
+  Cell_Cycle = c("Mki67", "Top2a", "Cdk1", "Ccnb1", "Ccnb2", "Aurkb", "Ube2c", "Birc5"),
+  Inflammation = c("Il6", "Ccl2", "Cxcl10", "Nfkbia", "Socs3", "Jun", "Fos", "Icam1")
 )
 
-# Introduce some DE: 15% of genes upregulated in Group_A/B/C vs Control
-de_idx <- sample(n_genes, round(n_genes * 0.15))
-for (grp_col in which(group_labels != "Control")) {
-  fold <- sample(c(3, 5, 8, 0.3, 0.2), length(de_idx), replace = TRUE)
-  counts[de_idx, grp_col] <- round(counts[de_idx, grp_col] * fold)
+required_genes <- unique(unlist(gene_sets, use.names = FALSE))
+background_genes <- paste0("Gene_", sprintf("%03d", seq_len(260)))
+gene_ids <- c(required_genes, background_genes)
+
+metadata <- tidyr::expand_grid(
+  tissue = c("Brain", "Lung"),
+  pair_id = paste0("Pair_", 1:4),
+  group = c("Control", "Treatment")
+) %>%
+  arrange(tissue, pair_id, group) %>%
+  mutate(
+    sample_id = paste(tissue, pair_id, group, sep = "_"),
+    alternate_id = paste0("s", sprintf("%02d", row_number())),
+    batch = rep(c("Batch_1", "Batch_2"), length.out = n()),
+    row_id = sample_id
+  )
+
+sample_ids <- metadata$sample_id
+
+pair_effects <- setNames(runif(length(unique(metadata$pair_id)), 0.9, 1.15), unique(metadata$pair_id))
+
+simulate_gene_means <- function(sample_row) {
+  mu <- rgamma(length(gene_ids), shape = 2.5, scale = 60)
+  names(mu) <- gene_ids
+
+  if (sample_row$tissue == "Brain") {
+    mu[gene_sets$Interferon_Response] <- mu[gene_sets$Interferon_Response] * 1.4
+    mu[gene_sets$Cell_Cycle] <- mu[gene_sets$Cell_Cycle] * 0.9
+  } else {
+    mu[gene_sets$Inflammation] <- mu[gene_sets$Inflammation] * 1.5
+    mu[gene_sets$Cell_Cycle] <- mu[gene_sets$Cell_Cycle] * 1.2
+  }
+
+  if (sample_row$group == "Treatment") {
+    if (sample_row$tissue == "Brain") {
+      mu[gene_sets$Interferon_Response] <- mu[gene_sets$Interferon_Response] * 4.5
+      mu[gene_sets$Inflammation] <- mu[gene_sets$Inflammation] * 2.0
+    } else {
+      mu[gene_sets$Inflammation] <- mu[gene_sets$Inflammation] * 4.0
+      mu[gene_sets$Cell_Cycle] <- mu[gene_sets$Cell_Cycle] * 2.5
+    }
+  }
+
+  mu * pair_effects[[sample_row$pair_id]]
 }
 
-# ── Build DESeqDataSet ────────────────────────────────────────────────────────
-col_data <- data.frame(
-  group   = factor(group_labels, levels = c("Control", "Group_A", "Group_B", "Group_C")),
-  timepoint = rep(c("0h", "24h", "48h", "72h"), each = 3),
-  row.names = sample_names
+gene_counts <- sapply(seq_len(nrow(metadata)), function(i) {
+  mu <- simulate_gene_means(metadata[i, ])
+  rnbinom(length(mu), mu = mu, size = 18)
+})
+colnames(gene_counts) <- sample_ids
+rownames(gene_counts) <- gene_ids
+storage.mode(gene_counts) <- "integer"
+
+viral_features <- c("VEEV_genome", "VEEV_49S", "VEEV_26S")
+viral_lengths <- c(VEEV_genome = 11446, VEEV_49S = 11446, VEEV_26S = 3880)
+
+transcript_counts <- sapply(seq_len(nrow(metadata)), function(i) {
+  sample_row <- metadata[i, ]
+  base_signal <- if (sample_row$group == "Treatment") {
+    if (sample_row$tissue == "Brain") 4000 else 1800
+  } else {
+    25
+  }
+
+  c(
+    VEEV_genome = rnbinom(1, mu = base_signal, size = 12),
+    VEEV_49S = rnbinom(1, mu = base_signal * 0.9, size = 12),
+    VEEV_26S = rnbinom(1, mu = base_signal * 1.7, size = 12)
+  )
+})
+colnames(transcript_counts) <- sample_ids
+rownames(transcript_counts) <- viral_features
+storage.mode(transcript_counts) <- "integer"
+
+gene_count_tbl <- tibble::tibble(Gene = rownames(gene_counts)) %>%
+  bind_cols(as.data.frame(gene_counts, check.names = FALSE))
+transcript_count_tbl <- tibble::tibble(Transcript = rownames(transcript_counts)) %>%
+  bind_cols(as.data.frame(transcript_counts, check.names = FALSE))
+
+write.csv(gene_count_tbl, "data/demo_gene_counts.csv", row.names = FALSE)
+write.csv(transcript_count_tbl, "data/demo_transcript_counts.csv", row.names = FALSE)
+write.csv(metadata %>% select(-row_id), "data/demo_metadata.csv", row.names = FALSE)
+writexl::write_xlsx(list(metadata = metadata %>% select(-row_id)), "data/demo_metadata.xlsx")
+
+metadata_se <- as.data.frame(metadata %>% select(-row_id), stringsAsFactors = FALSE)
+rownames(metadata_se) <- metadata_se$sample_id
+
+gene_se <- SummarizedExperiment::SummarizedExperiment(
+  assays = list(counts = gene_counts),
+  colData = S4Vectors::DataFrame(metadata_se)
 )
 
-dds <- DESeqDataSetFromMatrix(
-  countData = counts,
-  colData   = col_data,
-  design    = ~ group
+transcript_se <- SummarizedExperiment::SummarizedExperiment(
+  assays = list(counts = transcript_counts),
+  rowData = S4Vectors::DataFrame(feature_length_bp = viral_lengths[rownames(transcript_counts)]),
+  colData = S4Vectors::DataFrame(metadata_se)
 )
-dds <- DESeq(dds)
 
-save(dds, file = "data/dds_template.RData")
-message("Wrote data/dds_template.RData")
+saveRDS(gene_se, "data/demo_gene_se.rds")
+saveRDS(transcript_se, "data/demo_transcript_se.rds")
+
+message("Wrote demo_gene_counts.csv, demo_transcript_counts.csv, demo_metadata.csv/xlsx, demo_gene_se.rds, and demo_transcript_se.rds")

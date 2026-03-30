@@ -13,7 +13,7 @@ Browse the live gallery at: **https://aleponce4.github.io/lab-bioinfo-templates*
 | 04 | MagPix / Luminex Multiplex | R | Two-way ANOVA, emmeans, FDR |
 | 05 | Phylo-Geographic Analysis | R | Mantel test, scatter pies, maps |
 | 06 | GO Enrichment Analysis | R | clusterProfiler, KEGG/Reactome |
-| 07 | RNA-seq / DESeq2 | R | Volcano, bubble, PCA, triangle plots |
+| 07 | RNA-seq / DESeq2 | R | End-to-end DESeq2, QC diagnostics, heatmaps, bubble/triangle plots |
 | 08 | VCF Mutation Analysis | Python | Entropy, mutation frequency, heatmaps |
 
 ## Quick Start

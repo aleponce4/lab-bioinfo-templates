@@ -1,11 +1,12 @@
 ---
 title: "07 · RNA-seq / DESeq2"
-subtitle: "Differential expression, volcano plots, PCA, bubble plots, and triangle plots"
+subtitle: "End-to-end differential expression from counts or SummarizedExperiment inputs"
 description: |
-  Analyzes RNA-seq data using DESeq2. Loads a pre-computed DESeqDataSet, extracts
-  results for user-defined contrasts, and produces publication-quality volcano plots,
-  a PCA plot, bubble plots (viridis plasma, italic gene names), and directional triangle
-  plots for user-specified gene sets.
+  Runs an RNA-seq differential expression workflow inside the notebook. Supports raw
+  count matrices plus metadata or prebuilt SummarizedExperiment inputs, then produces
+  QC diagnostics, DESeq2 contrasts, volcano and MA plots, PCA, top-gene heatmaps,
+  curated gene-set bubble and triangle plots, optional viral-feature panels, and
+  reusable exports.
 categories: [transcriptomics, RNA-seq, DESeq2, differential-expression]
 ---
 
@@ -13,20 +14,22 @@ categories: [transcriptomics, RNA-seq, DESeq2, differential-expression]
 
 | Item | Details |
 |------|---------|
-| **Input** | `dds_template.RData` — a saved `DESeqDataSet` processed with `DESeq()` |
-| **Key packages** | `DESeq2`, `ggplot2`, `viridis`, `patchwork`, `svglite` |
+| **Input** | Gene counts + metadata or gene/transcript `SummarizedExperiment` RDS files |
+| **Key packages** | `DESeq2`, `SummarizedExperiment`, `ggplot2`, `patchwork`, `pheatmap` |
 | **Statistics** | DESeq2 Wald test · FDR-adjusted p-values (BH) |
-| **Output** | Volcano plots · PCA · Bubble plots · Triangle plots · DEG CSVs |
+| **Output** | Diagnostics · PCA · Volcano/MA plots · Heatmaps · Bubble/Triangle plots · DEG tables · Analysis bundle |
 | **Download** | [template.Rmd](template.Rmd) |
 
 ::: {.callout-tip}
-**When to use this template:** You have a pre-processed DESeqDataSet and want to
-visualize differential expression across multiple comparisons alongside curated gene sets.
+**When to use this template:** You want one notebook that can start from either a
+count matrix plus sample metadata or a prebuilt SummarizedExperiment, fit DESeq2,
+and export both publication-ready figures and reusable result tables.
 :::
 
 ::: {.callout-note}
-**Plot styles:** Volcano (red/blue) · Bubble (viridis plasma, italic y-axis) ·
-Triangle (up/down triangles, viridis fill) · PCA (theme_classic, Arial 10pt)
+**Optional modules:** Split-by-subset modeling, blocking terms in the design formula,
+top-DEG heatmaps, sample-distance heatmaps, and viral transcript abundance panels can
+all be enabled or disabled from the config block.
 :::
 
 [Back to Gallery](../../index.html){.btn .btn-outline-secondary}

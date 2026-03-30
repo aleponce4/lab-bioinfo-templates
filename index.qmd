@@ -93,7 +93,7 @@ GO and KEGG enrichment across comparisons with bubble plots and export tables.
 ::: {.column width="33%"}
 #### 07 · RNA-seq / DESeq2
 
-DESeq2 result visualization with volcano, PCA, bubble, and triangle plots.
+End-to-end DESeq2 workflow from counts or SummarizedExperiment inputs, with QC, DE plots, heatmaps, and reusable exports.
 
 [Open Template](templates/07_rnaseq-deseq2/template.html){.btn .btn-primary}
 :::
@@ -109,7 +109,9 @@ Mutation-frequency summaries and entropy heatmaps from per-sample VCF files.
 
 ---
 
-## Template Gallery
+## Template Catalog
+
+Use this searchable table as a quick reference for the available analyses, methods, and output types.
 
 ```{r}
 #| label: gallery-table
@@ -140,7 +142,7 @@ templates <- data.frame(
     "Two-way ANOVA, emmeans, FDR",
     "Mantel test, geographic distance",
     "clusterProfiler, GO/KEGG",
-    "DESeq2, volcano, PCA, bubble plots",
+    "DESeq2, QC diagnostics, heatmaps, viral module",
     "Entropy, Kruskal-Wallis"
   ),
   `Key Plot Types` = c(
@@ -150,7 +152,7 @@ templates <- data.frame(
     "Dot, bar, violin, box, heatmap",
     "Scatter pie, Mantel correlogram, map",
     "Dot plot, bar, upset, Venn",
-    "Volcano, bubble, PCA, triangle",
+    "Volcano, MA, PCA, heatmap, bubble, triangle",
     "Mutation freq bar, entropy heatmap"
   ),
   check.names = FALSE,

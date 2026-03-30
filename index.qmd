@@ -1,6 +1,6 @@
 ---
 title: "Jonsson Lab Bioinformatics Templates"
-subtitle: "A gallery of reusable analysis templates for virology and genomics research"
+subtitle: "Reusable analysis templates for virology and genomics research"
 page-layout: full
 toc: false
 ---
@@ -11,107 +11,135 @@ toc: false
 library(dplyr)
 ```
 
-## About
-
-This repository contains **8 standardized analysis templates** built from real lab analyses.
-Each template:
-
-- Ships with **synthetic example data** so it runs out of the box
-- Preserves the **exact plot style** (themes, colors, dimensions) used in our publications
-- Has a **`## ── USER CONFIGURATION ──`** block at the top — change those variables, nothing else
-- Can be downloaded and dropped into any new project
+**8 standardized templates** built from real lab analyses. Each ships with synthetic example
+data, preserves exact publication plot styles, and has a single `## ── USER CONFIGURATION ──`
+block at the top — change those variables, run everything else unchanged.
 
 ---
 
-## Browse by Section
+::: {.gallery-section-heading}
+Infection & Virology
+:::
 
-Click a template card to open the fully rendered analysis page with its example plots.
+::: {.card-grid}
 
-### Infection & Virology
-
-::: {.columns}
-::: {.column width="33%"}
+::: {.template-card .card-virology}
+::: {.card-body}
 #### 01 · Plaque Assay + Violin Plots
+[R]{.badge-r}
 
-Replicate QC, one-way ANOVA, Tukey HSD, and violin plots for plaque assay titres.
+Replicate QC (Limits of Agreement), one-way ANOVA, Tukey HSD, and violin plots for plaque assay titres.
 
-[Open Template](templates/01_plaque-assay-violin/template.html){.btn .btn-primary}
+[Open Template →](templates/01_plaque-assay-violin/template.html){.btn .btn-primary}
+:::
 :::
 
-::: {.column width="33%"}
+::: {.template-card .card-virology}
+::: {.card-body}
 #### 02 · Image Infection + Dose-Response
+[R]{.badge-r}
 
-CQ1-style gating, infection thresholding, EC50/CC50 estimation, and dose-response plots.
+CQ1-style gating, infection thresholding, EC50/CC50 estimation, and dose-response curves.
 
-[Open Template](templates/02_image-infection-dose-response/template.html){.btn .btn-primary}
+[Open Template →](templates/02_image-infection-dose-response/template.html){.btn .btn-primary}
+:::
 :::
 
-::: {.column width="33%"}
+::: {.template-card .card-virology}
+::: {.card-body}
 #### 03 · Multi-Condition ANOVA
+[R]{.badge-r}
 
 Welch ANOVA with planned contrasts and Holm correction across conditions or cell types.
 
-[Open Template](templates/03_multicondition-anova/template.html){.btn .btn-primary}
+[Open Template →](templates/03_multicondition-anova/template.html){.btn .btn-primary}
 :::
 :::
 
-### Immunology
+:::
 
-::: {.columns}
-::: {.column width="50%"}
+::: {.gallery-section-heading}
+Immunology
+:::
+
+::: {.card-grid}
+
+::: {.template-card .card-immuno}
+::: {.card-body}
 #### 04 · MagPix / Luminex Multiplex
+[R]{.badge-r}
 
 Two-way ANOVA, emmeans contrasts, FDR correction, and cytokine visualization panels.
 
-[Open Template](templates/04_magpix-luminex/template.html){.btn .btn-primary}
+[Open Template →](templates/04_magpix-luminex/template.html){.btn .btn-primary}
 :::
 :::
 
-### Phylogenetics
+:::
 
-::: {.columns}
-::: {.column width="50%"}
+::: {.gallery-section-heading}
+Phylogenetics
+:::
+
+::: {.card-grid}
+
+::: {.template-card .card-phylo}
+::: {.card-body}
 #### 05 · Phylo-Geographic Analysis
+[R]{.badge-r}
 
 Isolation-by-distance testing, scatter pie maps, and Mantel correlograms for pathogen datasets.
 
-[Open Template](templates/05_phylo-geographic/template.html){.btn .btn-primary}
+[Open Template →](templates/05_phylo-geographic/template.html){.btn .btn-primary}
 :::
 :::
 
-### Genomics & Transcriptomics
+:::
 
-::: {.columns}
-::: {.column width="33%"}
+::: {.gallery-section-heading}
+Genomics & Transcriptomics
+:::
+
+::: {.card-grid}
+
+::: {.template-card .card-genomics}
+::: {.card-body}
 #### 06 · GO Enrichment Analysis
+[R]{.badge-r}
 
 GO and KEGG enrichment across comparisons with bubble plots and export tables.
 
-[Open Template](templates/06_go-enrichment/template.html){.btn .btn-primary}
+[Open Template →](templates/06_go-enrichment/template.html){.btn .btn-primary}
+:::
 :::
 
-::: {.column width="33%"}
+::: {.template-card .card-genomics}
+::: {.card-body}
 #### 07 · RNA-seq / DESeq2
+[R]{.badge-r}
 
-End-to-end DESeq2 workflow from counts or SummarizedExperiment inputs, with QC, DE plots, heatmaps, and reusable exports.
+DESeq2 from counts or SummarizedExperiment — volcano, PCA, bubble plots, and heatmaps.
 
-[Open Template](templates/07_rnaseq-deseq2/template.html){.btn .btn-primary}
+[Open Template →](templates/07_rnaseq-deseq2/template.html){.btn .btn-primary}
+:::
 :::
 
-::: {.column width="33%"}
+::: {.template-card .card-genomics}
+::: {.card-body}
 #### 08 · VCF Mutation Analysis
+[Python]{.badge-python}
 
-Mutation-frequency summaries and entropy heatmaps from per-sample VCF files.
+Mutation-frequency summaries and Shannon entropy heatmaps from per-sample VCF files.
 
-[Open Template](templates/08_vcf-mutation-analysis/template.html){.btn .btn-primary}
+[Open Template →](templates/08_vcf-mutation-analysis/template.html){.btn .btn-primary}
 :::
+:::
+
 :::
 
 ---
 
 ## Template Catalog
-
-Use this searchable table as a quick reference for the available analyses, methods, and output types.
 
 ```{r}
 #| label: gallery-table
@@ -142,17 +170,17 @@ templates <- data.frame(
     "Two-way ANOVA, emmeans, FDR",
     "Mantel test, geographic distance",
     "clusterProfiler, GO/KEGG",
-    "DESeq2, QC diagnostics, heatmaps, viral module",
-    "Entropy, Kruskal-Wallis"
+    "DESeq2, Wald test, FDR",
+    "Shannon entropy, Kruskal-Wallis"
   ),
-  `Key Plot Types` = c(
+  `Key Plots` = c(
     "Violin + jitter, log10 titer",
     "Ridge, density gate, dose-response curve",
     "Bar + error, fold-change table",
-    "Dot, bar, violin, box, heatmap",
+    "Dot, bar, violin, heatmap",
     "Scatter pie, Mantel correlogram, map",
-    "Dot plot, bar, upset, Venn",
-    "Volcano, MA, PCA, heatmap, bubble, triangle",
+    "Dot plot, bar, Venn",
+    "Volcano, PCA, heatmap, bubble",
     "Mutation freq bar, entropy heatmap"
   ),
   check.names = FALSE,
@@ -173,54 +201,14 @@ datatable(
 
 ---
 
-## How to Use a Template
+## How to Use
 
-1. **Browse** the gallery — click any template to see the rendered analysis with example plots.
-2. **Download** the `.Rmd` or `.ipynb` file (use the *</> Code* button at the top right of each page, or download directly from GitHub).
-3. **Edit the config block** at the top of the file:
+1. Click a card above to see the rendered analysis with example plots
+2. Download the `.Rmd` or `.ipynb` via the *</> Code* button (top-right of each page) or from GitHub
+3. Edit only the `## ── USER CONFIGURATION ──` block at the top of the file
+4. Run — everything below executes without modification
 
+**Install R packages once:**
 ```r
-## ── USER CONFIGURATION ──────────────────────────────────────────────────────
-DATA_FILE   <- "your_data.csv"   # path to your input file
-GROUP_COL   <- "Treatment"       # column name for experimental groups
-TITER_COL   <- "Titer_pfuml"    # column name for the measurement
-# ... (all other parameters are documented inline)
-## ────────────────────────────────────────────────────────────────────────────
-```
-
-4. **Run** — everything below the config block executes without modification.
-
----
-
-## Setup
-
-### R Templates (01–07)
-
-```r
-# Install all required packages at once
 source("install_packages.R")
-```
-
-### Python Template (08)
-
-```bash
-conda env create -f environment.yml
-conda activate jonsson-bioinfo
-```
-
----
-
-## Repository Structure
-
-```
-lab-bioinfo-templates/
-├── templates/
-│   ├── 01_plaque-assay-violin/
-│   │   ├── template.Rmd      ← the template you copy
-│   │   └── data/simulate_data.R
-│   ├── 02_image-infection-dose-response/  ...
-│   └── ...
-├── _quarto.yml               ← Quarto site config
-├── install_packages.R        ← one-shot R installer
-└── environment.yml           ← Python conda env
 ```

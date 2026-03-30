@@ -1,0 +1,98 @@
+/*-- custom.scss: Jonsson Lab Bioinformatics Templates --*/
+
+/*-- Card grid layout --*/
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+/*-- Template cards --*/
+.template-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  overflow: hidden;
+  background: #fff;
+}
+
+.template-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.13);
+  transform: translateY(-2px);
+}
+
+.template-card .card-body {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.1rem 1.1rem;
+  flex: 1;
+}
+
+.template-card .card-body h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 0.4rem;
+}
+
+.template-card .card-body p {
+  font-size: 0.85rem;
+  color: #555;
+  flex: 1;
+  margin-bottom: 0.9rem;
+}
+
+.template-card .btn {
+  align-self: flex-start;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.8rem;
+}
+
+/*-- Category accent bars (top border) --*/
+.card-virology  { border-top: 4px solid #0072B2; }
+.card-immuno    { border-top: 4px solid #009E73; }
+.card-phylo     { border-top: 4px solid #E69F00; }
+.card-genomics  { border-top: 4px solid #D55E00; }
+
+/*-- Language badges --*/
+.badge-r {
+  background-color: #276dc3;
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 0.2em 0.55em;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+}
+
+.badge-python {
+  background-color: #3b7e3b;
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 0.2em 0.55em;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+}
+
+/*-- Section headings above card grids --*/
+.gallery-section-heading {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #dee2e6;
+  padding-bottom: 0.3rem;
+  margin-top: 1.8rem;
+  margin-bottom: 0.9rem;
+}
+
+/*-- Navbar --*/
+.navbar-brand {
+  font-weight: 600;
+}

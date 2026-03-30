@@ -410,13 +410,15 @@ make_bubble_plot <- function(pathway_name, genes, result_data, comparison_levels
     ) +
     scale_y_discrete(position = "right") +
     labs(title = pathway_name, x = "", y = "") +
-    theme_classic(base_size = 11, base_family = "sans") +
+    theme_bw(base_size = 11, base_family = "sans") +
     theme(
       plot.title = element_text(face = "bold", hjust = 0.5),
       axis.text.x = element_text(angle = 35, hjust = 1, face = "bold"),
       axis.text.y = element_text(face = "italic"),
       legend.position = "left",
-      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4)
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
     )
 }
 
@@ -469,13 +471,15 @@ make_triangle_plot <- function(pathway_name, genes, result_data, comparison_leve
     scale_size_continuous(name = expression("|log"[2] * "FC|"), range = c(2, 8)) +
     scale_y_discrete(position = "right") +
     labs(title = pathway_name, x = "", y = "") +
-    theme_classic(base_size = 11, base_family = "sans") +
+    theme_bw(base_size = 11, base_family = "sans") +
     theme(
       plot.title = element_text(face = "bold", hjust = 0.5),
       axis.text.x = element_text(angle = 35, hjust = 1, face = "bold"),
       axis.text.y = element_text(face = "italic"),
       legend.position = "left",
-      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4)
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
     )
 }
 ```
@@ -664,7 +668,9 @@ if (isTRUE(OPTIONAL_MODULES$library_diagnostic)) {
     theme_bw(base_size = 10, base_family = "sans") +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1),
-      plot.title = element_text(face = "bold", hjust = 0.5)
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
     )
 
   gene_total_df <- tibble::tibble(total_counts = rowSums(gene_counts))
@@ -674,7 +680,11 @@ if (isTRUE(OPTIONAL_MODULES$library_diagnostic)) {
     geom_vline(xintercept = COUNT_FILTER_MIN, linetype = "dashed", color = "firebrick") +
     labs(title = "Distribution Of Total Gene Counts", x = "Total counts per gene (log10 scale)", y = "Genes") +
     theme_bw(base_size = 10, base_family = "sans") +
-    theme(plot.title = element_text(face = "bold", hjust = 0.5))
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
 
   diagnostic_plot <- p_library / p_gene_dist
   save_plot_multi(diagnostic_plot, file.path("Diagnostics", plot_file_stub("library_diagnostics")), 10, 8)
@@ -864,11 +874,13 @@ volcano_plots <- lapply(comparison_levels, function(label) {
     scale_x_continuous(limits = VOLCANO_XLIM) +
     scale_y_continuous(limits = c(0, VOLCANO_YLIM)) +
     labs(title = label, x = expression(log[2] * " Fold Change"), y = "-log10(FDR)") +
-    theme_classic(base_size = 10, base_family = "sans") +
+    theme_bw(base_size = 10, base_family = "sans") +
     theme(
       plot.title = element_text(face = "bold", hjust = 0.5),
       legend.position = "none",
-      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4)
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
     )
 })
 names(volcano_plots) <- comparison_levels
@@ -892,11 +904,13 @@ if (isTRUE(OPTIONAL_MODULES$ma_plots)) {
       scale_color_manual(values = c(Up = "#a00000", Down = "#2066a8", NS = "gray70")) +
       geom_hline(yintercept = c(-LFC_THRESHOLD, LFC_THRESHOLD), linetype = "dashed", color = "darkgrey") +
       labs(title = label, x = "Base mean (log10 scale)", y = expression(log[2] * " Fold Change")) +
-      theme_classic(base_size = 10, base_family = "sans") +
+      theme_bw(base_size = 10, base_family = "sans") +
       theme(
         plot.title = element_text(face = "bold", hjust = 0.5),
         legend.position = "none",
-        panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4)
+        panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()
       )
   })
   names(ma_plots) <- comparison_levels

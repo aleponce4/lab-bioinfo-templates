@@ -213,7 +213,11 @@ print(
       color = "Flagged",
       title = "Replicate Agreement (1.96 × SD Limits of Agreement)"
     ) +
-    theme_classic()
+    theme_bw() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
 )
 ```
 
@@ -240,9 +244,10 @@ p_full <- ggplot(df_clean, aes(x = ShortGroup, y = Titer, fill = ShortGroup)) +
     title   = "Viral Titers by Group",
     caption = "Black bars indicate mean \u00b1 1 SD"
   ) +
-  theme_classic(base_size = 13) +
+  theme_bw(base_size = 13) +
   theme(
     axis.text.x      = element_text(angle = 30, hjust = 1),
+    panel.grid.major = element_blank(),
     panel.grid.minor = element_blank()
   )
 
@@ -265,9 +270,10 @@ p_merged <- ggplot(df_clean, aes(x = MergedGroup, y = Titer, fill = MergedGroup)
     y     = "Viral Titer (pfu/mL, log scale)",
     title = "Viral Titers by Combined Group"
   ) +
-  theme_classic(base_size = 13) +
+  theme_bw(base_size = 13) +
   theme(
     axis.text.x      = element_text(angle = 30, hjust = 1),
+    panel.grid.major = element_blank(),
     panel.grid.minor = element_blank()
   )
 
@@ -360,9 +366,10 @@ p_combined <- ggplot(df_plot, aes(x = MergedGroup, y = Titer, fill = MergedGroup
     y     = "Viral Titer (pfu/mL, log scale)",
     title = "Viral Titers by Combined Group"
   ) +
-  theme_classic(base_size = 13) +
+  theme_bw(base_size = 13) +
   theme(
     axis.text.x      = element_text(angle = 30, hjust = 1),
+    panel.grid.major = element_blank(),
     panel.grid.minor = element_blank()
   ) +
   stat_compare_means(

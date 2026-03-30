@@ -154,7 +154,7 @@ make_bubble_plot <- function(pathway_name, genes, data) {
       labels    = c("0", "5", "10", "15", "20")
     ) +
     scale_y_discrete(position = "right") +
-    theme_classic() +
+    theme_bw() +
     theme(
       plot.title   = element_text(size = 18, face = "bold", hjust = 0.5, family = "sans"),
       axis.title.x = element_text(size = 16, family = "sans"),
@@ -166,7 +166,9 @@ make_bubble_plot <- function(pathway_name, genes, data) {
       legend.text  = element_text(size = 10, family = "sans"),
       legend.key.size   = unit(0.4, "cm"),
       legend.spacing.y  = unit(0.2, "cm"),
-      legend.position   = "left"
+      legend.position   = "left",
+      panel.grid.major  = element_blank(),
+      panel.grid.minor  = element_blank()
     ) +
     guides(
       size  = guide_legend(override.aes = list(shape = 21, color = "darkgrey",
@@ -280,10 +282,12 @@ for (comp in names(go_results)) {
 
   p_dot <- dotplot(ego, showCategory = 20) +
     labs(title = paste("GO (BP) Enrichment:", comp)) +
-    theme_classic() +
+    theme_bw() +
     theme(
       axis.text.y  = element_text(size = 10),
-      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5)
+      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
     )
 
   print(p_dot)
@@ -333,9 +337,13 @@ for (comp in names(kegg_results)) {
   kk <- kegg_results[[comp]]$kk
   p_kegg <- dotplot(kk, showCategory = 20) +
     labs(title = paste("KEGG Enrichment:", comp)) +
-    theme_classic() +
-    theme(axis.text.y = element_text(size = 10),
-          plot.title  = element_text(size = 14, face = "bold", hjust = 0.5))
+    theme_bw() +
+    theme(
+      axis.text.y = element_text(size = 10),
+      plot.title  = element_text(size = 14, face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
   print(p_kegg)
   ggsave(file.path(OUTPUT_DIR, "Enrichment", paste0("KEGG_dotplot_", comp, ".svg")),
          plot = p_kegg, device = "svg", width = 8, height = 6)

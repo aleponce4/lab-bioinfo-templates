@@ -25,7 +25,7 @@ GO/KEGG enrichment on significant DEGs.
 :::
 
 ::: {.callout-note}
-**Bubble plot style:** `theme_classic()` · viridis plasma color scale ·
+**Bubble plot style:** `theme_bw()` with blank panel grids · viridis plasma color scale ·
 italic y-axis gene labels · legend on the left.
 :::
 

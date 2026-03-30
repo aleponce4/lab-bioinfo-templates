@@ -724,7 +724,7 @@ fit_single_model <- function(model_id, sample_ids) {
     metadata = metadata_subset,
     dds = dds,
     normalized_counts = counts(dds, normalized = TRUE),
-    vsd = DESeq2::vst(dds, blind = FALSE),
+    vsd = DESeq2::varianceStabilizingTransformation(dds, blind = FALSE),
     results_names = resultsNames(dds)
   )
 }

@@ -38,12 +38,24 @@ write.tree(tree, file = "data/S_tree.nwk")
 message("Wrote data/S_tree.nwk")
 
 # ── Simulate coordinates ───────────────────────────────────────────────────────
-# Centered roughly around a fictional study area
-coords <- data.frame(
-  SampleID  = taxa_names,
-  Longitude = runif(n_taxa, -70, -65),
-  Latitude  = runif(n_taxa, -28, -22)
+# Assign samples to a smaller set of shared collection sites so the scatter-pie
+# map demonstrates multi-clade composition at repeated locations.
+site_lookup <- data.frame(
+  Site = paste0("Site_", 1:4),
+  Longitude = c(-69.8, -68.6, -67.1, -65.9),
+  Latitude  = c(-27.4, -25.9, -24.1, -22.8)
 )
+
+site_assignments <- rep(site_lookup$Site, length.out = n_taxa)
+site_assignments <- sample(site_assignments, n_taxa, replace = FALSE)
+
+coords <- data.frame(
+  SampleID = taxa_names,
+  Site = site_assignments
+) |>
+  merge(site_lookup, by = "Site", sort = FALSE) |>
+  .[match(taxa_names, .$SampleID), c("SampleID", "Longitude", "Latitude")]
+
 write.csv(coords, "data/coordinates.csv", row.names = FALSE)
 
 # ── Simulate metadata ──────────────────────────────────────────────────────────

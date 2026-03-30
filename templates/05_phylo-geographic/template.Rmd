@@ -233,11 +233,17 @@ mcor <- mantel.correlog(
   cutoff = FALSE
 )
 
-mcor_df <- as.data.frame(mcor$mantel.res)
-# Column 4 is the p-value; rename it robustly regardless of vegan version
-names(mcor_df)[4] <- "pvalue"
+mcor_df <- as.data.frame(mcor$mantel.res, check.names = FALSE)
+
+# vegan reports raw and, when mult != "none", corrected p-values.
+# Match the package's own plotting behavior by preferring corrected p-values.
+p_col <- if ("Pr(corrected)" %in% names(mcor_df)) "Pr(corrected)" else "Pr(Mantel)"
+
 mcor_df <- mcor_df %>%
-  mutate(sig = ifelse(pvalue <= 0.05, "Significant", "NS"))
+  mutate(
+    pvalue = .data[[p_col]],
+    sig = ifelse(!is.na(pvalue) & pvalue <= 0.05, "Significant", "NS")
+  )
 
 p_mcor <- ggplot(mcor_df, aes(x = `class.index`, y = Mantel.cor, fill = sig)) +
   geom_bar(stat = "identity", width = diff(range(mcor_df$`class.index`)) / nrow(mcor_df) * 0.8) +

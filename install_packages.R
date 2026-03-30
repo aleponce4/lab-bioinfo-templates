@@ -11,7 +11,7 @@ cran_pkgs <- c(
   # Plotting
   "ggplot2", "ggpubr", "ggridges", "ggrepel", "ggbeeswarm", "ggh4x", "hexbin",
   "viridis", "RColorBrewer", "scales", "patchwork", "svglite", "ragg",
-  "scatterpie", "ggspatial",
+  "scatterpie", "ggspatial", "pheatmap",
   # Statistics
   "car", "broom", "rstatix", "emmeans", "coin", "drc", "vegan",
   # Spatial / maps

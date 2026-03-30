@@ -42,8 +42,7 @@ message("Wrote data/S_tree.nwk")
 coords <- data.frame(
   SampleID  = taxa_names,
   Longitude = runif(n_taxa, -70, -65),
-  Latitude  = runif(n_taxa, -28, -22),
-  Clade     = clade_asgn
+  Latitude  = runif(n_taxa, -28, -22)
 )
 write.csv(coords, "data/coordinates.csv", row.names = FALSE)
 

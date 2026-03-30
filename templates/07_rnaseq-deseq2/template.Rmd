@@ -127,8 +127,7 @@ all_results %>%
 # Color scheme (consistent with publications)
 vol_colors <- c("Up" = "#a00000", "Down" = "#2066a8", "NS" = "gray70")
 
-ylim_vec <- if (length(VOLCANO_YLIM) == 1) rep(VOLCANO_YLIM, length(COMPARISONS))
-            else VOLCANO_YLIM
+ylim_vec <- if (length(VOLCANO_YLIM) == 1) rep(VOLCANO_YLIM, length(COMPARISONS)) else VOLCANO_YLIM
 
 volcano_plots <- lapply(seq_along(results_list), function(i) {
   label <- names(results_list)[i]

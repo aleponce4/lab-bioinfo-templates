@@ -50,7 +50,8 @@ jobs:
             libxml2-dev \
             libssl-dev \
             libglpk-dev \
-            libgmp-dev
+            libgmp-dev \
+            libcairo2-dev
 
       # ── 3. R setup ───────────────────────────────────────────────────────────
       - name: Set up R

@@ -29,5 +29,8 @@ GO/KEGG enrichment on significant DEGs.
 italic y-axis gene labels · legend on the left.
 :::
 
+[Back to Gallery](../../index.html){.btn .btn-outline-secondary}
+[Open Template File](template.Rmd){.btn .btn-primary}
+
 ```{r child="template.Rmd"}
 ```

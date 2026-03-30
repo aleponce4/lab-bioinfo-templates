@@ -30,5 +30,8 @@ All plots use **Arial 8pt** global theme tuned for **4 × 3 inch** publication f
 TIFF output at 600 dpi with LZW compression via `ragg`.
 :::
 
+[Back to Gallery](../../index.html){.btn .btn-outline-secondary}
+[Open Template File](template.Rmd){.btn .btn-primary}
+
 ```{r child="template.Rmd"}
 ```

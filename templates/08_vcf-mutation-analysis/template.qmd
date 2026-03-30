@@ -38,6 +38,9 @@ in the VCF filenames will be loaded but excluded from statistical comparisons.
 before rendering. The `vcfpy` package is only available via conda/pip.
 :::
 
+[Back to Gallery](../../index.html){.btn .btn-outline-secondary}
+[Open Notebook File](template.ipynb){.btn .btn-primary}
+
 ---
 
 ## Notebook Template

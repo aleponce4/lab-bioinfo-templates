@@ -32,6 +32,9 @@ if (length(to_install)) {
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
+# Use Posit Public Package Manager for pre-built Bioconductor binaries (CI speed)
+options(BioC_mirror = "https://packagemanager.posit.co/bioconductor")
+
 bioc_pkgs <- c(
   "Biostrings",          # 05_phylo-geographic
   "DESeq2",              # 07_rnaseq-deseq2

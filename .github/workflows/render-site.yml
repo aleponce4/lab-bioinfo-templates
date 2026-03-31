@@ -99,7 +99,7 @@ jobs:
 
       # ── 5. Python packages (template 08 — vcf-mutation-analysis) ────────────
       - name: Install Python packages
-        run: pip install vcfpy pandas scipy seaborn matplotlib scikit-learn
+        run: pip install jupyter vcfpy pandas scipy seaborn matplotlib scikit-learn
 
       # ── 6. Synthetic Python data ─────────────────────────────────────────────
       - name: Generate synthetic Python data

@@ -170,10 +170,18 @@ for fname in vcf_files:
                 "ID":                sample_id,
             })
     except Exception as e:
-        print(f"  Error reading {fname}: {e}")
+        print(f"  Error reading {fname}: {type(e).__name__}: {e}")
 
 combined_df = pd.DataFrame(records)
 print(f"Total records parsed: {len(combined_df)}")
+
+if combined_df.empty:
+    raise RuntimeError(
+        f"No VCF records were parsed from '{os.path.abspath(VCF_DIR)}'. "
+        f"Check that simulate_data.py ran successfully and that files match "
+        f"VCF_FILENAME_PATTERN. Files found: {vcf_files[:5]}"
+    )
+
 combined_df.head()
 ```
 

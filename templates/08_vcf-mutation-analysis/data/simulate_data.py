@@ -75,9 +75,9 @@ def make_vcf_records(segment, vaf_str):
     vaf_floor = float(vaf_str.rstrip("%")) / 100.0
 
     # Number of variants varies by threshold (more at lower thresholds)
-    n_variants = {0.05: random.randint(8, 18),
-                  0.02: random.randint(12, 25),
-                  0.01: random.randint(18, 35)}[vaf_floor]
+    n_variants = {0.05: random.randint(3,  6),
+                  0.02: random.randint(5, 10),
+                  0.01: random.randint(8, 16)}[vaf_floor]
 
     records = []
     positions_used = set()

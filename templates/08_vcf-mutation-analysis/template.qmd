@@ -201,6 +201,8 @@ combined_df.loc[mask, "Allelic_Depth_Ref"] = (
 )
 
 os.makedirs("data", exist_ok=True)
+combined_df["VAF"] = combined_df["Allelic_Depth_Alt"] / combined_df["Total_Depth"]
+
 combined_df.to_csv("data/mutation_df.csv", index=False)
 print("Saved: data/mutation_df.csv")
 combined_df.describe()
@@ -232,7 +234,7 @@ for source in TISSUE_TYPES:
                 continue
             ax.bar(
                 t_df["Position"],
-                [1] * len(t_df),
+                t_df["VAF"],
                 width=bar_widths[seg],
                 color=VAF_COLORS[thresh],
                 alpha=VAF_ALPHA[thresh],
@@ -240,9 +242,9 @@ for source in TISSUE_TYPES:
             )
 
         ax.set_xlim(1, cfg["length"])
-        ax.set_ylim(0, 1.2)
+        ax.set_ylim(0, 0.55)
         ax.set_xlabel("Genomic position (nt)")
-        ax.set_ylabel("Variant present")
+        ax.set_ylabel("Variant allele frequency (VAF)")
         ax.set_title(f"{seg} segment — {source}")
         ax.axvspan(cfg["cds_start"], cfg["cds_end"], alpha=0.06, color="grey", label="CDS")
         ax.legend(loc="upper right", fontsize=8)

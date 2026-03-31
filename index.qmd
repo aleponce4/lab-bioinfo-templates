@@ -11,9 +11,11 @@ toc: false
 library(dplyr)
 ```
 
-**8 standardized templates** built from real lab analyses. Each ships with synthetic example
-data, preserves exact publication plot styles, and has a single `## ── USER CONFIGURATION ──`
-block at the top — change those variables, run everything else unchanged.
+::: {.site-intro}
+Working notebook templates used as starting points for common analyses. Each ships with
+synthetic example data and preserves the figure style from lab publications. Adapt by
+editing the `## -- USER CONFIGURATION --` block at the top; everything below runs unchanged.
+:::
 
 ---
 
@@ -25,7 +27,7 @@ Infection & Virology
 
 ::: {.template-card .card-virology}
 ::: {.card-body}
-#### 01 · Plaque Assay + Violin Plots
+#### 01 — Plaque Assay + Violin Plots
 [R]{.badge-r}
 
 Replicate QC (Limits of Agreement), one-way ANOVA, Tukey HSD, and violin plots for plaque assay titres.
@@ -36,7 +38,7 @@ Replicate QC (Limits of Agreement), one-way ANOVA, Tukey HSD, and violin plots f
 
 ::: {.template-card .card-virology}
 ::: {.card-body}
-#### 02 · Image Infection + Dose-Response
+#### 02 — Image Infection + Dose-Response
 [R]{.badge-r}
 
 CQ1-style gating, infection thresholding, EC50/CC50 estimation, and dose-response curves.
@@ -47,7 +49,7 @@ CQ1-style gating, infection thresholding, EC50/CC50 estimation, and dose-respons
 
 ::: {.template-card .card-virology}
 ::: {.card-body}
-#### 03 · Multi-Condition ANOVA
+#### 03 — Multi-Condition ANOVA
 [R]{.badge-r}
 
 Welch ANOVA with planned contrasts and Holm correction across conditions or cell types.
@@ -66,7 +68,7 @@ Immunology
 
 ::: {.template-card .card-immuno}
 ::: {.card-body}
-#### 04 · MagPix / Luminex Multiplex
+#### 04 — MagPix / Luminex Multiplex
 [R]{.badge-r}
 
 Two-way ANOVA, emmeans contrasts, FDR correction, and cytokine visualization panels.
@@ -85,7 +87,7 @@ Phylogenetics
 
 ::: {.template-card .card-phylo}
 ::: {.card-body}
-#### 05 · Phylo-Geographic Analysis
+#### 05 — Phylo-Geographic Analysis
 [R]{.badge-r}
 
 Isolation-by-distance testing, scatter pie maps, and Mantel correlograms for pathogen datasets.
@@ -104,7 +106,7 @@ Genomics & Transcriptomics
 
 ::: {.template-card .card-genomics}
 ::: {.card-body}
-#### 06 · GO Enrichment Analysis
+#### 06 — GO Enrichment Analysis
 [R]{.badge-r}
 
 GO and KEGG enrichment across comparisons with bubble plots and export tables.
@@ -115,7 +117,7 @@ GO and KEGG enrichment across comparisons with bubble plots and export tables.
 
 ::: {.template-card .card-genomics}
 ::: {.card-body}
-#### 07 · RNA-seq / DESeq2
+#### 07 — RNA-seq / DESeq2
 [R]{.badge-r}
 
 DESeq2 from counts or SummarizedExperiment — volcano, PCA, bubble plots, and heatmaps.
@@ -126,7 +128,7 @@ DESeq2 from counts or SummarizedExperiment — volcano, PCA, bubble plots, and h
 
 ::: {.template-card .card-genomics}
 ::: {.card-body}
-#### 08 · VCF Mutation Analysis
+#### 08 — VCF Mutation Analysis
 [Python]{.badge-python}
 
 Mutation-frequency summaries and Shannon entropy heatmaps from per-sample VCF files.
@@ -135,11 +137,27 @@ Mutation-frequency summaries and Shannon entropy heatmaps from per-sample VCF fi
 :::
 :::
 
+::: {.template-card .card-genomics}
+::: {.card-body}
+#### 09 — WGCNA Co-Expression Analysis
+[R]{.badge-r}
+
+Weighted gene co-expression network, soft-thresholding, module–trait heatmap,
+eigengene trajectories, hub gene ranking, and gprofiler2 enrichment per module.
+
+[Open Template →](templates/09_wgcna/template.html){.btn .btn-primary}
+:::
+:::
+
 :::
 
 ---
 
-## Template Catalog
+## Reference Index
+
+::: {.catalog-label}
+Searchable list of all templates — same content as the cards above.
+:::
 
 ```{r}
 #| label: gallery-table
@@ -147,7 +165,7 @@ Mutation-frequency summaries and Shannon entropy heatmaps from per-sample VCF fi
 library(DT)
 
 templates <- data.frame(
-  `#` = c("01", "02", "03", "04", "05", "06", "07", "08"),
+  `#` = c("01", "02", "03", "04", "05", "06", "07", "08", "09"),
   Template = c(
     "<a href='templates/01_plaque-assay-violin/template.html'>Plaque Assay + Violin Plots</a>",
     "<a href='templates/02_image-infection-dose-response/template.html'>Image Infection + Dose-Response</a>",
@@ -156,13 +174,15 @@ templates <- data.frame(
     "<a href='templates/05_phylo-geographic/template.html'>Phylo-Geographic Analysis</a>",
     "<a href='templates/06_go-enrichment/template.html'>GO Enrichment Analysis</a>",
     "<a href='templates/07_rnaseq-deseq2/template.html'>RNA-seq / DESeq2</a>",
-    "<a href='templates/08_vcf-mutation-analysis/template.html'>VCF Mutation Analysis</a>"
+    "<a href='templates/08_vcf-mutation-analysis/template.html'>VCF Mutation Analysis</a>",
+    "<a href='templates/09_wgcna/template.html'>WGCNA Co-Expression Analysis</a>"
   ),
   Category = c(
     "Infection & Virology", "Infection & Virology", "Infection & Virology",
-    "Immunology", "Phylogenetics", "Genomics", "Transcriptomics", "Genomics"
+    "Immunology", "Phylogenetics", "Genomics", "Transcriptomics", "Genomics",
+    "Transcriptomics"
   ),
-  Language = c("R", "R", "R", "R", "R", "R", "R", "Python"),
+  Language = c("R", "R", "R", "R", "R", "R", "R", "Python", "R"),
   `Key Statistics` = c(
     "One-way ANOVA, Tukey HSD",
     "4PL dose-response, EC50/CC50",
@@ -171,7 +191,8 @@ templates <- data.frame(
     "Mantel test, geographic distance",
     "clusterProfiler, GO/KEGG",
     "DESeq2, Wald test, FDR",
-    "Shannon entropy, Kruskal-Wallis"
+    "Shannon entropy, Kruskal-Wallis",
+    "Bicor, scale-free topology, module-trait r (FDR)"
   ),
   `Key Plots` = c(
     "Violin + jitter, log10 titer",
@@ -181,7 +202,8 @@ templates <- data.frame(
     "Scatter pie, Mantel correlogram, map",
     "Dot plot, bar, Venn",
     "Volcano, PCA, heatmap, bubble",
-    "Mutation freq bar, entropy heatmap"
+    "Mutation freq bar, entropy heatmap",
+    "Dendrogram, module-trait heatmap, eigengene trajectories, hub bubble"
   ),
   check.names = FALSE,
   stringsAsFactors = FALSE
@@ -201,14 +223,12 @@ datatable(
 
 ---
 
-## How to Use
+## Setup
 
-1. Click a card above to see the rendered analysis with example plots
-2. Download the `.Rmd` or `.ipynb` via the *</> Code* button (top-right of each page) or from GitHub
-3. Edit only the `## ── USER CONFIGURATION ──` block at the top of the file
-4. Run — everything below executes without modification
-
-**Install R packages once:**
 ```r
-source("install_packages.R")
+source("install_packages.R")   # R templates — run once
+```
+
+```bash
+conda env create -f environment.yml && conda activate jonsson-bioinfo   # template 08 only
 ```

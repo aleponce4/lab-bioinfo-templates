@@ -12,6 +12,7 @@ cran_pkgs <- c(
   "ggplot2", "ggpubr", "ggridges", "ggrepel", "ggbeeswarm", "ggh4x", "hexbin",
   "viridis", "RColorBrewer", "scales", "patchwork", "svglite", "ragg",
   "scatterpie", "ggspatial", "pheatmap",
+  "WGCNA", "gprofiler2", "igraph",
   # Statistics
   "car", "broom", "rstatix", "emmeans", "coin", "drc", "vegan",
   # Spatial / maps
@@ -47,7 +48,8 @@ bioc_pkgs <- c(
   "ggtree",              # transitive dep of enrichplot; explicit pin ensures ggplot2-compatible version
   "GOplot",
   "ggVennDiagram",
-  "ReactomePA"
+  "ReactomePA",
+  "BiocParallel"           # 09_wgcna (explicit dep of WGCNA)
 )
 
 bioc_to_install <- bioc_pkgs[!bioc_pkgs %in% installed.packages()[, "Package"]]

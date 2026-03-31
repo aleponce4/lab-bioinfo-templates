@@ -1,0 +1,29 @@
+---
+title: "09 · WGCNA Co-Expression Analysis"
+subtitle: "Weighted gene co-expression network, module–trait correlation, hub genes, and enrichment"
+description: |
+  DESeqDataSet input. Soft-thresholding power selection, blockwiseModules network construction,
+  module–trait correlation heatmap, eigengene trajectories, hub gene ranking (kME + kWithin + GS),
+  and gprofiler2 enrichment per module. Outputs TIFF/PDF figures and CSV tables.
+categories: [genomics, transcriptomics, WGCNA, co-expression, network]
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | `dds_wgcna_template.RData` — a saved `DESeqDataSet` already processed with `DESeq()` |
+| **Key packages** | `WGCNA`, `DESeq2`, `gprofiler2`, `igraph`, `ggplot2`, `patchwork` |
+| **Statistics** | Bicor correlation · scale-free topology fit · module–trait Pearson r (FDR) · hub score (kME + z.kWithin + GS.virus) |
+| **Output** | Dendrogram · module–trait heatmap · eigengene trajectories · correlation barplot · enrichment lollipop · hub gene bubble plot |
+| **Download** | [template.Rmd](template.Rmd) |
+
+Edit the `## ── USER CONFIGURATION` block at the top of `template.Rmd`. At minimum: set `DDS_FILE`
+to your saved `DESeqDataSet`, `VIRAL_GENE` to the key gene used as a trait (or `NULL` to skip),
+and `ORGANISM` to the gprofiler2 code for your species (`"mmusculus"` or `"hsapiens"`).
+
+[← Gallery](../../index.html){.btn .btn-outline-secondary}
+[Download .Rmd](template.Rmd){.btn .btn-primary}
+
+```{r child="template.Rmd"}
+```

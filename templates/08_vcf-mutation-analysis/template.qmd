@@ -1,12 +1,12 @@
 ---
 title: "08 · VCF Mutation Analysis"
-subtitle: "Mutation frequency, Shannon entropy heatmaps, and tissue-type comparisons from VCF files"
+subtitle: "Mutation frequency, Shannon entropy heatmaps, and tissue-type comparisons"
 description: |
-  Processes per-sample VCF files produced by a variant caller. Applies coverage filtering,
-  calculates Shannon entropy per genomic position, produces mutation frequency bar charts
-  and entropy heatmaps per tissue type, and runs Kruskal–Wallis tests to compare
-  mutation frequencies across tissue sources.
+  Per-sample VCF files from a variant caller. Coverage filtering, Shannon entropy per
+  position, mutation frequency bar charts and entropy heatmaps per tissue type,
+  Kruskal-Wallis comparison across tissue sources.
 categories: [genomics, virology, VCF, mutation, entropy]
+jupyter: python3
 ---
 
 ## Overview
@@ -15,50 +15,431 @@ categories: [genomics, virology, VCF, mutation, entropy]
 |------|---------|
 | **Input** | Directory of `.vcf` files: `aa_change_{ID}-{Source}_{Segment}_{Threshold}.vcf` |
 | **Key packages** | `vcfpy`, `pandas`, `scipy`, `seaborn`, `matplotlib`, `sklearn` |
-| **Statistics** | Shannon entropy (natural log) · Kruskal–Wallis non-parametric comparison |
+| **Statistics** | Shannon entropy (natural log) · Kruskal–Wallis |
 | **Output** | Mutation bar charts · entropy heatmaps (SVG) · frequency tables · KW results CSV |
 | **Download** | [template.ipynb](template.ipynb) |
 
-::: {.callout-tip}
-**When to use this template:** You have per-sample VCF files from a variant-calling
-pipeline and want to compare intrahost mutation diversity across tissue types or
-experimental groups. The VCF files must follow the naming convention:
-`aa_change_{SampleID}-{Source}_{Segment}_{Threshold}.vcf`
-:::
+Edit `SEGMENT_CONFIG` to match your pathogen's genome (total length, CDS boundaries, AA count). `TISSUE_TYPES` controls which sources are included in statistical comparisons.
 
-::: {.callout-note}
-**Segment configuration:** Edit `SEGMENT_CONFIG` in the USER CONFIGURATION cell to
-match your pathogen's genome (total length, CDS boundaries, amino acid count per segment).
-Tissue types to include in the analysis are controlled by `TISSUE_TYPES`; all others
-in the VCF filenames will be loaded but excluded from statistical comparisons.
-:::
-
-::: {.callout-warning}
-**Environment:** Run `conda env create -f environment.yml && conda activate jonsson-bioinfo`
-before rendering. The `vcfpy` package is only available via conda/pip.
-:::
-
-[Back to Gallery](../../index.html){.btn .btn-outline-secondary}
-[Open Notebook File](template.ipynb){.btn .btn-primary}
+[← Gallery](../../index.html){.btn .btn-outline-secondary}
+[Download .ipynb](template.ipynb){.btn .btn-primary}
 
 ---
 
-## Notebook Template
+## User Configuration
 
-This template is distributed as a Jupyter notebook rather than an embedded Quarto
-page. Download [template.ipynb](template.ipynb), activate the
-`jonsson-bioinfo` environment, and run the notebook directly in Jupyter Lab or
-VS Code.
+```{python}
+#| label: user-config
 
-```bash
-conda env create -f environment.yml
-conda activate jonsson-bioinfo
-jupyter lab template.ipynb
+# ── USER CONFIGURATION ────────────────────────────────────────────────────────
+
+# Directory containing VCF files (relative to this file)
+VCF_DIR = "data/aa_change_vcf"
+
+# VCF filename format (regex). Named groups: id, source, segment, threshold
+# Default: aa_change_{id}-{source}_{segment}_{threshold}.vcf
+VCF_FILENAME_PATTERN = r"aa_change_(?P<id>[^-]+)-(?P<source>[^_]+)_(?P<segment>[SM])_(?P<threshold>\d+pct)\.vcf"
+
+# Map threshold labels in filenames to display strings
+THRESHOLD_LABEL_MAP = {"5pct": "5%", "2pct": "2%", "1pct": "1%"}
+
+# Minimum read depth to retain a variant (coverage QC)
+DEPTH_THRESHOLD = 500
+
+# Tissue / source types to include in the analysis
+TISSUE_TYPES = ["Lung", "Saliva", "Urine"]
+
+# Segment geometry — edit to match your pathogen's genome
+SEGMENT_CONFIG = {
+    "S": {
+        "length": 1902,
+        "cds_start": 250,
+        "cds_end": 1329,
+        "aa_length": 360,
+    },
+    "M": {
+        "length": 3675,
+        "cds_start": 52,
+        "cds_end": 3461,
+        "aa_length": 1135,
+    },
+}
+
+# VAF thresholds to display in bar charts (ordered low → high)
+VAF_THRESHOLDS = ["1%", "2%", "5%"]
+
+# Colors and transparency for each VAF threshold in bar charts
+VAF_COLORS = {
+    "5%": "#3594cc",
+    "2%": "#ea801c",
+    "1%": "#a00000",
+}
+VAF_ALPHA = {"5%": 0.3, "2%": 0.6, "1%": 0.9}
+
+# Output directory for SVG plots (relative to this file)
+OUTPUT_DIR = "Plots"
+
+# ─────────────────────────────────────────────────────────────────────────────
 ```
 
-The notebook will generate:
+## Setup
 
-- mutation frequency plots
-- entropy heatmaps
-- Kruskal-Wallis summary tables
-- CSV exports in the `Plots/` directory
+```{python}
+#| label: setup
+
+import os
+import re
+import warnings
+
+import numpy as np
+import pandas as pd
+import vcfpy
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import entropy, kruskal
+
+warnings.filterwarnings("ignore")
+
+plt.rcParams.update({
+    'axes.titlesize': 12,
+    'axes.labelsize': 10,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'legend.fontsize': 10,
+})
+pd.set_option('display.width', 1000)
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+print(f"Output will be saved to: {os.path.abspath(OUTPUT_DIR)}")
+```
+
+## Load & Parse VCF Files
+
+```{python}
+#| label: load-vcf
+
+pattern = re.compile(VCF_FILENAME_PATTERN)
+
+records = []
+vcf_files = [f for f in os.listdir(VCF_DIR) if f.endswith(".vcf")]
+print(f"Found {len(vcf_files)} VCF files in {VCF_DIR}")
+
+for fname in vcf_files:
+    m = pattern.match(fname)
+    if not m:
+        print(f"  Skipping (name mismatch): {fname}")
+        continue
+
+    sample_id  = m.group("id")
+    source     = m.group("source")
+    segment    = m.group("segment")
+    thresh_raw = m.group("threshold")
+    threshold  = THRESHOLD_LABEL_MAP.get(thresh_raw, thresh_raw)
+
+    fpath = os.path.join(VCF_DIR, fname)
+    try:
+        reader = vcfpy.Reader.from_path(fpath)
+        for rec in reader:
+            if not rec.ALT:
+                continue
+            alt_allele = rec.ALT[0].value if rec.ALT else "."
+            aa_change  = rec.INFO.get("AA_CHANGE", "N/A")
+            if isinstance(aa_change, list):
+                aa_change = aa_change[0]
+
+            sample_call = (
+                rec.call_for_sample("SAMPLE")
+                if "SAMPLE" in [s.sample for s in rec.calls]
+                else rec.calls[0]
+            )
+            ad = sample_call.data.get("AD", [0, 0])
+            dp = sample_call.data.get("DP", 0)
+
+            records.append({
+                "Position":          rec.POS,
+                "Reference_Allele":  rec.REF,
+                "Alternate_Allele":  alt_allele,
+                "Quality":           rec.QUAL,
+                "Amino_Acid_Change": aa_change,
+                "Allelic_Depth_Ref": ad[0] if len(ad) > 0 else 0,
+                "Allelic_Depth_Alt": ad[1] if len(ad) > 1 else 0,
+                "Total_Depth":       dp,
+                "Source":            source,
+                "Segment":           segment,
+                "Variant_Threshold": threshold,
+                "ID":                sample_id,
+            })
+    except Exception as e:
+        print(f"  Error reading {fname}: {e}")
+
+combined_df = pd.DataFrame(records)
+print(f"Total records parsed: {len(combined_df)}")
+combined_df.head()
+```
+
+## Quality Control: Coverage Filtering
+
+```{python}
+#| label: qc-filter
+
+pre_filter = len(combined_df)
+combined_df = combined_df[combined_df["Total_Depth"] >= DEPTH_THRESHOLD].copy()
+print(f"Retained {len(combined_df)} / {pre_filter} records (depth ≥ {DEPTH_THRESHOLD}x)")
+
+# Fix Allelic_Depth_Ref when reported as 0
+mask = combined_df["Allelic_Depth_Ref"] == 0
+combined_df.loc[mask, "Allelic_Depth_Ref"] = (
+    combined_df.loc[mask, "Total_Depth"] - combined_df.loc[mask, "Allelic_Depth_Alt"]
+)
+
+os.makedirs("data", exist_ok=True)
+combined_df.to_csv("data/mutation_df.csv", index=False)
+print("Saved: data/mutation_df.csv")
+combined_df.describe()
+```
+
+## Mutation Distribution Bar Charts
+
+```{python}
+#| label: mutation-bars
+#| fig-width: 14
+#| fig-height: 3
+
+bar_widths = {"S": 9.0, "M": 14.0}
+
+for source in TISSUE_TYPES:
+    src_df = combined_df[combined_df["Source"] == source]
+    if src_df.empty:
+        continue
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 3), constrained_layout=True)
+
+    for ax, seg in zip(axes, ["S", "M"]):
+        cfg   = SEGMENT_CONFIG[seg]
+        seg_df = src_df[src_df["Segment"] == seg]
+
+        for thresh in VAF_THRESHOLDS:
+            t_df = seg_df[seg_df["Variant_Threshold"] == thresh]
+            if t_df.empty:
+                continue
+            ax.bar(
+                t_df["Position"],
+                [1] * len(t_df),
+                width=bar_widths[seg],
+                color=VAF_COLORS[thresh],
+                alpha=VAF_ALPHA[thresh],
+                label=thresh,
+            )
+
+        ax.set_xlim(1, cfg["length"])
+        ax.set_ylim(0, 1.2)
+        ax.set_xlabel("Genomic position (nt)")
+        ax.set_ylabel("Variant present")
+        ax.set_title(f"{seg} segment — {source}")
+        ax.axvspan(cfg["cds_start"], cfg["cds_end"], alpha=0.06, color="grey", label="CDS")
+        ax.legend(loc="upper right", fontsize=8)
+
+    fig.savefig(os.path.join(OUTPUT_DIR, f"mutation_map_{source}.svg"),
+                format="svg", bbox_inches="tight")
+    plt.show()
+    print(f"Saved: mutation_map_{source}.svg")
+```
+
+## Shannon Entropy
+
+```{python}
+#| label: entropy-calc
+
+combined_df["Freq_Ref"] = combined_df["Allelic_Depth_Ref"] / combined_df["Total_Depth"]
+combined_df["Freq_Alt"] = combined_df["Allelic_Depth_Alt"] / combined_df["Total_Depth"]
+
+def calculate_entropy(row):
+    freqs = np.nan_to_num([row["Freq_Ref"], row["Freq_Alt"]], nan=0.0)
+    return entropy(freqs, base=np.e)
+
+combined_df["Entropy"] = combined_df.apply(calculate_entropy, axis=1)
+print(f"Entropy range: {combined_df['Entropy'].min():.4f} – {combined_df['Entropy'].max():.4f}")
+combined_df[["Position", "Segment", "Source", "Variant_Threshold", "Entropy"]].head(10)
+```
+
+## Entropy Heatmaps
+
+```{python}
+#| label: entropy-heatmaps
+
+custom_cmap = sns.color_palette("Blues", as_cmap=True)
+
+for seg in SEGMENT_CONFIG:
+    seg_df = combined_df[
+        (combined_df["Segment"] == seg) &
+        (combined_df["Source"].isin(TISSUE_TYPES))
+    ]
+
+    pivot = (
+        seg_df
+        .groupby(["Source", "Position"])["Entropy"]
+        .mean()
+        .unstack(fill_value=0)
+    )
+
+    if pivot.empty:
+        print(f"No data for {seg} segment — skipping heatmap")
+        continue
+
+    g = sns.clustermap(
+        pivot,
+        cmap=custom_cmap,
+        row_cluster=True,
+        col_cluster=False,
+        figsize=(12, max(2, len(pivot) * 0.8 + 1)),
+        linewidths=0,
+        cbar_pos=(1.05, 0.2, 0.03, 0.6),
+        xticklabels=False,
+    )
+    g.ax_heatmap.set_xlabel("Genomic position (nt)")
+    g.ax_heatmap.set_ylabel("Tissue source")
+    g.fig.suptitle(f"{seg} segment — Shannon Entropy by Source", y=1.02, fontsize=12)
+
+    out_svg = os.path.join(OUTPUT_DIR, f"entropy_map_{seg}.svg")
+    g.fig.savefig(out_svg, format="svg", bbox_inches="tight")
+    plt.show()
+    print(f"Saved: {out_svg}")
+```
+
+## Mutation Frequency per Sample
+
+```{python}
+#| label: mutation-freq
+
+def filter_coding(df):
+    masks = []
+    for seg, cfg in SEGMENT_CONFIG.items():
+        m = (
+            (df["Segment"] == seg) &
+            (df["Position"].between(cfg["cds_start"], cfg["cds_end"]))
+        )
+        masks.append(m)
+    combined_mask = masks[0]
+    for mask in masks[1:]:
+        combined_mask = combined_mask | mask
+    return df[combined_mask]
+
+
+coding_df  = filter_coding(combined_df)
+analysis_df = coding_df[coding_df["Source"].isin(TISSUE_TYPES)].copy()
+
+freq_rows = []
+for (sample_id, source, seg, thresh), grp in analysis_df.groupby(
+    ["ID", "Source", "Segment", "Variant_Threshold"]
+):
+    cfg = SEGMENT_CONFIG[seg]
+    n_total  = len(grp)
+    n_nonsyn = (grp["Amino_Acid_Change"] != "N/A").sum()
+
+    freq_rows.append({
+        "ID":                   sample_id,
+        "Source":               source,
+        "Segment":              seg,
+        "Threshold":            thresh,
+        "Mutations_per_1000bp": (n_total / cfg["length"]) * 1000,
+        "Mutations_per_100aa":  (n_nonsyn / cfg["aa_length"]) * 100,
+    })
+
+freq_df = pd.DataFrame(freq_rows)
+print(freq_df.groupby(["Segment", "Threshold"])[
+    ["Mutations_per_1000bp", "Mutations_per_100aa"]
+].mean().round(2))
+freq_df.head()
+```
+
+## Mutation Frequency Violin Plots
+
+```{python}
+#| label: mutation-violin
+#| fig-width: 10
+#| fig-height: 4
+
+for seg in SEGMENT_CONFIG:
+    seg_freq = freq_df[freq_df["Segment"] == seg]
+    if seg_freq.empty:
+        continue
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
+    fig.suptitle(f"{seg} segment — Mutation Frequency by Source", fontsize=12)
+
+    metrics = [
+        ("Mutations_per_1000bp", "Mutations per 1,000 bp"),
+        ("Mutations_per_100aa",  "Non-syn. mutations per 100 aa"),
+    ]
+    for ax, (col, label) in zip(axes, metrics):
+        sns.violinplot(
+            data=seg_freq[seg_freq["Source"].isin(TISSUE_TYPES)],
+            x="Source", y=col, hue="Threshold",
+            palette=VAF_COLORS, order=TISSUE_TYPES,
+            inner="quartile", ax=ax,
+        )
+        ax.set_xlabel("Tissue type")
+        ax.set_ylabel(label)
+        ax.set_title(label)
+
+    fig.savefig(os.path.join(OUTPUT_DIR, f"mutation_freq_{seg}.svg"),
+                format="svg", bbox_inches="tight")
+    plt.show()
+```
+
+## Kruskal–Wallis Tests
+
+```{python}
+#| label: kruskal-wallis
+
+kruskal_rows = []
+
+metrics = [
+    ("Mutations_per_1000bp", "Nucleotide (per 1,000 bp)"),
+    ("Mutations_per_100aa",  "Amino acid (per 100 aa)"),
+]
+
+for thresh in VAF_THRESHOLDS:
+    t_df = freq_df[freq_df["Threshold"] == thresh]
+    for seg in SEGMENT_CONFIG:
+        s_df = t_df[t_df["Segment"] == seg]
+        for col, metric_label in metrics:
+            groups = [s_df[s_df["Source"] == src][col].dropna()
+                      for src in TISSUE_TYPES]
+            groups = [g for g in groups if len(g) >= 2]
+            if len(groups) < 2:
+                continue
+            stat, pval = kruskal(*groups)
+            kruskal_rows.append({
+                "Threshold":   thresh,
+                "Segment":     seg,
+                "Metric":      metric_label,
+                "Statistic":   round(stat, 4),
+                "p-value":     round(pval, 4),
+                "Significant": pval < 0.05,
+            })
+
+kruskal_df = pd.DataFrame(kruskal_rows)
+kruskal_df.to_csv(os.path.join(OUTPUT_DIR, "kruskal_results.csv"), index=False)
+print("Kruskal–Wallis results:")
+kruskal_df
+```
+
+## Summary Table
+
+```{python}
+#| label: summary-table
+
+summary = (
+    freq_df
+    .groupby(["Segment", "Threshold", "Source"])[
+        ["Mutations_per_1000bp", "Mutations_per_100aa"]
+    ]
+    .agg(["mean", "std"])
+    .round(3)
+)
+summary.columns = ["_".join(c) for c in summary.columns]
+summary.reset_index().to_csv(os.path.join(OUTPUT_DIR, "mutation_summary.csv"), index=False)
+print("Saved: mutation_summary.csv")
+summary
+```

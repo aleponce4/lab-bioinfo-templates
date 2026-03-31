@@ -97,13 +97,29 @@ jobs:
             done
           fi
 
-      # ── 5. Quarto setup ──────────────────────────────────────────────────────
+      # ── 5. Python packages (template 08 — vcf-mutation-analysis) ────────────
+      - name: Install Python packages
+        run: pip install vcfpy pandas scipy seaborn matplotlib scikit-learn
+
+      # ── 6. Synthetic Python data ─────────────────────────────────────────────
+      - name: Generate synthetic Python data
+        run: |
+          PAGE="${{ github.event.inputs.page }}"
+          if [[ -n "$PAGE" && "$PAGE" == *"08_vcf"* ]]; then
+            echo "▶ templates/08_vcf-mutation-analysis/data/simulate_data.py"
+            (cd templates/08_vcf-mutation-analysis && python data/simulate_data.py)
+          elif [[ -z "$PAGE" ]]; then
+            echo "▶ templates/08_vcf-mutation-analysis/data/simulate_data.py"
+            (cd templates/08_vcf-mutation-analysis && python data/simulate_data.py)
+          fi
+
+      # ── 7. Quarto setup ──────────────────────────────────────────────────────
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: "1.5.57"
 
-      # ── 6. Render site ───────────────────────────────────────────────────────
+      # ── 8. Render site ───────────────────────────────────────────────────────
       - name: Render Quarto site
         run: |
           PAGE="${{ github.event.inputs.page }}"
@@ -113,7 +129,7 @@ jobs:
             bash scripts/ci-preflight.sh --render-only --keep-going
           fi
 
-      # ── 7. Deploy to GitHub Pages ─────────────────────────────────────────────
+      # ── 9. Deploy to GitHub Pages ─────────────────────────────────────────────
       - name: Deploy to GitHub Pages
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.page == '')
         uses: peaceiris/actions-gh-pages@v4

@@ -19,6 +19,7 @@ PAGES=(
   "templates/06_go-enrichment/template.qmd"
   "templates/07_rnaseq-deseq2/template.qmd"
   "templates/08_vcf-mutation-analysis/template.qmd"
+  "templates/09_wgcna/template.qmd"
 )
 
 EXPECTED_OUTPUTS=(
@@ -31,6 +32,7 @@ EXPECTED_OUTPUTS=(
   "docs/templates/06_go-enrichment/template.html"
   "docs/templates/07_rnaseq-deseq2/template.html"
   "docs/templates/08_vcf-mutation-analysis/template.html"
+  "docs/templates/09_wgcna/template.html"
 )
 
 usage() {

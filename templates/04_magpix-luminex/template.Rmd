@@ -1,0 +1,524 @@
+---
+title: "MagPix / Luminex Multiplex Cytokine Analysis"
+author: "Jonsson Laboratory"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# DATA_FILE: Path to your MagPix/Luminex export CSV.
+#   Required columns (in addition to analyte columns):
+#   - "Location"     : well identifier (e.g., "A1")
+#   - "Sample"       : sample name — used to derive Factor1 and Factor2
+#   - "Original_ID"  : original sample ID (can be same as Sample)
+#   - "Total Events" : bead event count (for QC)
+#
+DATA_FILE <- "data/luminex_data.csv"
+
+# NON_ANALYTE_COLS: Columns that are NOT cytokine measurements.
+#   All other columns will be treated as analytes.
+NON_ANALYTE_COLS <- c("Location", "Sample", "Original_ID", "Total Events")
+
+# FACTOR1_PATTERN / FACTOR2_PATTERN: Regex patterns matched against the
+#   Sample column to assign Factor1 and Factor2.
+#   The default detects "<name>" at start-of-string for Factor1,
+#   and "<name>" anywhere for Factor2.
+#
+#   Example: Sample = "Disease_Drug_1"
+#     FACTOR1_LEVELS[2] = "Disease" → if str_detect(Sample, "Disease") → "Disease"
+#     FACTOR2_LEVELS[2] = "Drug"    → if str_detect(Sample, "Drug")    → "Drug"
+#
+FACTOR1_LEVELS <- c("PBS", "Disease")     # [1] = reference / control level
+FACTOR2_LEVELS <- c("Vehicle", "Drug")    # [1] = reference / control level
+
+# BASELINE_GROUP: The reference group label for emmeans contrasts.
+#   Format: "<FACTOR1_ref>+<FACTOR2_ref>"
+BASELINE_GROUP <- paste0(FACTOR1_LEVELS[1], "+", FACTOR2_LEVELS[1])
+
+# OKABE_ITO: Colorblind-safe 4-color palette for the four 2×2 groups.
+#   Names follow the "<Factor1>+<Factor2>" convention.
+OKABE_ITO <- c(
+  "PBS+Vehicle"      = "#0072B2",   # Blue
+  "PBS+Drug"         = "#E69F00",   # Orange
+  "Disease+Vehicle"  = "#009E73",   # Bluish green
+  "Disease+Drug"     = "#D55E00"    # Vermilion
+)
+
+# CONTRAST_ORDER / CONTRAST_LABELS: Define which emmeans contrasts appear in
+#   the heatmap (order matters for the y-axis) and their display labels.
+#   Adjust if your Factor levels produce different contrast names.
+CONTRAST_ORDER <- c(
+  paste0(FACTOR2_LEVELS[2], " - ", FACTOR2_LEVELS[1], ", ", FACTOR1_LEVELS[1]),
+  paste0(FACTOR2_LEVELS[2], " - ", FACTOR2_LEVELS[1], ", ", FACTOR1_LEVELS[2]),
+  paste0(FACTOR1_LEVELS[2], " - ", FACTOR1_LEVELS[1], ", ", FACTOR2_LEVELS[1]),
+  paste0(FACTOR1_LEVELS[2], " - ", FACTOR1_LEVELS[1], ", ", FACTOR2_LEVELS[2])
+)
+CONTRAST_LABELS <- c(
+  paste0("Drug (", FACTOR1_LEVELS[1], ")"),
+  paste0("Drug (", FACTOR1_LEVELS[2], ")"),
+  paste0(FACTOR1_LEVELS[2], " (", FACTOR2_LEVELS[1], ")"),
+  paste0(FACTOR1_LEVELS[2], " (", FACTOR2_LEVELS[2], ")")
+)
+
+# OUTPUT_DIR: Folder where per-analyte plots are saved.
+OUTPUT_DIR <- "Plots"
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# MagPix / Luminex Best Practices
+
+- **Bead counts:** ≥35 per analyte (≥50 ideal). Re-export with bead counts if missing.
+- **Censoring ("< LoD"):** Do not treat as zero. Replace with **LoD/√2** for substitution.
+- **QC/outliers:** Flag wells using **Tukey 3×IQR** on the log10 scale.
+- **Design:** 2×2 factorial — model on **log10(concentration)**, test main effects and interaction.
+- **Multiple analytes:** Correct FDR across analytes (BH). Report fold-changes as 10^β.
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(stringr)
+library(broom)
+library(emmeans)
+library(ggpubr)
+library(ggbeeswarm)
+library(scales)
+library(forcats)
+```
+
+```{r make-output-dirs, include=FALSE}
+for (sub in c("Heatmaps", "Beeswarm", "Barplots", "Violin", "Boxplot")) {
+  dir.create(file.path(OUTPUT_DIR, sub), recursive = TRUE, showWarnings = FALSE)
+}
+```
+
+# Load Data
+
+```{r load-data, message=FALSE}
+raw <- read_csv(DATA_FILE, show_col_types = FALSE)
+
+analyte_cols <- setdiff(names(raw), NON_ANALYTE_COLS)
+raw <- raw %>% mutate(across(all_of(analyte_cols), as.character))
+
+dat_long <- raw %>%
+  pivot_longer(all_of(analyte_cols), names_to = "Analyte", values_to = "raw_value") %>%
+  mutate(
+    censored    = str_detect(raw_value, "^\\s*<"),
+    above_ul    = str_detect(raw_value, "^\\s*>"),
+    lod         = if_else(censored, parse_number(raw_value), NA_real_),
+    value       = if_else(censored, lod / sqrt(2), parse_number(raw_value)),
+    log10_value = log10(value),
+    Factor1     = if_else(str_detect(Sample, FACTOR1_LEVELS[2]),
+                          FACTOR1_LEVELS[2], FACTOR1_LEVELS[1]),
+    Factor2     = if_else(str_detect(Sample, FACTOR2_LEVELS[2]),
+                          FACTOR2_LEVELS[2], FACTOR2_LEVELS[1]),
+    Factor1     = factor(Factor1, levels = FACTOR1_LEVELS),
+    Factor2     = factor(Factor2, levels = FACTOR2_LEVELS),
+    Group       = factor(
+      paste0(Factor1, "+", Factor2),
+      levels = paste0(
+        rep(FACTOR1_LEVELS, each = 2),
+        "+",
+        rep(FACTOR2_LEVELS, times = 2)
+      )
+    )
+  )
+
+dat_long
+```
+
+# QC
+
+## Censoring Rate per Analyte
+
+```{r qc-censoring}
+qc_censor <- dat_long %>%
+  group_by(Analyte) %>%
+  summarise(
+    n        = n(),
+    cens_n   = sum(censored),
+    cens_pct = 100 * cens_n / n,
+    .groups  = "drop"
+  ) %>%
+  arrange(desc(cens_pct))
+
+print(qc_censor, n = Inf)
+```
+
+> **Guidance:** Analytes with >50% censoring warrant Tobit regression as a sensitivity
+> check. The standard substitution (LoD/√2) used here is appropriate for <30% censoring.
+
+## Outliers (Tukey 3×IQR on log10 scale)
+
+```{r qc-outliers}
+fences <- dat_long %>%
+  group_by(Analyte) %>%
+  summarise(
+    q1    = quantile(log10_value, 0.25, na.rm = TRUE),
+    q3    = quantile(log10_value, 0.75, na.rm = TRUE),
+    iqr   = IQR(log10_value, na.rm = TRUE),
+    lower = q1 - 3 * iqr,
+    upper = q3 + 3 * iqr,
+    .groups = "drop"
+  )
+
+dat_long <- dat_long %>%
+  left_join(fences, by = "Analyte") %>%
+  mutate(
+    Outlier = if_else(
+      !is.na(log10_value) & (log10_value < lower | log10_value > upper),
+      "Yes", "No"
+    )
+  ) %>%
+  select(-q1, -q3, -iqr, -lower, -upper)
+
+dat_long %>%
+  filter(Outlier == "Yes") %>%
+  select(Location, Sample, Factor1, Factor2, Analyte, raw_value, log10_value) %>%
+  count(Analyte, name = "outlier_n") %>%
+  arrange(desc(outlier_n)) %>%
+  print(n = Inf)
+```
+
+# Two-Way ANOVA (per Analyte)
+
+```{r anova}
+effect_map <- c(
+  "(Intercept)" = "Intercept",
+  setNames(
+    paste0(FACTOR1_LEVELS[2], " vs ", FACTOR1_LEVELS[1]),
+    paste0("Factor1", FACTOR1_LEVELS[2])
+  ),
+  setNames(
+    paste0(FACTOR2_LEVELS[2], " vs ", FACTOR2_LEVELS[1]),
+    paste0("Factor2", FACTOR2_LEVELS[2])
+  ),
+  setNames(
+    "Interaction",
+    paste0("Factor1", FACTOR1_LEVELS[2], ":Factor2", FACTOR2_LEVELS[2])
+  )
+)
+
+res_lm <- dat_long %>%
+  group_by(Analyte) %>%
+  group_modify(~ {
+    m <- lm(log10_value ~ Factor1 * Factor2, data = .x)
+    broom::tidy(m)
+  }) %>%
+  ungroup() %>%
+  mutate(
+    effect      = coalesce(unname(effect_map[term]), term),
+    adj.p       = p.adjust(p.value, method = "BH"),
+    fold_change = if_else(effect == "Intercept", NA_real_, 10^estimate)
+  ) %>%
+  arrange(Analyte, effect)
+
+print(res_lm, n = Inf)
+readr::write_csv(res_lm, file.path(OUTPUT_DIR, "model_LM_results.csv"))
+```
+
+# Post-Hoc Contrasts (emmeans)
+
+```{r emmeans}
+group_levels <- levels(dat_long$Group)
+
+emm_contrasts <- dat_long %>%
+  group_by(Analyte) %>%
+  group_modify(~ {
+    m   <- lm(log10_value ~ Factor1 * Factor2, data = .x)
+    emm <- emmeans(m, ~ Factor1 * Factor2)
+
+    drug_effects    <- contrast(emm, method = "revpairwise", by = "Factor1", infer = TRUE)
+    disease_effects <- contrast(emm, method = "revpairwise", by = "Factor2", infer = TRUE)
+    interaction_eff <- contrast(emm, interaction = c("revpairwise", "revpairwise"), infer = TRUE)
+
+    s <- bind_rows(
+      as.data.frame(drug_effects),
+      as.data.frame(disease_effects),
+      as.data.frame(interaction_eff)
+    )
+    s_tidy <- s %>%
+      mutate(
+        unique_contrast = case_when(
+          !is.na(Factor1) ~ paste(contrast, Factor1, sep = ", "),
+          !is.na(Factor2) ~ paste(contrast, Factor2, sep = ", "),
+          TRUE            ~ contrast
+        )
+      )
+
+    tibble(
+      contrast       = s_tidy$unique_contrast,
+      estimate_log10 = s_tidy$estimate,
+      SE             = s_tidy$SE,
+      df             = s_tidy$df,
+      t              = s_tidy$t.ratio,
+      p              = s_tidy$p.value,
+      fold_change    = 10^s_tidy$estimate,
+      lower_FC       = 10^s_tidy$lower.CL,
+      upper_FC       = 10^s_tidy$upper.CL
+    )
+  }) %>%
+  ungroup() %>%
+  mutate(p_adj = p.adjust(p, method = "BH")) %>%
+  arrange(contrast, p_adj)
+
+print(emm_contrasts, n = Inf)
+readr::write_csv(emm_contrasts, file.path(OUTPUT_DIR, "emmeans_contrasts_foldchanges.csv"))
+```
+
+# Visualization
+
+## Effect Size Heatmap
+
+```{r heatmap, fig.width=6, fig.height=4}
+heatmap_data <- emm_contrasts %>%
+  filter(!is.na(contrast)) %>%
+  mutate(
+    log2_FC      = log2(fold_change),
+    log2_FC_plot = if_else(p_adj < 0.05, log2_FC, 0),
+    Analyte      = factor(Analyte, levels = sort(unique(Analyte))),
+    contrast_disp = factor(contrast,
+                           levels = CONTRAST_ORDER,
+                           labels = CONTRAST_LABELS)
+  ) %>%
+  filter(!is.na(contrast_disp))
+
+lim <- max(abs(heatmap_data$log2_FC_plot), na.rm = TRUE)
+lim <- max(lim, 1)
+
+p_heat <- ggplot(heatmap_data,
+                 aes(x = contrast_disp, y = Analyte, fill = log2_FC_plot)) +
+  geom_tile(color = "grey85", linewidth = 0.2) +
+  scale_fill_gradient2(
+    low      = "#3B4CC0",
+    mid      = "white",
+    high     = "#D55E00",
+    midpoint = 0,
+    limits   = c(-lim, lim),
+    breaks   = pretty_breaks(n = 5),
+    labels   = label_number(accuracy = 0.1)
+  ) +
+  scale_y_discrete(expand = expansion(mult = c(0.01, 0.05))) +
+  labs(
+    x       = NULL,
+    y       = NULL,
+    fill    = "Log\u2082 Fold Change",
+    title   = "Analyte-wise Effects of Treatments",
+    caption = "Non-significant tiles masked to 0 (FDR < 0.05)"
+  ) +
+  theme_bw(base_size = 13, base_family = "sans") +
+  theme(
+    legend.position  = "right",
+    legend.direction = "vertical",
+    legend.title     = element_text(size = 11),
+    legend.key.width = unit(12, "pt"),
+    axis.text.x      = element_text(angle = 30, hjust = 1, face = "bold"),
+    axis.text.y      = element_text(size = 11, lineheight = 1.3, face = "bold"),
+    axis.ticks       = element_blank(),
+    axis.line        = element_blank(),
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 6)),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+ggsave(file.path(OUTPUT_DIR, "Heatmaps", "heatmap.tiff"),
+       plot = p_heat, width = 6, height = 4, dpi = 600,
+       device = "tiff", compression = "lzw")
+print(p_heat)
+```
+
+## Per-Analyte Dot / Bar / Violin / Box Plots
+
+```{r plot-helpers, message=FALSE, warning=FALSE}
+# ── Shared helper: compute emmeans contrasts for one analyte ──────────────────
+get_pval_df <- function(pdat) {
+  m   <- lm(log10_value ~ Group, data = pdat)
+  emm <- emmeans(m, ~ Group)
+  ctr <- contrast(emm, method = "trt.vs.ctrl", ref = BASELINE_GROUP, adjust = "BH")
+  ctr_ci <- confint(ctr, adjust = "BH") %>% as.data.frame()
+
+  other_groups <- setdiff(levels(pdat$Group), BASELINE_GROUP)
+
+  ctr_df <- as.data.frame(ctr) %>%
+    select(contrast, estimate, p.value) %>%
+    left_join(ctr_ci %>% select(contrast, lower.CL, upper.CL), by = "contrast") %>%
+    mutate(
+      group2 = other_groups,
+      FC     = 10^estimate, LCL = 10^lower.CL, UCL = 10^upper.CL,
+      q      = p.value,
+      label  = case_when(q <= 0.001 ~ "***", q <= 0.01 ~ "**",
+                         q <= 0.05 ~ "*", TRUE ~ "ns")
+    )
+
+  ymax   <- max(pdat$log10_value, na.rm = TRUE)
+  spread <- max(0.1, diff(range(pdat$log10_value, na.rm = TRUE)))
+  step   <- seq_along(other_groups) * 0.1 - 0.04
+
+  pvdf <- ctr_df %>%
+    transmute(
+      group1     = BASELINE_GROUP,
+      group2     = group2,
+      label      = label,
+      y.position = ymax + spread * step
+    )
+
+  caption_text <- ctr_df %>%
+    transmute(line = sprintf("%s vs %s: FC=%.2f q=%.3g",
+                             group2, BASELINE_GROUP, FC, q)) %>%
+    pull(line) %>% paste(collapse = "\n")
+
+  list(pvdf = pvdf, caption = caption_text)
+}
+
+# ── Theme shared by all analyte plots ─────────────────────────────────────────
+plot_theme <- function() {
+    theme_bw(base_size = 14, base_family = "sans") +
+    theme(
+      legend.position = "none",
+      axis.line       = element_line(linewidth = 0.6),
+      axis.ticks      = element_line(linewidth = 0.6),
+      plot.caption    = element_text(size = 9, margin = margin(t = 8)),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+}
+```
+
+```{r dot-plots, message=FALSE, warning=FALSE}
+# ── Dot plots ─────────────────────────────────────────────────────────────────
+make_dotplot <- function(an) {
+  pdat <- dat_long %>%
+    filter(Analyte == an, !is.na(log10_value)) %>%
+    mutate(Group = factor(Group, levels = names(OKABE_ITO)))
+  if (nrow(pdat) == 0) return(invisible(NULL))
+  stats <- get_pval_df(pdat)
+
+  p <- ggplot(pdat, aes(x = Group, y = log10_value, color = Group)) +
+    geom_quasirandom(width = 0.15, alpha = 0.8, size = 2) +
+    stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.18, size = 0.4) +
+    stat_pvalue_manual(stats$pvdf, label = "label", y.position = "y.position",
+                       xmin = "group1", xmax = "group2",
+                       tip.length = 0.01, bracket.size = 0.5) +
+    scale_color_manual(values = OKABE_ITO) +
+    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
+    labs(title = an, y = "log\u2081\u2080 concentration (pg/mL)",
+         x = NULL, caption = stats$caption) +
+    plot_theme()
+
+  ggsave(file.path(OUTPUT_DIR, "Beeswarm", paste0(an, ".tiff")),
+         plot = p, width = 6, height = 4, dpi = 600,
+         device = "tiff", compression = "lzw")
+  print(p)
+  invisible(p)
+}
+
+invisible(lapply(unique(dat_long$Analyte), make_dotplot))
+```
+
+```{r bar-plots, message=FALSE, warning=FALSE}
+# ── Bar plots ─────────────────────────────────────────────────────────────────
+make_barplot <- function(an) {
+  pdat <- dat_long %>%
+    filter(Analyte == an, !is.na(log10_value)) %>%
+    mutate(Group = factor(Group, levels = names(OKABE_ITO)))
+  if (nrow(pdat) == 0) return(invisible(NULL))
+  stats <- get_pval_df(pdat)
+
+  p <- ggplot(pdat, aes(x = Group, y = log10_value)) +
+    stat_summary(aes(fill = Group), fun = mean, geom = "col",
+                 width = 0.6, alpha = 0.45, color = NA) +
+    geom_quasirandom(aes(color = Group), width = 0.15, size = 2, alpha = 0.9) +
+    stat_summary(fun.data = mean_cl_normal, geom = "errorbar",
+                 width = 0.18, linewidth = 0.5) +
+    stat_pvalue_manual(stats$pvdf, label = "label", y.position = "y.position",
+                       xmin = "group1", xmax = "group2",
+                       tip.length = 0.01, bracket.size = 0.5) +
+    scale_fill_manual(values = OKABE_ITO) +
+    scale_color_manual(values = OKABE_ITO) +
+    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
+    labs(title = an, y = "log\u2081\u2080 concentration (pg/mL)",
+         x = NULL, caption = stats$caption) +
+    plot_theme()
+
+  ggsave(file.path(OUTPUT_DIR, "Barplots", paste0(an, ".tiff")),
+         plot = p, width = 6, height = 4, dpi = 600,
+         device = "tiff", compression = "lzw")
+  print(p)
+  invisible(p)
+}
+
+invisible(lapply(unique(dat_long$Analyte), make_barplot))
+```
+
+```{r violin-plots, message=FALSE, warning=FALSE}
+# ── Violin plots ──────────────────────────────────────────────────────────────
+make_violinplot <- function(an) {
+  pdat <- dat_long %>%
+    filter(Analyte == an, !is.na(log10_value)) %>%
+    mutate(Group = factor(Group, levels = names(OKABE_ITO)))
+  if (nrow(pdat) == 0) return(invisible(NULL))
+  stats <- get_pval_df(pdat)
+
+  p <- ggplot(pdat, aes(x = Group, y = log10_value)) +
+    geom_violin(aes(fill = Group, color = Group),
+                width = 0.8, alpha = 0.15, trim = FALSE, linewidth = 0.6) +
+    geom_quasirandom(aes(color = Group), width = 0.15, size = 2, alpha = 0.9) +
+    stat_pvalue_manual(stats$pvdf, label = "label", y.position = "y.position",
+                       xmin = "group1", xmax = "group2",
+                       tip.length = 0.01, bracket.size = 0.5) +
+    scale_fill_manual(values = OKABE_ITO) +
+    scale_color_manual(values = OKABE_ITO) +
+    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
+    labs(title = an, y = "log\u2081\u2080 concentration (pg/mL)",
+         x = NULL, caption = stats$caption) +
+    plot_theme()
+
+  ggsave(file.path(OUTPUT_DIR, "Violin", paste0(an, ".tiff")),
+         plot = p, width = 6, height = 4, dpi = 600,
+         device = "tiff", compression = "lzw")
+  print(p)
+  invisible(p)
+}
+
+invisible(lapply(unique(dat_long$Analyte), make_violinplot))
+```
+
+```{r box-plots, message=FALSE, warning=FALSE}
+# ── Box plots ─────────────────────────────────────────────────────────────────
+make_boxplot <- function(an) {
+  pdat <- dat_long %>%
+    filter(Analyte == an, !is.na(log10_value)) %>%
+    mutate(Group = factor(Group, levels = names(OKABE_ITO)))
+  if (nrow(pdat) == 0) return(invisible(NULL))
+  stats <- get_pval_df(pdat)
+
+  p <- ggplot(pdat, aes(x = Group, y = log10_value)) +
+    geom_boxplot(aes(fill = Group, color = Group),
+                 width = 0.6, alpha = 0.15, outlier.shape = NA, linewidth = 0.6) +
+    geom_quasirandom(aes(color = Group), width = 0.15, size = 2, alpha = 0.9) +
+    stat_pvalue_manual(stats$pvdf, label = "label", y.position = "y.position",
+                       xmin = "group1", xmax = "group2",
+                       tip.length = 0.01, bracket.size = 0.5) +
+    scale_fill_manual(values = OKABE_ITO) +
+    scale_color_manual(values = OKABE_ITO) +
+    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
+    labs(title = an, y = "log\u2081\u2080 concentration (pg/mL)",
+         x = NULL, caption = stats$caption) +
+    plot_theme()
+
+  ggsave(file.path(OUTPUT_DIR, "Boxplot", paste0(an, ".tiff")),
+         plot = p, width = 6, height = 4, dpi = 600,
+         device = "tiff", compression = "lzw")
+  print(p)
+  invisible(p)
+}
+
+invisible(lapply(unique(dat_long$Analyte), make_boxplot))
+```

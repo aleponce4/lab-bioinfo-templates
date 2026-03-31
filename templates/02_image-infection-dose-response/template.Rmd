@@ -1,0 +1,679 @@
+---
+title: "Image-Based Infection + Dose-Response Analysis"
+author: "Jonsson Laboratory"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# Input files (CQ1 per-cell CSV exports, one per channel):
+NUCLEUS_FILE <- "data/nucleus.csv"   # DAPI / nuclear channel
+VIRUS_FILE   <- "data/virus.csv"     # Virus / reporter channel
+
+# Column name in NUCLEUS_FILE for nuclear area
+NUCLEUS_AREA_COL      <- "(nucleus) Area"
+# Column name in NUCLEUS_FILE for DAPI mean intensity
+NUCLEUS_DAPI_COL      <- "(nucleus) MeanIntensity CH1"
+# Column name in VIRUS_FILE for virus-channel mean intensity
+VIRUS_INTENSITY_COL   <- "(Virus) MeanIntensity CH2"
+
+# Study labels
+VIRUS_NAME    <- "Virus"       # e.g., "CHIKV", "SARS-CoV-2"
+COMPOUND_NAME <- "Compound"    # e.g., "BDGR-651", "Drug X"
+DOSE_UNIT     <- "\u00b5M"     # display unit for concentration axis
+
+# ── Cell gating thresholds ────────────────────────────────────────────────────
+AREA_MIN      <- 60     # minimum nuclear area (pixels²) — exclude debris
+AREA_MAX      <- 300    # maximum nuclear area (pixels²) — exclude doublets/clumps
+INTENSITY_MIN <- 1000   # minimum DAPI intensity — exclude dim / dead cells
+
+# Infection threshold is automatically calculated from the NEGATIVE_CTRL well(s)
+# (99.9th percentile of virus_intensity). Set INFECTION_QUANTILE to adjust.
+INFECTION_QUANTILE <- 0.999
+
+# ── Plate map ─────────────────────────────────────────────────────────────────
+# Edit this tribble to match your actual well layout.
+# Treatment options:
+#   "Mock"             — uninfected, no drug (absolute negative control)
+#   "Mock+Ab"          — uninfected + neutralizing Ab (gate reference; rename as needed)
+#   "Virus Only"       — infected, no drug (positive control for infection)
+#   "Toxicity Control" — drug only, no virus (for CC50)
+#   "Virus + Compound" — infected + drug (experimental)
+#
+# Leave Concentration_uM = NA for wells with no compound.
+# Drop/add rows to match your plate design.
+#
+PLATE_MAP <- tibble::tribble(
+  ~WellName,  ~Treatment,          ~Concentration_uM,
+  # ── Negative controls ──────────────────────────────
+  "C3",  "Mock",             NA,
+  "C4",  "Mock",             NA,
+  "C5",  "Mock",             NA,
+  "C6",  "Mock",             NA,
+  "C11", "Mock+Ab",          NA,
+  # ── Positive controls (virus only) ─────────────────
+  "C7",  "Virus Only",        0,
+  "C8",  "Virus Only",        0,
+  # ── Toxicity controls (compound, no virus) ──────────
+  "D3",  "Toxicity Control",  20,
+  "D4",  "Toxicity Control",  16,
+  "D5",  "Toxicity Control",  12,
+  "D6",  "Toxicity Control",   8,
+  "D7",  "Toxicity Control",   4,
+  "D8",  "Toxicity Control",   1,
+  # ── Experimental (virus + compound) ─────────────────
+  "E3",  "Virus + Compound",  20,
+  "E4",  "Virus + Compound",  16,
+  "E5",  "Virus + Compound",  12,
+  "E6",  "Virus + Compound",   8,
+  "E7",  "Virus + Compound",   4,
+  "F3",  "Virus + Compound",  20,
+  "F4",  "Virus + Compound",  16,
+  "F5",  "Virus + Compound",  12,
+  "F6",  "Virus + Compound",   8,
+  "F7",  "Virus + Compound",   4
+)
+
+# DOSES_TO_EXCLUDE: Remove specific concentrations from the dose-response fit.
+#   Set to integer(0) to include all doses.
+DOSES_TO_EXCLUDE <- integer(0)   # e.g., c(1, 2)
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(knitr)
+library(scales)
+library(ggridges)
+library(ggpubr)
+library(RColorBrewer)
+library(drc)
+library(gtools)
+library(grid)
+library(ragg)
+```
+
+```{r global-theme}
+base_family <- "sans"
+
+theme_set(
+  theme_bw(base_size = 8, base_family = base_family) +
+    theme(
+      plot.title   = element_text(face = "bold", size = 10, margin = margin(b = 4)),
+      axis.title   = element_text(face = "bold", size = 9),
+      axis.text    = element_text(size = 8),
+      legend.title = element_text(size = 8),
+      legend.text  = element_text(size = 8),
+      axis.line    = element_line(linewidth = 0.6),
+      axis.ticks   = element_line(linewidth = 0.6),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+)
+
+update_geom_defaults("text",     list(size = 8 / ggplot2::.pt))
+update_geom_defaults("label",    list(size = 8 / ggplot2::.pt))
+update_geom_defaults("point",    list(size = 1.8))
+update_geom_defaults("errorbar", list(linewidth = 0.5))
+update_geom_defaults("line",     list(linewidth = 0.9))
+
+dir.create("Plots", showWarnings = FALSE)
+```
+
+# Load & Annotate Data
+
+```{r load-data, message=FALSE}
+process_plate_files <- function(nucleus_file, virus_file) {
+  df_nuclei <- read_csv(nucleus_file, show_col_types = FALSE)
+  df_virus  <- read_csv(virus_file,   show_col_types = FALSE)
+
+  nuclei_clean <- df_nuclei %>%
+    dplyr::select(
+      WellName, FieldIndex, ObjectNumber,
+      dapi_intensity = all_of(NUCLEUS_DAPI_COL),
+      Area           = all_of(NUCLEUS_AREA_COL)
+    )
+
+  virus_clean <- df_virus %>%
+    dplyr::select(
+      WellName, FieldIndex, ObjectNumber,
+      virus_intensity = all_of(VIRUS_INTENSITY_COL)
+    )
+
+  nuclei_clean %>%
+    dplyr::left_join(virus_clean, by = c("WellName", "FieldIndex", "ObjectNumber"))
+}
+
+master_df <- process_plate_files(NUCLEUS_FILE, VIRUS_FILE)
+
+# Standardize and annotate wells
+master_df_annotated <- master_df %>%
+  dplyr::mutate(
+    WellName_std = str_replace(
+      str_to_upper(WellName),
+      "^([A-H])-?0*([1-9][0-9]?).*$",
+      "\\1\\2"
+    )
+  ) %>%
+  dplyr::left_join(PLATE_MAP, by = c("WellName_std" = "WellName")) %>%
+  dplyr::filter(!is.na(Treatment)) %>%
+  dplyr::select(-WellName_std) %>%
+  { if (length(DOSES_TO_EXCLUDE) > 0)
+      dplyr::filter(., !Concentration_uM %in% DOSES_TO_EXCLUDE)
+    else . }
+
+print(count(master_df_annotated, Treatment))
+```
+
+# Mean Virus Intensity per Well
+
+```{r bar-mean-intensity}
+dose_labels <- master_df_annotated %>%
+  filter(Treatment %in% c("Mock", "Virus Only", "Virus + Compound")) %>%
+  mutate(Condition = case_when(
+    Treatment == "Mock"            ~ "Mock",
+    Treatment == "Virus Only"      ~ "Virus Only",
+    Treatment == "Virus + Compound"~ paste(COMPOUND_NAME, Concentration_uM, DOSE_UNIT)
+  ))
+
+bar_levels <- unique(dose_labels$Condition[dose_labels$Treatment == "Virus + Compound"])
+bar_levels <- c("Mock", "Virus Only", mixedsort(bar_levels, decreasing = TRUE))
+
+plot_bars <- dose_labels %>%
+  group_by(Condition) %>%
+  summarise(mean_intensity = mean(virus_intensity, na.rm = TRUE),
+            se             = sd(virus_intensity, na.rm = TRUE) / sqrt(n()),
+            .groups = "drop") %>%
+  mutate(Condition = factor(Condition, levels = bar_levels))
+
+n_doses  <- sum(grepl(COMPOUND_NAME, bar_levels))
+fill_pal <- c(
+  "Mock"       = "grey80",
+  "Virus Only" = "#E41A1C",
+  setNames(colorRampPalette(c("#C6DBEF", "#08306B"))(n_doses),
+           bar_levels[grepl(COMPOUND_NAME, bar_levels)])
+)
+
+ggplot(plot_bars, aes(x = Condition, y = mean_intensity, fill = Condition)) +
+  geom_bar(stat = "identity", color = "black", alpha = 0.8) +
+  geom_errorbar(aes(ymin = mean_intensity - se, ymax = mean_intensity + se), width = 0.3) +
+  scale_fill_manual(values = fill_pal) +
+  labs(title = paste("Effect of", COMPOUND_NAME, "on mean virus signal"),
+       x = "Treatment", y = "Mean Virus Intensity (a.u.)") +
+  theme_bw(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+```
+
+# Cell Gating (QC)
+
+```{r gating-plot}
+plot_area_intensity <- master_df_annotated %>%
+  filter(Treatment == "Mock") %>%
+  ggplot(aes(x = Area, y = dapi_intensity)) +
+  geom_hex(bins = 200) +
+  scale_fill_viridis_c(trans = "log10") +
+  geom_vline(xintercept = AREA_MIN, color = "red", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = AREA_MAX, color = "red", linetype = "dashed", linewidth = 1) +
+  geom_hline(yintercept = INTENSITY_MIN, color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "Nuclear Area vs. DAPI Intensity (Mock)",
+       x = "Nuclear Area (pixels\u00b2)", y = "Mean DAPI Intensity (a.u.)") +
+  coord_cartesian(xlim = c(0, 500)) +
+  theme_bw(base_size = 14) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+print(plot_area_intensity)
+```
+
+```{r apply-gate}
+counts_before <- count(master_df_annotated, Treatment, name = "cells_before")
+
+master_df_gated <- master_df_annotated %>%
+  filter(
+    Treatment == "Mock" |
+    (Area > AREA_MIN & Area < AREA_MAX & dapi_intensity > INTENSITY_MIN)
+  )
+
+counts_before %>%
+  left_join(count(master_df_gated, Treatment, name = "cells_after"), by = "Treatment") %>%
+  mutate(cells_after       = replace_na(cells_after, 0),
+         percent_remaining = (cells_after / cells_before) * 100)
+```
+
+# Infection Gate
+
+```{r infection-gate, warning=FALSE}
+infection_threshold <- master_df_gated %>%
+  filter(Treatment == "Mock+Ab") %>%
+  summarise(t = quantile(virus_intensity, probs = INFECTION_QUANTILE, na.rm = TRUE)) %>%
+  pull(t)
+
+cat(sprintf("Infection threshold (%.1f%% quantile of Mock+Ab): %.1f\n",
+            INFECTION_QUANTILE * 100, infection_threshold))
+
+density_plot <- master_df_gated %>%
+  filter(Treatment %in% c("Mock+Ab", "Virus Only")) %>%
+  mutate(
+    Treatment = recode(Treatment,
+                       "Mock+Ab"    = "Negative control",
+                       "Virus Only" = paste0(VIRUS_NAME, "-only")),
+    Treatment = factor(Treatment, levels = c(paste0(VIRUS_NAME, "-only"), "Negative control"))
+  ) %>%
+  ggplot(aes(x = virus_intensity, fill = Treatment)) +
+  geom_density(alpha = 0.7, color = "black", linewidth = 0.2) +
+  geom_vline(xintercept = infection_threshold, color = "black",
+             linetype = "dashed", linewidth = 1) +
+  scale_fill_manual(
+    name   = "Cell population",
+    values = c("#D55E00", "grey50"),
+    labels = c(paste0(VIRUS_NAME, " (positive control)"),
+               "Negative control")
+  ) +
+  scale_x_log10(labels = trans_format("log10", math_format(10^.x)),
+                minor_breaks = NULL) +
+  annotation_logticks(sides = "b",
+                      short = unit(1.2,"mm"), mid = unit(1.6,"mm"), long = unit(2.2,"mm")) +
+  labs(
+    title    = paste(VIRUS_NAME, "infection gate from controls"),
+    subtitle = paste0("Threshold = ", round(INFECTION_QUANTILE * 100, 1),
+                      "th percentile of negative control"),
+    x = "Virus channel fluorescence (a.u., log10)",
+    y = "Density"
+  ) +
+  theme_bw(base_size = 8) +
+  theme(
+    plot.title        = element_text(face = "bold", size = 9, margin = margin(b = 3)),
+    plot.subtitle     = element_text(size = 8),
+    axis.title        = element_text(face = "bold", size = 8),
+    axis.text         = element_text(size = 7),
+    axis.ticks.length = unit(2.2, "mm"),
+    legend.title      = element_text(size = 8),
+    legend.text       = element_text(size = 7),
+    legend.key.size   = unit(3, "mm"),
+    legend.position   = c(0.95, 0.95),
+    legend.justification = c("right", "top"),
+    legend.background = element_rect(color = "black", linewidth = 0.5),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank()
+  ) +
+  coord_cartesian(clip = "off")
+
+print(density_plot)
+ggsave("Plots/infection_gate_density.tiff", density_plot,
+       width = 4, height = 3, units = "in",
+       dpi = 600, compression = "lzw", device = ragg::agg_tiff)
+```
+
+# Ridge Plots
+
+```{r ridge-plots, message=FALSE, warning=FALSE}
+treatment_order <- c("Mock+Ab", "Virus Only", "Virus + Compound")
+
+bdgr_levels <- master_df_gated %>%
+  filter(Treatment == "Virus + Compound") %>%
+  distinct(Concentration_uM) %>%
+  arrange(Concentration_uM) %>%
+  pull(Concentration_uM)
+
+plot_df <- master_df_gated %>%
+  filter(Treatment %in% treatment_order) %>%
+  mutate(Treatment = factor(Treatment, levels = treatment_order)) %>%
+  arrange(Treatment, desc(Concentration_uM)) %>%
+  mutate(
+    group_label = case_when(
+      Treatment != "Virus + Compound" ~ as.character(Treatment),
+      TRUE ~ paste0(Concentration_uM, " ", DOSE_UNIT, " ", COMPOUND_NAME)
+    ),
+    group_label = fct_inorder(group_label)
+  ) %>%
+  mutate(group_label = fct_recode(group_label,
+    "Negative control" = "Mock+Ab",
+    !!paste0(VIRUS_NAME, "-only") := "Virus Only"
+  )) %>%
+  mutate(
+    fill_key = case_when(
+      Treatment == "Mock+Ab"          ~ "Negative control",
+      Treatment == "Virus Only"       ~ paste0(VIRUS_NAME, "-only"),
+      TRUE ~ paste0(COMPOUND_NAME, "_", Concentration_uM)
+    ),
+    fill_key = factor(fill_key)
+  )
+
+bdgr_fill_keys <- paste0(COMPOUND_NAME, "_", bdgr_levels)
+n_bdgr   <- length(bdgr_fill_keys)
+bdgr_cols <- colorRampPalette(RColorBrewer::brewer.pal(9, "Blues"))(n_bdgr)
+
+fill_values <- c(
+  setNames("#D55E00", paste0(VIRUS_NAME, "-only")),
+  "Negative control" = "grey60",
+  setNames(bdgr_cols, bdgr_fill_keys)
+)
+
+ridgeline_plot <- ggplot(plot_df,
+                         aes(x = virus_intensity, y = group_label, fill = fill_key)) +
+  geom_density_ridges(alpha = 0.8, scale = 3, rel_min_height = 0.01) +
+  geom_vline(xintercept = infection_threshold, color = "black",
+             linetype = "dashed", linewidth = 1) +
+  scale_x_log10(labels = trans_format("log10", math_format(10^.x)),
+                minor_breaks = NULL) +
+  annotation_logticks(sides = "b",
+                      short = unit(1.2,"mm"), mid = unit(1.6,"mm"), long = unit(2.2,"mm")) +
+  scale_fill_manual(values = fill_values, breaks = names(fill_values)) +
+  labs(
+    title = paste("Effect of", COMPOUND_NAME, "on", VIRUS_NAME, "intensity"),
+    x = "Virus channel fluorescence (a.u., log10)", y = NULL
+  ) +
+  theme(
+    legend.position   = "none",
+    axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.minor  = element_blank()
+  ) +
+  coord_cartesian(clip = "off")
+
+print(ridgeline_plot)
+ggsave("Plots/compound_ridgeline.tiff", ridgeline_plot,
+       width = 4, height = 3, units = "in",
+       dpi = 600, compression = "lzw", device = ragg::agg_tiff)
+```
+
+# Percent Infection per Well
+
+```{r percent-infection}
+total_counts    <- count(master_df_gated, Treatment, Concentration_uM, WellName,
+                         name = "total_cell_count")
+positive_counts <- master_df_gated %>%
+  filter(virus_intensity > infection_threshold) %>%
+  count(Treatment, Concentration_uM, WellName, name = "positive_cell_count")
+
+percent_summary <- total_counts %>%
+  left_join(positive_counts, by = c("Treatment", "Concentration_uM", "WellName")) %>%
+  mutate(positive_cell_count = replace_na(positive_cell_count, 0),
+         percent_positive     = (positive_cell_count / total_cell_count) * 100) %>%
+  arrange(Treatment, desc(Concentration_uM))
+
+print(percent_summary)
+```
+
+## Bar Plot (% Infection)
+
+```{r bar-infection}
+my_blue <- "#2171b5"
+
+plot_data_pct <- percent_summary %>%
+  filter(Treatment %in% c("Virus Only", "Virus + Compound")) %>%
+  mutate(Condition = if_else(Treatment == "Virus Only",
+                             paste0("0 ", DOSE_UNIT, " ", COMPOUND_NAME),
+                             paste0(Concentration_uM, " ", DOSE_UNIT, " ", COMPOUND_NAME))) %>%
+  group_by(Condition) %>%
+  summarise(
+    mean_pct = mean(percent_positive, na.rm = TRUE),
+    se_pct   = sd(percent_positive,   na.rm = TRUE) / sqrt(n()),
+    .groups  = "drop"
+  ) %>%
+  mutate(Condition = factor(Condition, levels = mixedsort(Condition)))
+
+pub_plot <- ggplot(plot_data_pct, aes(x = Condition, y = mean_pct)) +
+  geom_bar(stat = "identity", fill = my_blue, alpha = 0.9,
+           color = "black", linewidth = 0.4, width = 0.7) +
+  geom_errorbar(aes(ymin = pmax(0, mean_pct - se_pct),
+                    ymax = pmin(100, mean_pct + se_pct)),
+                width = 0.22, linewidth = 0.45) +
+  scale_x_discrete(labels = function(x) readr::parse_number(as.character(x))) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 105), breaks = seq(0, 100, 20)) +
+  labs(title = paste(COMPOUND_NAME, "dose\u2013response"),
+       x = paste0(COMPOUND_NAME, " dose (", DOSE_UNIT, ")"),
+       y = "% infection") +
+  theme_bw() +
+  theme(
+    plot.title        = element_text(face = "bold", size = 10, margin = margin(b = 4)),
+    axis.title        = element_text(face = "bold"),
+    axis.text.x       = element_text(angle = 45, hjust = 1),
+    axis.line         = element_line(linewidth = 0.6),
+    axis.ticks        = element_line(linewidth = 0.6),
+    axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank(),
+    plot.margin       = margin(6, 8, 6, 6),
+    legend.position   = "none"
+  ) +
+  coord_cartesian(ylim = c(0, 105), clip = "off")
+
+print(pub_plot)
+ggsave("Plots/compound_bar_summary.tiff", pub_plot,
+       width = 4, height = 3, units = "in",
+       dpi = 600, compression = "lzw", device = ragg::agg_tiff)
+```
+
+# Dose-Response Curve (4PL)
+
+```{r dose-response-model}
+f_virus_mean <- mean(percent_summary$percent_positive[percent_summary$Treatment == "Virus Only"])
+f_mock_mean  <- mean(percent_summary$percent_positive[percent_summary$Treatment == "Mock+Ab"],
+                     na.rm = TRUE)
+if (is.nan(f_mock_mean)) f_mock_mean <- 0
+
+summary_rel <- percent_summary %>%
+  mutate(
+    percent_infection_rel = 100 * (percent_positive - f_mock_mean) /
+                            (f_virus_mean - f_mock_mean)
+  )
+
+drc_data_rel <- summary_rel %>%
+  filter(Treatment == "Virus + Compound", Concentration_uM > 0)
+
+fit_rel <- drm(
+  percent_infection_rel ~ Concentration_uM,
+  data = drc_data_rel,
+  fct  = LL.4(fixed = c(NA, 0, 100, NA))
+)
+
+print(summary(fit_rel))
+ED(fit_rel, 50, interval = "delta")
+```
+
+## Publication Dose-Response Plot
+
+```{r dose-response-plot, message=FALSE, warning=FALSE}
+min_pos   <- min(drc_data_rel$Concentration_uM)
+zero_tick <- min_pos / 10
+
+newx    <- exp(seq(log(zero_tick), log(max(drc_data_rel$Concentration_uM)), length.out = 300))
+pr      <- predict(fit_rel, newdata = data.frame(Concentration_uM = newx),
+                   interval = "confidence")
+pred_df <- tibble(
+  Concentration_uM = newx,
+  y    = pmin(100, pmax(0, pr[,1])),
+  ymin = pmin(100, pmax(0, pr[,2])),
+  ymax = pmin(100, pmax(0, pr[,3]))
+)
+
+ec50_tbl <- as.data.frame(ED(fit_rel, 50, interval = "delta"))
+ec50     <- ec50_tbl$Estimate[1]
+ec50_lab <- paste0("EC50 = ", signif(ec50, 3), " ", DOSE_UNIT)
+
+pts_sum <- summary_rel %>%
+  filter(Treatment %in% c("Virus Only", "Virus + Compound")) %>%
+  mutate(x_plot = ifelse(Concentration_uM == 0, zero_tick, Concentration_uM)) %>%
+  group_by(x_plot) %>%
+  summarise(n = n(),
+            y = mean(percent_infection_rel, na.rm = TRUE),
+            se = sd(percent_infection_rel,  na.rm = TRUE) / sqrt(n),
+            .groups = "drop") %>%
+  mutate(y    = ifelse(x_plot == zero_tick, 100, y),
+         ymin = pmax(0,   y - se),
+         ymax = pmin(100, y + se))
+
+dose_breaks <- sort(unique(c(zero_tick, drc_data_rel$Concentration_uM)))
+dose_labels_vec <- c("0", as.character(dose_breaks[-1]))
+
+p_dr <- ggplot() +
+  geom_ribbon(data = pred_df, aes(Concentration_uM, ymin = ymin, ymax = ymax),
+              fill = "steelblue", alpha = 0.15) +
+  geom_line(data = pred_df, aes(Concentration_uM, y),
+            color = "steelblue", linewidth = 0.9) +
+  geom_errorbar(data = pts_sum, aes(x = x_plot, ymin = ymin, ymax = ymax),
+                width = 0.06, linewidth = 0.5, colour = "steelblue4") +
+  geom_point(data = pts_sum, aes(x = x_plot, y = y),
+             shape = 21, size = 2.6, stroke = 0.4,
+             fill = "steelblue4", colour = "steelblue4") +
+  geom_segment(aes(x = ec50, xend = ec50, y = 0, yend = 50),
+               linetype = "dashed", color = "steelblue4", linewidth = 0.5) +
+  geom_segment(aes(x = zero_tick, xend = ec50, y = 50, yend = 50),
+               linetype = "dashed", color = "steelblue4", linewidth = 0.5) +
+  annotate("label", x = ec50, y = 25, label = ec50_lab,
+           fill = "steelblue4", color = "white", size = 3, label.size = 0) +
+  scale_x_log10(breaks = dose_breaks, labels = dose_labels_vec, minor_breaks = NULL) +
+  annotation_logticks(sides = "b",
+                      short = unit(1.2,"mm"), mid = unit(1.6,"mm"), long = unit(2.2,"mm")) +
+  labs(
+    title = paste(COMPOUND_NAME, "dose\u2013response"),
+    x = paste0(COMPOUND_NAME, " (", DOSE_UNIT, ", log10)"),
+    y = "% infected cells"
+  ) +
+  coord_cartesian(ylim = c(0, 105), clip = "off") +
+  theme_bw(base_size = 8) +
+  theme(
+    plot.title        = element_text(face = "bold", size = 9, margin = margin(b = 4)),
+    axis.title        = element_text(face = "bold", size = 8),
+    axis.text         = element_text(size = 7),
+    axis.line         = element_line(linewidth = 0.6, colour = "black"),
+    axis.ticks        = element_line(linewidth = 0.6, colour = "black"),
+    axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank(),
+    legend.position   = "none",
+    plot.margin       = margin(6, 10, 6, 8)
+  )
+
+print(p_dr)
+ggsave("Plots/compound_dose_response.tiff", p_dr,
+       width = 4, height = 3, units = "in",
+       dpi = 600, compression = "lzw", device = ragg::agg_tiff)
+```
+
+# Cytotoxicity (CC₅₀)
+
+```{r cc50}
+cell_counts_per_well <- count(master_df_gated, Treatment, Concentration_uM, WellName,
+                               name = "cell_count")
+
+viability_data <- cell_counts_per_well %>%
+  filter(Treatment %in% c("Mock", "Toxicity Control"))
+
+viability_baseline <- viability_data %>%
+  filter(is.na(Concentration_uM) | Concentration_uM == 0) %>%
+  summarise(m = mean(cell_count, na.rm = TRUE)) %>% pull(m)
+
+viability_data <- viability_data %>%
+  mutate(percent_viability = pmin(100, pmax(0, 100 * (cell_count / viability_baseline))))
+
+fit_cc50 <- drm(
+  percent_viability ~ Concentration_uM,
+  data = viability_data %>% filter(Treatment == "Toxicity Control", Concentration_uM > 0),
+  fct  = LL.4(names = c("slope", "bottom", "top", "CC50"))
+)
+
+cc50_summary <- ED(fit_cc50, 50, display = FALSE)
+cat("CC\u2085\u2080 =", signif(cc50_summary[1], 3), DOSE_UNIT, "\n")
+print(summary(fit_cc50))
+```
+
+## CC₅₀ Plot
+
+```{r cc50-plot}
+obs_df  <- viability_data %>%
+  filter(Treatment == "Toxicity Control", Concentration_uM > 0) %>%
+  transmute(dose = Concentration_uM, resp = percent_viability)
+
+xmin      <- min(obs_df$dose)
+xmax      <- max(obs_df$dose)
+zero_tick <- xmin / 2
+
+pred_cc50 <- data.frame(Concentration_uM = exp(seq(log(xmin), log(xmax), length.out = 200)))
+pred_cc50$y <- predict(fit_cc50, newdata = pred_cc50)
+
+cf         <- coef(fit_cc50)
+top_est    <- unname(cf[grep("^top",    names(cf))])[1]
+bottom_est <- unname(cf[grep("^bottom", names(cf))])[1]
+mid_y      <- (top_est + bottom_est) / 2
+cc50_rel   <- as.numeric(ED(fit_cc50, 50, display = FALSE)[1])
+cc50_lab   <- paste0("CC\u2085\u2080 = ", signif(cc50_rel, 3), " ", DOSE_UNIT)
+
+log_brks  <- breaks_log(n = 6)(c(xmin, xmax))
+x_breaks  <- c(zero_tick, log_brks)
+x_labels  <- c("0", format(log_brks, trim = TRUE))
+
+pred_cc50_full <- rbind(
+  data.frame(Concentration_uM = zero_tick, y = top_est),
+  pred_cc50
+)
+
+p_cc50 <- ggplot() +
+  geom_line(data = pred_cc50_full, aes(Concentration_uM, y),
+            linewidth = 0.9, color = "steelblue") +
+  geom_point(data = obs_df, aes(dose, resp),
+             shape = 21, size = 2.6, stroke = 0.4,
+             fill = "steelblue4", colour = "steelblue4") +
+  geom_segment(aes(x = cc50_rel, xend = cc50_rel, y = 0, yend = mid_y),
+               linetype = "dashed", color = "steelblue4", linewidth = 0.5) +
+  geom_segment(aes(x = zero_tick, xend = cc50_rel, y = mid_y, yend = mid_y),
+               linetype = "dashed", color = "steelblue4", linewidth = 0.5) +
+  annotate("label", x = cc50_rel, y = pmax(10, mid_y - 28), label = cc50_lab,
+           fill = "steelblue4", color = "white", size = 3, label.size = 0) +
+  scale_x_log10(limits = c(zero_tick, xmax * 1.1),
+                breaks = x_breaks, labels = x_labels, minor_breaks = NULL) +
+  annotation_logticks(sides = "b",
+                      short = unit(1.2,"mm"), mid = unit(1.6,"mm"), long = unit(2.2,"mm")) +
+  scale_y_continuous(limits = c(0, 105), breaks = seq(0, 100, 20)) +
+  labs(title = paste(COMPOUND_NAME, "Cytotoxicity"),
+       x = paste0("Concentration (", DOSE_UNIT, ", log10)"),
+       y = "% Cell Viability") +
+  theme_bw(base_size = 8) +
+  theme(
+    plot.title        = element_text(face = "bold", size = 9, margin = margin(b = 2)),
+    plot.subtitle     = element_text(size = 8, margin = margin(b = 6)),
+    axis.title        = element_text(face = "bold", size = 8),
+    axis.text         = element_text(size = 7),
+    axis.line         = element_line(linewidth = 0.6, colour = "black"),
+    axis.ticks        = element_line(linewidth = 0.6, colour = "black"),
+    axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank(),
+    legend.position   = "none",
+    plot.margin       = margin(6, 10, 6, 8)
+  )
+
+print(p_cc50)
+ggsave("Plots/CC50.tiff", p_cc50,
+       width = 4, height = 3, units = "in",
+       dpi = 600, compression = "lzw", device = ragg::agg_tiff)
+```
+
+# Selectivity Index
+
+```{r selectivity-index}
+ec50_val  <- as.numeric(ED(fit_rel,  50, display = FALSE)[1])
+cc50_val  <- as.numeric(ED(fit_cc50, 50, display = FALSE)[1])
+si        <- cc50_val / ec50_val
+
+cat(sprintf(
+  "EC50  = %.3g %s\nCC50  = %.3g %s\nSelectivity Index (SI = CC50/EC50) = %.2f\n",
+  ec50_val, DOSE_UNIT, cc50_val, DOSE_UNIT, si
+))
+```

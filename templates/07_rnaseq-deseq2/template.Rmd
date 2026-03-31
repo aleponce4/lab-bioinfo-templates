@@ -1,0 +1,1189 @@
+---
+title: "RNA-seq / DESeq2 - End-to-End Differential Expression"
+author: "Jonsson Laboratory"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r user-config, message=FALSE, warning=FALSE}
+## -- USER CONFIGURATION -------------------------------------------------------
+INPUT_MODE <- "counts_metadata"
+
+GENE_COUNT_FILE <- "data/demo_gene_counts.csv"
+TRANSCRIPT_COUNT_FILE <- "data/demo_transcript_counts.csv"
+METADATA_FILE <- "data/demo_metadata.csv"
+METADATA_SHEET <- 1
+
+GENE_SE_FILE <- "data/demo_gene_se.rds"
+TRANSCRIPT_SE_FILE <- "data/demo_transcript_se.rds"
+GENE_SE_ASSAY <- NULL
+TRANSCRIPT_SE_ASSAY <- NULL
+
+SAMPLE_ID_COLUMNS <- c("sample_id", "alternate_id")
+
+DESIGN_FORMULA <- "~ pair_id + group"
+REFERENCE_LEVELS <- list(
+  group = "Control",
+  tissue = "Brain"
+)
+MODEL_SPLIT_COLUMN <- "tissue"
+
+CONTRASTS <- data.frame(
+  model_id = c("Brain", "Lung"),
+  contrast_name = c("Treatment vs Control", "Treatment vs Control"),
+  factor = c("group", "group"),
+  numerator = c("Treatment", "Treatment"),
+  denominator = c("Control", "Control"),
+  stringsAsFactors = FALSE
+)
+
+GENE_SETS <- list(
+  Interferon_Response = c("Stat1", "Stat2", "Irf7", "Isg15", "Ifit1", "Ifit3", "Mx1", "Oas1a"),
+  Cell_Cycle = c("Mki67", "Top2a", "Cdk1", "Ccnb1", "Ccnb2", "Aurkb", "Ube2c", "Birc5"),
+  Inflammation = c("Il6", "Ccl2", "Cxcl10", "Nfkbia", "Socs3", "Jun", "Fos", "Icam1")
+)
+
+FORCE_KEEP_GENES <- unique(unlist(GENE_SETS, use.names = FALSE))
+
+COUNT_FILTER_MIN <- 10
+COUNT_FILTER_MIN_SAMPLES <- 2
+FDR_THRESHOLD <- 0.05
+LFC_THRESHOLD <- 1
+TOP_HEATMAP_GENES <- 25
+VOLCANO_XLIM <- c(-6, 6)
+VOLCANO_YLIM <- 12
+PCA_COLOR_COLUMN <- "group"
+
+OUTPUT_DIR <- "Plots"
+SUMMARY_DIR <- "Summary_files"
+PLOT_PREFIX <- "rnaseq_template"
+OUTPUT_FORMATS <- c("svg")
+
+OPTIONAL_MODULES <- list(
+  library_diagnostic = TRUE,
+  split_models = TRUE,
+  viral_features = TRUE,
+  ma_plots = TRUE,
+  sample_distance_heatmap = TRUE,
+  top_heatmaps = TRUE,
+  analysis_bundle = TRUE
+)
+
+VIRAL_FEATURE_CONFIG <- list(
+  grouping_column = "group",
+  facet_column = "tissue",
+  feature_patterns = c(
+    VEEV_genome = "^VEEV_genome$",
+    VEEV_49S = "^VEEV_49S$",
+    VEEV_26S = "^VEEV_26S$"
+  ),
+  feature_lengths_bp = c(
+    VEEV_genome = 11446,
+    VEEV_49S = 11446,
+    VEEV_26S = 3880
+  ),
+  log_pseudocount = 0.5
+)
+## -----------------------------------------------------------------------------
+```
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+suppressPackageStartupMessages({
+  library(DESeq2)
+  library(SummarizedExperiment)
+  library(dplyr)
+  library(tidyr)
+  library(ggplot2)
+  library(readr)
+  library(readxl)
+  library(janitor)
+  library(stringr)
+  library(tibble)
+  library(patchwork)
+  library(viridis)
+  library(scales)
+  library(svglite)
+  library(writexl)
+  library(pheatmap)
+})
+
+for (subdir in c(
+  "Diagnostics",
+  "PCA",
+  "Volcano",
+  "MA",
+  "Bubble_Plots",
+  "Triangle",
+  "Heatmaps",
+  "Sample_Distance",
+  "Viral"
+)) {
+  dir.create(file.path(OUTPUT_DIR, subdir), recursive = TRUE, showWarnings = FALSE)
+}
+dir.create(SUMMARY_DIR, recursive = TRUE, showWarnings = FALSE)
+```
+
+# Helper Functions
+
+```{r helpers, message=FALSE, warning=FALSE}
+is_nonempty_path <- function(x) {
+  !is.null(x) && length(x) == 1 && nzchar(x)
+}
+
+sanitize_filename <- function(x) {
+  gsub("[^A-Za-z0-9_-]+", "_", x)
+}
+
+plot_file_stub <- function(name) {
+  paste(PLOT_PREFIX, sanitize_filename(name), sep = "_")
+}
+
+save_plot_multi <- function(plot_obj, filename, width, height) {
+  for (fmt in OUTPUT_FORMATS) {
+    target <- file.path(OUTPUT_DIR, paste0(filename, ".", fmt))
+    if (fmt == "svg") {
+      ggsave(target, plot = plot_obj, width = width, height = height, device = "svg")
+    } else if (fmt == "tiff") {
+      ggsave(target, plot = plot_obj, width = width, height = height, dpi = 300, compression = "lzw")
+    } else {
+      ggsave(target, plot = plot_obj, width = width, height = height)
+    }
+  }
+}
+
+save_pheatmap_multi <- function(pheatmap_obj, filename, width, height) {
+  for (fmt in OUTPUT_FORMATS) {
+    target <- file.path(OUTPUT_DIR, paste0(filename, ".", fmt))
+    if (fmt == "svg") {
+      svglite::svglite(target, width = width, height = height)
+    } else if (fmt == "tiff") {
+      tiff(target, width = width, height = height, units = "in", res = 300, compression = "lzw")
+    } else {
+      png(target, width = width, height = height, units = "in", res = 300)
+    }
+    grid::grid.newpage()
+    grid::grid.draw(pheatmap_obj$gtable)
+    dev.off()
+  }
+}
+
+read_tabular_file <- function(path, sheet = 1) {
+  ext <- tolower(tools::file_ext(path))
+  if (ext == "csv") {
+    readr::read_csv(path, show_col_types = FALSE)
+  } else if (ext %in% c("tsv", "txt")) {
+    readr::read_tsv(path, show_col_types = FALSE)
+  } else if (ext %in% c("xlsx", "xls")) {
+    readxl::read_excel(path, sheet = sheet)
+  } else {
+    stop("Unsupported tabular input: ", path)
+  }
+}
+
+coerce_count_matrix <- function(path, sheet = 1) {
+  tbl <- as.data.frame(read_tabular_file(path, sheet = sheet))
+  if (ncol(tbl) < 2) {
+    stop("Count table must contain one feature column plus at least one sample column: ", path)
+  }
+
+  feature_ids <- as.character(tbl[[1]])
+  if (anyNA(feature_ids) || any(feature_ids == "")) {
+    stop("The first column of ", path, " contains missing feature IDs.")
+  }
+  if (anyDuplicated(feature_ids)) {
+    dup_ids <- unique(feature_ids[duplicated(feature_ids)])
+    stop("Duplicated feature IDs in ", path, ": ", paste(head(dup_ids, 10), collapse = ", "))
+  }
+
+  value_tbl <- tbl[-1]
+  value_tbl[] <- lapply(value_tbl, function(x) suppressWarnings(as.numeric(as.character(x))))
+  if (anyNA(as.matrix(value_tbl))) {
+    stop("Non-numeric counts detected in ", path, ".")
+  }
+
+  mat <- as.matrix(value_tbl)
+  rownames(mat) <- feature_ids
+  storage.mode(mat) <- "numeric"
+  mat
+}
+
+resolve_assay_matrix <- function(se, assay_name = NULL, label = "SummarizedExperiment") {
+  if (!inherits(se, "SummarizedExperiment")) {
+    stop(label, " is not a SummarizedExperiment.")
+  }
+
+  available_assays <- SummarizedExperiment::assayNames(se)
+  chosen_assay <- assay_name
+  if (is.null(chosen_assay)) {
+    chosen_assay <- if (length(available_assays)) available_assays[[1]] else 1
+  }
+
+  mat <- SummarizedExperiment::assay(se, chosen_assay)
+  storage.mode(mat) <- "numeric"
+  mat
+}
+
+coerce_design_formula <- function(x) {
+  if (inherits(x, "formula")) {
+    x
+  } else if (is.character(x) && length(x) == 1) {
+    stats::as.formula(x)
+  } else {
+    stop("DESIGN_FORMULA must be a formula or a length-1 character string.")
+  }
+}
+
+align_metadata_to_samples <- function(metadata, sample_names, candidate_columns) {
+  hits <- character(0)
+
+  for (col in candidate_columns[candidate_columns %in% names(metadata)]) {
+    values <- as.character(metadata[[col]])
+    if (!anyDuplicated(values) && setequal(values, sample_names)) {
+      hits <- c(hits, col)
+    }
+  }
+
+  if (length(hits) == 0) {
+    row_id <- rownames(metadata)
+    if (!is.null(row_id) && !anyDuplicated(row_id) && setequal(row_id, sample_names)) {
+      ordered <- metadata[match(sample_names, row_id), , drop = FALSE]
+      ordered$matched_sample_id <- sample_names
+      return(list(metadata = ordered, sample_column = ".rownames"))
+    }
+
+    stop(
+      "Could not align metadata to samples. Tried columns: ",
+      paste(candidate_columns, collapse = ", "),
+      ". Metadata columns: ",
+      paste(names(metadata), collapse = ", "),
+      ". Sample names: ",
+      paste(head(sample_names, 8), collapse = ", ")
+    )
+  }
+
+  chosen <- hits[[1]]
+  ordered <- metadata[match(sample_names, metadata[[chosen]]), , drop = FALSE]
+  ordered$matched_sample_id <- sample_names
+  list(metadata = ordered, sample_column = chosen)
+}
+
+apply_reference_levels <- function(metadata, reference_levels) {
+  for (col in names(reference_levels)) {
+    if (!col %in% names(metadata)) {
+      stop("REFERENCE_LEVELS refers to missing metadata column: ", col)
+    }
+    metadata[[col]] <- factor(metadata[[col]])
+    if (!reference_levels[[col]] %in% levels(metadata[[col]])) {
+      stop("Reference level '", reference_levels[[col]], "' is not present in metadata column '", col, "'.")
+    }
+    metadata[[col]] <- stats::relevel(metadata[[col]], ref = reference_levels[[col]])
+  }
+  metadata
+}
+
+validate_optional_modules <- function(optional_modules) {
+  required_names <- c(
+    "library_diagnostic",
+    "split_models",
+    "viral_features",
+    "ma_plots",
+    "sample_distance_heatmap",
+    "top_heatmaps",
+    "analysis_bundle"
+  )
+  missing_names <- setdiff(required_names, names(optional_modules))
+  if (length(missing_names) > 0) {
+    stop("OPTIONAL_MODULES is missing: ", paste(missing_names, collapse = ", "))
+  }
+}
+
+validate_contrasts <- function(contrast_table, split_enabled) {
+  required_cols <- c("model_id", "contrast_name", "factor", "numerator", "denominator")
+  missing_cols <- setdiff(required_cols, names(contrast_table))
+  if (length(missing_cols) > 0) {
+    stop("CONTRASTS is missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  if (!split_enabled) {
+    contrast_table$model_id <- "all"
+  }
+
+  if (anyDuplicated(paste(contrast_table$model_id, contrast_table$contrast_name, sep = "::"))) {
+    stop("Each row in CONTRASTS must have a unique model_id + contrast_name combination.")
+  }
+
+  contrast_table
+}
+
+comparison_label_from_row <- function(model_id, contrast_name, split_enabled) {
+  if (split_enabled) {
+    paste(model_id, contrast_name, sep = " | ")
+  } else {
+    contrast_name
+  }
+}
+
+extract_results_tidy <- function(result_obj, comparison_label, model_id, contrast_name) {
+  as.data.frame(result_obj) %>%
+    tibble::rownames_to_column("Gene") %>%
+    mutate(
+      model_id = model_id,
+      contrast_name = contrast_name,
+      comparison_label = comparison_label,
+      padj_plot = pmax(dplyr::coalesce(padj, 1), .Machine$double.xmin),
+      log_padj = -log10(padj_plot),
+      significant = !is.na(padj) & padj < FDR_THRESHOLD & abs(log2FoldChange) >= LFC_THRESHOLD,
+      direction = case_when(
+        significant & log2FoldChange > 0 ~ "Up",
+        significant & log2FoldChange < 0 ~ "Down",
+        TRUE ~ "NS"
+      )
+    )
+}
+
+match_feature_row <- function(mat, pattern, label) {
+  hits <- rownames(mat)[grepl(pattern, rownames(mat), ignore.case = TRUE)]
+  if (length(hits) != 1) {
+    stop(label, " matched ", length(hits), " rows: ", paste(hits, collapse = ", "))
+  }
+  hits
+}
+
+calculate_tpm <- function(count_matrix, lengths_bp) {
+  lengths_kb <- lengths_bp / 1000
+  rate <- sweep(count_matrix, 1, lengths_kb, "/")
+  scaling_factors <- colSums(rate, na.rm = TRUE)
+  tpm_matrix <- sweep(rate, 2, scaling_factors / 1e6, "/")
+  tpm_matrix[, scaling_factors == 0] <- 0
+  tpm_matrix
+}
+
+make_bubble_plot <- function(pathway_name, genes, result_data, comparison_levels) {
+  plot_df <- tidyr::expand_grid(
+    comparison_label = comparison_levels,
+    Gene = genes
+  ) %>%
+    left_join(
+      result_data %>%
+        select(comparison_label, Gene, log2FoldChange, padj, log_padj, significant),
+      by = c("comparison_label", "Gene")
+    ) %>%
+    mutate(
+      log_padj = dplyr::coalesce(log_padj, 0),
+      significant = dplyr::coalesce(significant, FALSE),
+      abs_lfc = abs(dplyr::coalesce(log2FoldChange, 0)),
+      color_group = ifelse(significant, "significant", "nonsignificant"),
+      Gene = factor(Gene, levels = rev(genes)),
+      comparison_label = factor(comparison_label, levels = comparison_levels)
+    )
+
+  ggplot() +
+    geom_point(
+      data = filter(plot_df, color_group == "nonsignificant"),
+      aes(x = comparison_label, y = Gene),
+      size = 1.2,
+      color = "darkgrey",
+      alpha = 0.6
+    ) +
+    geom_point(
+      data = filter(plot_df, color_group == "significant"),
+      aes(x = comparison_label, y = Gene, size = abs_lfc, color = log_padj),
+      alpha = 0.85
+    ) +
+    scale_size_continuous(
+      name = expression("|log"[2] * "FC|"),
+      range = c(2, 8),
+      limits = c(LFC_THRESHOLD, max(2, ceiling(max(plot_df$abs_lfc, na.rm = TRUE))))
+    ) +
+    scale_color_viridis_c(
+      option = "plasma",
+      direction = -1,
+      name = "-log10(FDR)",
+      limits = c(0, max(5, ceiling(max(plot_df$log_padj, na.rm = TRUE)))),
+      oob = scales::squish
+    ) +
+    scale_y_discrete(position = "right") +
+    labs(title = pathway_name, x = "", y = "") +
+    theme_bw(base_size = 11, base_family = "sans") +
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      axis.text.x = element_text(angle = 35, hjust = 1, face = "bold"),
+      axis.text.y = element_text(face = "italic"),
+      legend.position = "left",
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+}
+
+make_triangle_plot <- function(pathway_name, genes, result_data, comparison_levels) {
+  base_df <- tidyr::expand_grid(
+    comparison_label = comparison_levels,
+    Gene = genes
+  ) %>%
+    mutate(
+      Gene = factor(Gene, levels = rev(genes)),
+      comparison_label = factor(comparison_label, levels = comparison_levels)
+    )
+
+  sig_df <- result_data %>%
+    filter(comparison_label %in% comparison_levels, Gene %in% genes, significant) %>%
+    mutate(
+      comparison_label = factor(comparison_label, levels = comparison_levels),
+      Gene = factor(Gene, levels = rev(genes))
+    )
+
+  ggplot() +
+    geom_point(
+      data = base_df,
+      aes(x = comparison_label, y = Gene),
+      size = 1.1,
+      color = "darkgrey",
+      alpha = 0.55
+    ) +
+    geom_point(
+      data = sig_df,
+      aes(
+        x = comparison_label,
+        y = Gene,
+        fill = log_padj,
+        size = abs(log2FoldChange),
+        shape = direction
+      ),
+      color = "black",
+      alpha = 0.9,
+      stroke = 0.25
+    ) +
+    scale_shape_manual(values = c("Up" = 24, "Down" = 25), drop = FALSE) +
+    scale_fill_viridis_c(
+      option = "plasma",
+      direction = -1,
+      name = "-log10(FDR)",
+      limits = c(0, max(5, ceiling(max(sig_df$log_padj, 0, na.rm = TRUE)))),
+      oob = scales::squish
+    ) +
+    scale_size_continuous(name = expression("|log"[2] * "FC|"), range = c(2, 8)) +
+    scale_y_discrete(position = "right") +
+    labs(title = pathway_name, x = "", y = "") +
+    theme_bw(base_size = 11, base_family = "sans") +
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      axis.text.x = element_text(angle = 35, hjust = 1, face = "bold"),
+      axis.text.y = element_text(face = "italic"),
+      legend.position = "left",
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+}
+```
+
+# Load And Validate Inputs
+
+```{r load-inputs, message=FALSE, warning=FALSE}
+validate_optional_modules(OPTIONAL_MODULES)
+
+design_formula <- coerce_design_formula(DESIGN_FORMULA)
+design_terms <- all.vars(design_formula)
+
+split_enabled <- isTRUE(OPTIONAL_MODULES$split_models) && !is.null(MODEL_SPLIT_COLUMN)
+if (split_enabled && MODEL_SPLIT_COLUMN %in% design_terms) {
+  stop(
+    "MODEL_SPLIT_COLUMN ('", MODEL_SPLIT_COLUMN,
+    "') should not also appear in DESIGN_FORMULA. Split models are fitted separately."
+  )
+}
+
+contrast_table <- validate_contrasts(as.data.frame(CONTRASTS, stringsAsFactors = FALSE), split_enabled)
+
+metadata_raw <- NULL
+gene_counts <- NULL
+transcript_counts <- NULL
+gene_input_summary <- list()
+
+if (INPUT_MODE == "counts_metadata") {
+  if (!is_nonempty_path(METADATA_FILE) || !file.exists(METADATA_FILE)) {
+    stop("METADATA_FILE does not exist: ", METADATA_FILE)
+  }
+  if (!is_nonempty_path(GENE_COUNT_FILE) || !file.exists(GENE_COUNT_FILE)) {
+    stop("GENE_COUNT_FILE does not exist: ", GENE_COUNT_FILE)
+  }
+
+  metadata_raw <- read_tabular_file(METADATA_FILE, sheet = METADATA_SHEET) %>%
+    janitor::clean_names() %>%
+    as.data.frame(stringsAsFactors = FALSE)
+
+  gene_counts <- coerce_count_matrix(GENE_COUNT_FILE)
+  if (is_nonempty_path(TRANSCRIPT_COUNT_FILE) && file.exists(TRANSCRIPT_COUNT_FILE)) {
+    transcript_counts <- coerce_count_matrix(TRANSCRIPT_COUNT_FILE)
+  }
+
+  gene_input_summary <- list(
+    input_mode = INPUT_MODE,
+    gene_count_file = GENE_COUNT_FILE,
+    transcript_count_file = if (is.null(transcript_counts)) NA_character_ else TRANSCRIPT_COUNT_FILE,
+    metadata_file = METADATA_FILE
+  )
+} else if (INPUT_MODE == "summarized_experiment") {
+  if (!is_nonempty_path(GENE_SE_FILE) || !file.exists(GENE_SE_FILE)) {
+    stop("GENE_SE_FILE does not exist: ", GENE_SE_FILE)
+  }
+
+  gene_se <- readRDS(GENE_SE_FILE)
+  gene_counts <- resolve_assay_matrix(gene_se, assay_name = GENE_SE_ASSAY, label = "GENE_SE_FILE")
+
+  if (is_nonempty_path(TRANSCRIPT_SE_FILE) && file.exists(TRANSCRIPT_SE_FILE)) {
+    transcript_se <- readRDS(TRANSCRIPT_SE_FILE)
+    transcript_counts <- resolve_assay_matrix(
+      transcript_se,
+      assay_name = TRANSCRIPT_SE_ASSAY,
+      label = "TRANSCRIPT_SE_FILE"
+    )
+  }
+
+  if (is_nonempty_path(METADATA_FILE) && file.exists(METADATA_FILE)) {
+    metadata_raw <- read_tabular_file(METADATA_FILE, sheet = METADATA_SHEET) %>%
+      janitor::clean_names() %>%
+      as.data.frame(stringsAsFactors = FALSE)
+  } else {
+    metadata_raw <- as.data.frame(SummarizedExperiment::colData(gene_se), stringsAsFactors = FALSE)
+    rownames(metadata_raw) <- colnames(gene_counts)
+  }
+
+  gene_input_summary <- list(
+    input_mode = INPUT_MODE,
+    gene_se_file = GENE_SE_FILE,
+    transcript_se_file = if (is.null(transcript_counts)) NA_character_ else TRANSCRIPT_SE_FILE,
+    metadata_file = if (is_nonempty_path(METADATA_FILE)) METADATA_FILE else NA_character_
+  )
+} else {
+  stop("INPUT_MODE must be 'counts_metadata' or 'summarized_experiment'.")
+}
+
+if (is.null(colnames(gene_counts)) || any(colnames(gene_counts) == "")) {
+  stop("Gene counts must have non-empty sample column names.")
+}
+if (anyDuplicated(colnames(gene_counts))) {
+  stop("Gene count matrix contains duplicated sample names.")
+}
+if (anyDuplicated(rownames(gene_counts))) {
+  stop("Gene count matrix contains duplicated feature IDs.")
+}
+
+metadata_aligned <- align_metadata_to_samples(metadata_raw, colnames(gene_counts), SAMPLE_ID_COLUMNS)
+metadata <- metadata_aligned$metadata
+rownames(metadata) <- metadata$matched_sample_id
+
+if (!is.null(transcript_counts) && !identical(colnames(transcript_counts), colnames(gene_counts))) {
+  stop("Transcript counts must use the same sample ordering as gene counts.")
+}
+
+required_metadata_cols <- unique(c(
+  design_terms,
+  contrast_table$factor,
+  PCA_COLOR_COLUMN,
+  if (split_enabled) MODEL_SPLIT_COLUMN,
+  if (isTRUE(OPTIONAL_MODULES$viral_features)) VIRAL_FEATURE_CONFIG$grouping_column,
+  if (isTRUE(OPTIONAL_MODULES$viral_features)) VIRAL_FEATURE_CONFIG$facet_column
+))
+required_metadata_cols <- required_metadata_cols[!is.na(required_metadata_cols) & nzchar(required_metadata_cols)]
+missing_metadata_cols <- setdiff(required_metadata_cols, names(metadata))
+if (length(missing_metadata_cols) > 0) {
+  stop("Metadata is missing required columns: ", paste(missing_metadata_cols, collapse = ", "))
+}
+
+metadata <- apply_reference_levels(metadata, REFERENCE_LEVELS)
+
+cat("Input mode:", INPUT_MODE, "\n")
+cat("Samples:", ncol(gene_counts), "\n")
+cat("Genes before filtering:", nrow(gene_counts), "\n")
+cat("Metadata match column:", metadata_aligned$sample_column, "\n")
+if (split_enabled) {
+  cat("Split models:", paste(unique(metadata[[MODEL_SPLIT_COLUMN]]), collapse = ", "), "\n")
+}
+```
+
+# Sample Summary And Feature Filtering
+
+```{r filtering, message=FALSE, warning=FALSE}
+sample_summary <- metadata %>%
+  tibble::rownames_to_column("sample_name") %>%
+  mutate(
+    library_size_raw = colSums(gene_counts)[sample_name]
+  )
+
+keep_rows <- rowSums(gene_counts >= COUNT_FILTER_MIN) >= COUNT_FILTER_MIN_SAMPLES
+if (length(FORCE_KEEP_GENES) > 0) {
+  keep_rows[rownames(gene_counts) %in% FORCE_KEEP_GENES] <- TRUE
+}
+
+filtered_counts <- gene_counts[keep_rows, , drop = FALSE]
+sample_summary <- sample_summary %>%
+  mutate(
+    library_size_filtered = colSums(filtered_counts)[sample_name]
+  )
+
+filter_summary <- tibble::tibble(
+  genes_before = nrow(gene_counts),
+  genes_after = nrow(filtered_counts),
+  genes_removed = nrow(gene_counts) - nrow(filtered_counts),
+  count_filter_min = COUNT_FILTER_MIN,
+  count_filter_min_samples = COUNT_FILTER_MIN_SAMPLES
+)
+
+write_csv(sample_summary, file.path(SUMMARY_DIR, "sample_summary.csv"))
+write_csv(filter_summary, file.path(SUMMARY_DIR, "filter_summary.csv"))
+
+filter_summary
+```
+
+```{r diagnostics, fig.width=10, fig.height=8, message=FALSE, warning=FALSE}
+if (isTRUE(OPTIONAL_MODULES$library_diagnostic)) {
+  sample_long <- sample_summary %>%
+    select(sample_name, matched_sample_id, all_of(intersect(c("group", "tissue", "pair_id"), names(sample_summary))), library_size_raw, library_size_filtered) %>%
+    pivot_longer(
+      cols = c(library_size_raw, library_size_filtered),
+      names_to = "metric",
+      values_to = "library_size"
+    ) %>%
+    mutate(
+      sample_name = factor(sample_name, levels = sample_summary$sample_name),
+      metric = recode(
+        metric,
+        library_size_raw = "Raw library size",
+        library_size_filtered = "Filtered library size"
+      )
+    )
+
+  p_library <- ggplot(sample_long, aes(x = sample_name, y = library_size, fill = metric)) +
+    geom_col(position = "dodge") +
+    scale_y_continuous(labels = scales::comma) +
+    labs(title = "Library Sizes Before And After Filtering", x = "", y = "Reads") +
+    theme_bw(base_size = 10, base_family = "sans") +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+
+  gene_total_df <- tibble::tibble(total_counts = rowSums(gene_counts))
+  p_gene_dist <- ggplot(gene_total_df, aes(x = total_counts)) +
+    geom_histogram(bins = 50, fill = "#4C72B0", color = "white") +
+    scale_x_log10(labels = scales::comma_format()) +
+    geom_vline(xintercept = COUNT_FILTER_MIN, linetype = "dashed", color = "firebrick") +
+    labs(title = "Distribution Of Total Gene Counts", x = "Total counts per gene (log10 scale)", y = "Genes") +
+    theme_bw(base_size = 10, base_family = "sans") +
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+
+  diagnostic_plot <- p_library / p_gene_dist
+  save_plot_multi(diagnostic_plot, file.path("Diagnostics", plot_file_stub("library_diagnostics")), 10, 8)
+  diagnostic_plot
+}
+```
+
+# Model Fitting
+
+```{r fit-models, message=FALSE, warning=FALSE}
+model_sample_sets <- if (split_enabled) {
+  split(rownames(metadata), metadata[[MODEL_SPLIT_COLUMN]])
+} else {
+  list(all = rownames(metadata))
+}
+
+available_model_ids <- names(model_sample_sets)
+if (!all(contrast_table$model_id %in% available_model_ids)) {
+  stop(
+    "CONTRASTS$model_id contains values with no matching model: ",
+    paste(setdiff(unique(contrast_table$model_id), available_model_ids), collapse = ", ")
+  )
+}
+
+fit_single_model <- function(model_id, sample_ids) {
+  counts_subset <- filtered_counts[, sample_ids, drop = FALSE]
+  metadata_subset <- droplevels(metadata[sample_ids, , drop = FALSE])
+
+  design_vars <- all.vars(design_formula)
+  for (var_name in design_vars) {
+    if (length(unique(metadata_subset[[var_name]])) < 2 && is.factor(metadata_subset[[var_name]])) {
+      stop("Model '", model_id, "' has fewer than two levels for design variable '", var_name, "'.")
+    }
+  }
+
+  dds <- DESeq2::DESeqDataSetFromMatrix(
+    countData = round(counts_subset),
+    colData = metadata_subset,
+    design = design_formula
+  )
+
+  dds <- DESeq2::DESeq(dds, quiet = TRUE)
+
+  list(
+    model_id = model_id,
+    sample_ids = sample_ids,
+    metadata = metadata_subset,
+    dds = dds,
+    normalized_counts = counts(dds, normalized = TRUE),
+    vsd = DESeq2::varianceStabilizingTransformation(dds, blind = FALSE),
+    results_names = resultsNames(dds)
+  )
+}
+
+model_fits <- lapply(names(model_sample_sets), function(model_id) {
+  fit_single_model(model_id, model_sample_sets[[model_id]])
+})
+names(model_fits) <- names(model_sample_sets)
+
+model_summary <- tibble::tibble(
+  model_id = names(model_fits),
+  n_samples = vapply(model_fits, function(x) length(x$sample_ids), integer(1)),
+  n_genes = vapply(model_fits, function(x) nrow(x$dds), integer(1)),
+  design = vapply(model_fits, function(x) paste(deparse(design(x$dds)), collapse = ""), character(1))
+)
+
+write_csv(model_summary, file.path(SUMMARY_DIR, "model_summary.csv"))
+model_summary
+```
+
+# Differential Expression Results
+
+```{r de-results, message=FALSE, warning=FALSE}
+results_list <- list()
+
+for (i in seq_len(nrow(contrast_table))) {
+  row_i <- contrast_table[i, ]
+  fit_i <- model_fits[[row_i$model_id]]
+  metadata_i <- fit_i$metadata
+
+  if (!row_i$factor %in% names(metadata_i)) {
+    stop("Contrast factor '", row_i$factor, "' is missing from model metadata for model ", row_i$model_id)
+  }
+
+  factor_levels <- levels(factor(metadata_i[[row_i$factor]]))
+  if (!all(c(row_i$numerator, row_i$denominator) %in% factor_levels)) {
+    stop(
+      "Contrast '", row_i$contrast_name, "' for model '", row_i$model_id,
+      "' refers to levels not present in metadata column '", row_i$factor, "'."
+    )
+  }
+
+  comparison_label <- comparison_label_from_row(
+    model_id = row_i$model_id,
+    contrast_name = row_i$contrast_name,
+    split_enabled = split_enabled
+  )
+
+  result_obj <- DESeq2::results(
+    fit_i$dds,
+    contrast = c(row_i$factor, row_i$numerator, row_i$denominator),
+    alpha = FDR_THRESHOLD
+  )
+
+  results_list[[comparison_label]] <- extract_results_tidy(
+    result_obj = result_obj,
+    comparison_label = comparison_label,
+    model_id = row_i$model_id,
+    contrast_name = row_i$contrast_name
+  )
+}
+
+all_results <- bind_rows(results_list)
+comparison_levels <- names(results_list)
+
+deg_summary <- all_results %>%
+  group_by(comparison_label, direction) %>%
+  count(name = "n") %>%
+  tidyr::pivot_wider(names_from = direction, values_from = n, values_fill = 0)
+
+write_csv(all_results, file.path(SUMMARY_DIR, "all_results.csv"))
+write_csv(deg_summary, file.path(SUMMARY_DIR, "deg_summary.csv"))
+
+deg_summary
+```
+
+# PCA
+
+```{r pca, fig.width=10, fig.height=5, message=FALSE, warning=FALSE}
+pca_data_list <- lapply(names(model_fits), function(model_id) {
+  fit_i <- model_fits[[model_id]]
+  pca_tbl <- DESeq2::plotPCA(
+    fit_i$vsd,
+    intgroup = PCA_COLOR_COLUMN,
+    returnData = TRUE
+  ) %>%
+    mutate(model_id = model_id)
+
+  attr(pca_tbl, "percentVar") <- attr(pca_tbl, "percentVar")
+  pca_tbl
+})
+names(pca_data_list) <- names(model_fits)
+
+pca_data <- bind_rows(pca_data_list)
+
+p_pca <- ggplot(pca_data, aes(x = PC1, y = PC2, color = .data[[PCA_COLOR_COLUMN]])) +
+  geom_point(size = 2.8, alpha = 0.9) +
+  facet_wrap(~ model_id, scales = "free") +
+  labs(
+    title = "PCA - Variance-Stabilized Counts",
+    x = "PC1",
+    y = "PC2",
+    color = PCA_COLOR_COLUMN
+  ) +
+  theme_bw(base_size = 10, base_family = "sans") +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    panel.grid = element_blank(),
+    strip.background = element_rect(fill = "grey95")
+  )
+
+save_plot_multi(p_pca, file.path("PCA", plot_file_stub("pca")), 10, 5)
+p_pca
+```
+
+# Volcano Plots
+
+```{r volcano, fig.width=12, fig.height=6, message=FALSE, warning=FALSE}
+volcano_plots <- lapply(comparison_levels, function(label) {
+  df <- results_list[[label]]
+
+  ggplot(df, aes(x = log2FoldChange, y = -log10(padj_plot), color = direction)) +
+    geom_point(alpha = 0.55, size = 0.8) +
+    geom_hline(
+      yintercept = -log10(FDR_THRESHOLD),
+      linetype = "dashed",
+      color = "darkgrey",
+      linewidth = 0.3
+    ) +
+    geom_vline(
+      xintercept = c(-LFC_THRESHOLD, LFC_THRESHOLD),
+      linetype = "dashed",
+      color = "darkgrey",
+      linewidth = 0.3
+    ) +
+    scale_color_manual(values = c(Up = "#a00000", Down = "#2066a8", NS = "gray70")) +
+    scale_x_continuous(limits = VOLCANO_XLIM) +
+    scale_y_continuous(limits = c(0, VOLCANO_YLIM)) +
+    labs(title = label, x = expression(log[2] * " Fold Change"), y = "-log10(FDR)") +
+    theme_bw(base_size = 10, base_family = "sans") +
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      legend.position = "none",
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+})
+names(volcano_plots) <- comparison_levels
+
+volcano_grid <- patchwork::wrap_plots(volcano_plots, ncol = min(2L, length(volcano_plots)))
+save_plot_multi(volcano_grid, file.path("Volcano", plot_file_stub("volcano_grid")), 12, 6)
+volcano_grid
+```
+
+# MA Plots
+
+```{r ma-plots, fig.width=12, fig.height=6, message=FALSE, warning=FALSE}
+if (isTRUE(OPTIONAL_MODULES$ma_plots)) {
+  ma_plots <- lapply(comparison_levels, function(label) {
+    df <- results_list[[label]] %>%
+      mutate(baseMean_plot = pmax(baseMean, 1))
+
+    ggplot(df, aes(x = baseMean_plot, y = log2FoldChange, color = direction)) +
+      geom_point(alpha = 0.55, size = 0.8) +
+      scale_x_log10(labels = scales::comma) +
+      scale_color_manual(values = c(Up = "#a00000", Down = "#2066a8", NS = "gray70")) +
+      geom_hline(yintercept = c(-LFC_THRESHOLD, LFC_THRESHOLD), linetype = "dashed", color = "darkgrey") +
+      labs(title = label, x = "Base mean (log10 scale)", y = expression(log[2] * " Fold Change")) +
+      theme_bw(base_size = 10, base_family = "sans") +
+      theme(
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        legend.position = "none",
+        panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.4),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()
+      )
+  })
+  names(ma_plots) <- comparison_levels
+
+  ma_grid <- patchwork::wrap_plots(ma_plots, ncol = min(2L, length(ma_plots)))
+  save_plot_multi(ma_grid, file.path("MA", plot_file_stub("ma_grid")), 12, 6)
+  ma_grid
+}
+```
+
+# Sample Distance Heatmaps
+
+```{r sample-distance, fig.width=7, fig.height=6, message=FALSE, warning=FALSE}
+if (isTRUE(OPTIONAL_MODULES$sample_distance_heatmap)) {
+  for (model_id in names(model_fits)) {
+    fit_i <- model_fits[[model_id]]
+    vst_mat <- SummarizedExperiment::assay(fit_i$vsd)
+    sample_dist <- stats::dist(t(vst_mat))
+    sample_dist_mat <- as.matrix(sample_dist)
+    annotation_df <- fit_i$metadata %>%
+      select(any_of(intersect(c(PCA_COLOR_COLUMN, "pair_id"), names(fit_i$metadata))))
+    if (ncol(annotation_df) == 0) {
+      annotation_df <- NULL
+    }
+
+    p_dist <- pheatmap::pheatmap(
+      sample_dist_mat,
+      annotation_col = annotation_df,
+      annotation_row = annotation_df,
+      clustering_distance_rows = sample_dist,
+      clustering_distance_cols = sample_dist,
+      main = paste("Sample Distance -", model_id),
+      silent = TRUE
+    )
+
+    filename <- file.path("Sample_Distance", plot_file_stub(paste0("sample_distance_", model_id)))
+    save_pheatmap_multi(p_dist, filename, 7, 6)
+    grid::grid.newpage()
+    grid::grid.draw(p_dist$gtable)
+  }
+}
+```
+
+# Top DEG Heatmaps
+
+```{r top-heatmaps, fig.width=8, fig.height=8, message=FALSE, warning=FALSE}
+if (isTRUE(OPTIONAL_MODULES$top_heatmaps)) {
+  for (label in comparison_levels) {
+    result_df <- results_list[[label]] %>%
+      filter(!is.na(padj)) %>%
+      arrange(padj, desc(abs(log2FoldChange)))
+
+    top_genes <- head(result_df$Gene, TOP_HEATMAP_GENES)
+    if (length(top_genes) < 2) {
+      next
+    }
+
+    model_id <- unique(result_df$model_id)
+    fit_i <- model_fits[[model_id]]
+    vst_mat <- SummarizedExperiment::assay(fit_i$vsd)[top_genes, , drop = FALSE]
+    vst_scaled <- t(scale(t(vst_mat)))
+    vst_scaled[is.na(vst_scaled)] <- 0
+
+    annotation_df <- fit_i$metadata %>%
+      select(any_of(intersect(c(PCA_COLOR_COLUMN, "pair_id"), names(fit_i$metadata))))
+    if (ncol(annotation_df) == 0) {
+      annotation_df <- NULL
+    }
+
+    p_heat <- pheatmap::pheatmap(
+      vst_scaled,
+      annotation_col = annotation_df,
+      show_rownames = TRUE,
+      fontsize_row = 8,
+      main = paste("Top DEGs -", label),
+      silent = TRUE
+    )
+
+    filename <- file.path("Heatmaps", plot_file_stub(paste0("top_heatmap_", label)))
+    save_pheatmap_multi(p_heat, filename, 8, 8)
+    grid::grid.newpage()
+    grid::grid.draw(p_heat$gtable)
+  }
+}
+```
+
+# Bubble Plots
+
+```{r bubble-plots, fig.width=8, fig.height=9, message=FALSE, warning=FALSE}
+bubble_plots <- lapply(names(GENE_SETS), function(pathway_name) {
+  p <- make_bubble_plot(pathway_name, GENE_SETS[[pathway_name]], all_results, comparison_levels)
+  save_plot_multi(
+    p,
+    file.path("Bubble_Plots", plot_file_stub(paste0("bubble_", pathway_name))),
+    8,
+    9
+  )
+  p
+})
+names(bubble_plots) <- names(GENE_SETS)
+
+for (plot_name in names(bubble_plots)) {
+  print(bubble_plots[[plot_name]])
+}
+```
+
+# Triangle Plots
+
+```{r triangle-plots, fig.width=6, fig.height=9, message=FALSE, warning=FALSE}
+triangle_plots <- lapply(names(GENE_SETS), function(pathway_name) {
+  p <- make_triangle_plot(pathway_name, GENE_SETS[[pathway_name]], all_results, comparison_levels)
+  save_plot_multi(
+    p,
+    file.path("Triangle", plot_file_stub(paste0("triangle_", pathway_name))),
+    6,
+    9
+  )
+  p
+})
+names(triangle_plots) <- names(GENE_SETS)
+
+for (plot_name in names(triangle_plots)) {
+  print(triangle_plots[[plot_name]])
+}
+```
+
+# Viral Feature Module
+
+```{r viral-module, fig.width=12, fig.height=8, message=FALSE, warning=FALSE}
+viral_tables <- NULL
+
+if (isTRUE(OPTIONAL_MODULES$viral_features)) {
+  if (is.null(transcript_counts)) {
+    stop(
+      "OPTIONAL_MODULES$viral_features is TRUE, but no transcript counts were provided. ",
+      "Supply TRANSCRIPT_COUNT_FILE or TRANSCRIPT_SE_FILE, or disable the viral module."
+    )
+  }
+
+  viral_patterns <- VIRAL_FEATURE_CONFIG$feature_patterns
+  viral_lengths_bp <- VIRAL_FEATURE_CONFIG$feature_lengths_bp
+  if (!all(names(viral_patterns) %in% names(viral_lengths_bp))) {
+    stop("VIRAL_FEATURE_CONFIG$feature_lengths_bp must be named for all viral features.")
+  }
+
+  matched_rows <- vapply(
+    names(viral_patterns),
+    function(label) match_feature_row(transcript_counts, viral_patterns[[label]], label),
+    character(1)
+  )
+
+  viral_counts <- transcript_counts[matched_rows, , drop = FALSE]
+  rownames(viral_counts) <- names(matched_rows)
+
+  host_size_factors <- DESeq2::estimateSizeFactorsForMatrix(round(filtered_counts))
+  viral_sf_norm <- sweep(viral_counts, 2, host_size_factors, "/")
+  viral_tpm <- calculate_tpm(viral_counts, viral_lengths_bp[rownames(viral_counts)])
+
+  viral_long <- bind_rows(
+    as.data.frame(as.table(viral_sf_norm), stringsAsFactors = FALSE) %>%
+      transmute(feature = Var1, sample_name = Var2, value = Freq, metric = "Host size-factor normalized counts"),
+    as.data.frame(as.table(viral_tpm), stringsAsFactors = FALSE) %>%
+      transmute(feature = Var1, sample_name = Var2, value = Freq, metric = "TPM")
+  ) %>%
+    left_join(
+      metadata %>%
+        tibble::rownames_to_column("sample_name"),
+      by = "sample_name"
+    ) %>%
+    mutate(
+      value_plot = pmax(value, VIRAL_FEATURE_CONFIG$log_pseudocount),
+      facet_label = if (!is.null(VIRAL_FEATURE_CONFIG$facet_column)) {
+        paste(feature, .data[[VIRAL_FEATURE_CONFIG$facet_column]], sep = " | ")
+      } else {
+        feature
+      }
+    )
+
+  group_col <- VIRAL_FEATURE_CONFIG$grouping_column
+  p_viral <- ggplot(
+    viral_long,
+    aes(x = .data[[group_col]], y = value_plot, color = .data[[group_col]])
+  ) +
+    geom_point(position = position_jitter(width = 0.08, height = 0), alpha = 0.5, size = 1.7) +
+    stat_summary(fun = mean, geom = "point", size = 2.8) +
+    scale_y_log10(labels = scales::comma_format()) +
+    facet_grid(metric ~ facet_label, scales = "free_y") +
+    labs(
+      title = "Optional Viral Feature Module",
+      x = group_col,
+      y = "Abundance (log10 scale)",
+      color = group_col
+    ) +
+    theme_bw(base_size = 10, base_family = "sans") +
+    theme(
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      axis.text.x = element_text(angle = 35, hjust = 1),
+      panel.grid = element_blank()
+    )
+
+  save_plot_multi(p_viral, file.path("Viral", plot_file_stub("viral_features")), 12, 8)
+
+  viral_tables <- list(
+    viral_counts = viral_counts,
+    viral_sf_norm = viral_sf_norm,
+    viral_tpm = viral_tpm,
+    viral_long = viral_long
+  )
+
+  p_viral
+}
+```
+
+# Export Differential Expression Tables
+
+```{r export-de-tables, message=FALSE, warning=FALSE}
+deg_workbook <- list()
+
+for (label in comparison_levels) {
+  export_df <- results_list[[label]] %>%
+    arrange(padj, desc(abs(log2FoldChange)))
+
+  safe_name <- sanitize_filename(label)
+  write_csv(export_df, file.path(SUMMARY_DIR, paste0("DEGs_", safe_name, ".csv")))
+
+  sheet_name <- substr(safe_name, 1, 31)
+  deg_workbook[[sheet_name]] <- export_df
+}
+
+writexl::write_xlsx(deg_workbook, path = file.path(SUMMARY_DIR, "DEG_tables.xlsx"))
+message("Exported DEG tables to ", SUMMARY_DIR)
+```
+
+# Analysis Bundle
+
+```{r analysis-bundle, message=FALSE, warning=FALSE}
+if (isTRUE(OPTIONAL_MODULES$analysis_bundle)) {
+  analysis_bundle <- list(
+    input_summary = gene_input_summary,
+    settings = list(
+      input_mode = INPUT_MODE,
+      design_formula = paste(deparse(design_formula), collapse = ""),
+      sample_id_columns = SAMPLE_ID_COLUMNS,
+      split_models = split_enabled,
+      split_column = MODEL_SPLIT_COLUMN,
+      reference_levels = REFERENCE_LEVELS,
+      count_filter_min = COUNT_FILTER_MIN,
+      count_filter_min_samples = COUNT_FILTER_MIN_SAMPLES,
+      fdr_threshold = FDR_THRESHOLD,
+      lfc_threshold = LFC_THRESHOLD,
+      top_heatmap_genes = TOP_HEATMAP_GENES,
+      volcano_xlim = VOLCANO_XLIM,
+      volcano_ylim = VOLCANO_YLIM,
+      optional_modules = OPTIONAL_MODULES,
+      gene_sets = GENE_SETS
+    ),
+    metadata = metadata,
+    sample_summary = sample_summary,
+    filter_summary = filter_summary,
+    contrast_table = contrast_table,
+    filtered_feature_ids = rownames(filtered_counts),
+    normalized_counts = lapply(model_fits, function(x) x$normalized_counts),
+    vst = lapply(model_fits, function(x) SummarizedExperiment::assay(x$vsd)),
+    model_metadata = lapply(model_fits, function(x) x$metadata),
+    model_results_names = lapply(model_fits, function(x) x$results_names),
+    de_results = results_list,
+    all_results = all_results,
+    pca_data = pca_data,
+    viral = viral_tables
+  )
+
+  bundle_path <- file.path(SUMMARY_DIR, "rnaseq_analysis_bundle.rds")
+  saveRDS(analysis_bundle, bundle_path)
+  cat("Analysis bundle:", bundle_path, "\n")
+}
+```

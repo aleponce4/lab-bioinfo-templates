@@ -1,0 +1,353 @@
+---
+title: "GO Enrichment Analysis"
+author: "Jonsson Laboratory"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# DEG_FILE: CSV file with differential expression results.
+#   Required columns: Gene, Comparison, log2FoldChange, padj
+#   One row per gene per comparison.
+#
+DEG_FILE <- "data/deg_results.csv"
+
+# ORGANISM: Bioconductor annotation package for your species.
+#   Human: "org.Hs.eg.db"   Mouse: "org.Mm.eg.db"
+ORG_DB   <- "org.Mm.eg.db"
+SPECIES  <- "Mus musculus"   # used in plot subtitles
+
+# FDR_THRESHOLD: Significance threshold for identifying DEGs.
+FDR_THRESHOLD   <- 0.05
+
+# LFC_THRESHOLD: |log2FoldChange| cutoff for bubble plots and enrichment.
+LFC_THRESHOLD   <- 1.5
+
+# ENRICHMENT_FDR: FDR cutoff for reporting enriched terms.
+ENRICHMENT_FDR  <- 0.05
+
+# MIN_GENE_SET / MAX_GENE_SET: Gene set size limits for enrichment.
+MIN_GENE_SET    <- 10
+MAX_GENE_SET    <- 500
+
+# COMPARISONS_ORDER: Factor order for the x-axis of bubble plots.
+#   Must match the "Comparison" values in DEG_FILE.
+#   NULL = use alphabetical order.
+COMPARISONS_ORDER <- NULL   # e.g., c("Condition_A", "Condition_B", "Condition_C")
+
+# COMPARISON_LABELS: Human-readable x-axis labels (same length as COMPARISONS_ORDER).
+#   NULL = use raw comparison names.
+COMPARISON_LABELS <- NULL   # e.g., c("Group A vs Ctrl", "Group B vs Ctrl", ...)
+
+# GENE_SETS: Named list of character vectors for bubble-plot gene sets.
+#   Each element is one panel / pathway.
+#   Replace these with your gene lists of interest.
+GENE_SETS <- list(
+  Pathway_A = c("Stat1", "Stat2", "Irf7", "Isg15", "Ifit1",
+                "Ifit3", "Mx1", "Oas1a"),
+  Pathway_B = c("Mki67", "Top2a", "Cdk1", "Ccnb1", "Ccnb2",
+                "Aurkb", "Bub1", "Ube2c"),
+  Pathway_C = c("Il6", "Cxcl10", "Ccl2", "Nfkbia", "Socs3",
+                "Jun", "Fos", "Icam1")
+)
+
+# OUTPUT_DIR: Where to save plots and data exports.
+OUTPUT_DIR <- "Plots"
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(clusterProfiler)
+library(enrichplot)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(tidyverse)
+library(stringr)
+library(RColorBrewer)
+library(viridis)
+library(svglite)
+library(patchwork)
+library(scales)
+
+org_db <- get(ORG_DB, envir = asNamespace(ORG_DB))
+
+dir.create(file.path(OUTPUT_DIR, "Bubble_Plots"),    recursive = TRUE, showWarnings = FALSE)
+dir.create(file.path(OUTPUT_DIR, "Enrichment"),      recursive = TRUE, showWarnings = FALSE)
+dir.create(file.path(OUTPUT_DIR, "Pathway_Heatmaps"),recursive = TRUE, showWarnings = FALSE)
+```
+
+# Load Data
+
+```{r load-data, message=FALSE}
+deg_all <- read_csv(DEG_FILE, show_col_types = FALSE)
+
+# Set factor levels for comparisons
+if (!is.null(COMPARISONS_ORDER)) {
+  deg_all <- deg_all %>%
+    mutate(Comparison = factor(Comparison, levels = COMPARISONS_ORDER,
+                               labels = if (!is.null(COMPARISON_LABELS)) COMPARISON_LABELS
+                                        else COMPARISONS_ORDER))
+} else {
+  deg_all <- deg_all %>% mutate(Comparison = factor(Comparison))
+}
+
+# Mark significant genes
+deg_all <- deg_all %>%
+  mutate(
+    log_padj    = ifelse(!is.na(padj) & padj > 0, -log10(padj), NA_real_),
+    significant = !is.na(padj) & padj < FDR_THRESHOLD & abs(log2FoldChange) >= LFC_THRESHOLD
+  )
+
+cat("Total genes:", n_distinct(deg_all$Gene), "\n")
+cat("Comparisons:", paste(levels(deg_all$Comparison), collapse = ", "), "\n")
+cat("Significant DEGs (any comparison):", sum(deg_all$significant, na.rm = TRUE), "\n")
+```
+
+# Bubble Plots (Gene Set Visualization)
+
+```{r bubble-plot-fn}
+# ── Shared bubble plot function ────────────────────────────────────────────────
+make_bubble_plot <- function(pathway_name, genes, data) {
+  pdata <- data %>%
+    filter(Gene %in% genes) %>%
+    mutate(
+      lfc_masked    = ifelse(significant, log2FoldChange, 0),
+      color_group   = ifelse(significant, "significant", "nonsignificant"),
+      Gene          = factor(Gene, levels = rev(genes))
+    )
+
+  p <- ggplot() +
+    geom_point(
+      data = filter(pdata, color_group == "nonsignificant"),
+      aes(x = Comparison, y = Gene),
+      size = 1.5, color = "darkgrey", alpha = 0.5
+    ) +
+    geom_point(
+      data = filter(pdata, color_group == "significant"),
+      aes(x = Comparison, y = Gene,
+          size = abs(log2FoldChange), color = log_padj),
+      alpha = 0.8
+    ) +
+    scale_size_continuous(
+      name   = expression("Log"[2] * " Fold Change"),
+      range  = c(2, 10),
+      breaks = c(1.5, 3, 6, 12),
+      limits = c(1.5, 12)
+    ) +
+    scale_color_viridis_c(
+      option    = "plasma",
+      direction = -1,
+      name      = "-log10(FDR)",
+      limits    = c(0, 20),
+      oob       = scales::squish,
+      breaks    = c(0, 5, 10, 15, 20),
+      labels    = c("0", "5", "10", "15", "20")
+    ) +
+    scale_y_discrete(position = "right") +
+    theme_bw() +
+    theme(
+      plot.title   = element_text(size = 18, face = "bold", hjust = 0.5, family = "sans"),
+      axis.title.x = element_text(size = 16, family = "sans"),
+      axis.title.y = element_text(size = 16, family = "sans"),
+      axis.text.x  = element_text(size = 14, angle = 45, hjust = 1,
+                                  face = "bold", family = "sans"),
+      axis.text.y  = element_text(size = 14, face = "italic", family = "sans"),
+      legend.title = element_text(size = 12, family = "sans"),
+      legend.text  = element_text(size = 10, family = "sans"),
+      legend.key.size   = unit(0.4, "cm"),
+      legend.spacing.y  = unit(0.2, "cm"),
+      legend.position   = "left",
+      panel.grid.major  = element_blank(),
+      panel.grid.minor  = element_blank()
+    ) +
+    guides(
+      size  = guide_legend(override.aes = list(shape = 21, color = "darkgrey",
+                                               fill = "#ae96bf", alpha = 0.8)),
+      color = guide_colorbar(barwidth = 1, barheight = 8)
+    ) +
+    labs(title = pathway_name, x = "", y = "")
+
+  p
+}
+```
+
+```{r bubble-plots, fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
+# ── Generate one bubble plot per gene set ──────────────────────────────────────
+bubble_plots <- lapply(names(GENE_SETS), function(name) {
+  p <- make_bubble_plot(name, GENE_SETS[[name]], deg_all)
+  ggsave(file.path(OUTPUT_DIR, "Bubble_Plots", paste0(name, ".svg")),
+         plot = p, device = "svg", width = 8, height = 10)
+  p
+})
+names(bubble_plots) <- names(GENE_SETS)
+
+# ── Print individual plots ─────────────────────────────────────────────────────
+for (nm in names(bubble_plots)) print(bubble_plots[[nm]])
+```
+
+```{r bubble-grid, fig.height=8, fig.width=16, message=FALSE, warning=FALSE}
+# ── Combine into a single-row grid ────────────────────────────────────────────
+if (length(bubble_plots) > 1) {
+  combined_plot <- wrap_plots(bubble_plots, ncol = length(bubble_plots)) +
+    plot_annotation(title = "Bubble Plots of Gene Sets") &
+    theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
+
+  ggsave(file.path(OUTPUT_DIR, "Bubble_Plots", "Bubble_Plot_Grid.svg"),
+         plot = combined_plot, device = "svg",
+         width = 8 * length(bubble_plots), height = 10)
+  print(combined_plot)
+}
+```
+
+# Data Export (Wide Format)
+
+```{r export-wide}
+dir.create(file.path(OUTPUT_DIR, "Pathway_Heatmaps"), showWarnings = FALSE, recursive = TRUE)
+
+for (nm in names(GENE_SETS)) {
+  safe_name <- gsub("[^A-Za-z0-9_-]", "_", nm)
+
+  wide_lfc <- deg_all %>%
+    filter(Gene %in% GENE_SETS[[nm]]) %>%
+    mutate(lfc_masked = ifelse(significant, log2FoldChange, 0)) %>%
+    select(Gene, Comparison, lfc_masked) %>%
+    tidyr::pivot_wider(names_from = Comparison, values_from = lfc_masked, values_fill = 0)
+
+  write_csv(wide_lfc, file.path(OUTPUT_DIR, "Pathway_Heatmaps",
+                                 paste0("GraphPad_", safe_name, ".csv")))
+}
+message("Exported wide-format CSVs to ", file.path(OUTPUT_DIR, "Pathway_Heatmaps"))
+```
+
+# GO Enrichment Analysis
+
+```{r go-enrichment, message=FALSE, warning=FALSE}
+# ── Per-comparison GO enrichment ───────────────────────────────────────────────
+run_go_enrichment <- function(comp_name, deg_data, ont = "BP") {
+  sig_genes <- deg_data %>%
+    filter(Comparison == comp_name, significant) %>%
+    pull(Gene) %>%
+    unique()
+
+  if (length(sig_genes) < 5) {
+    message("Skipping ", comp_name, " — fewer than 5 significant genes.")
+    return(NULL)
+  }
+
+  # Map gene symbols → Entrez IDs
+  gene_ids <- tryCatch(
+    bitr(sig_genes, fromType = "SYMBOL", toType = "ENTREZID",
+         OrgDb = org_db),
+    error = function(e) NULL
+  )
+  if (is.null(gene_ids) || nrow(gene_ids) == 0) return(NULL)
+  gene_ids <- gene_ids %>% distinct(ENTREZID, .keep_all = TRUE)
+
+  ego <- enrichGO(
+    gene          = gene_ids$ENTREZID,
+    OrgDb         = org_db,
+    ont           = ont,
+    pAdjustMethod = "BH",
+    pvalueCutoff  = ENRICHMENT_FDR,
+    qvalueCutoff  = ENRICHMENT_FDR,
+    minGSSize     = MIN_GENE_SET,
+    maxGSSize     = MAX_GENE_SET,
+    readable      = TRUE
+  )
+
+  list(ego = ego, comparison = comp_name)
+}
+
+comparisons_vec <- levels(deg_all$Comparison)
+go_results <- lapply(comparisons_vec, run_go_enrichment, deg_data = deg_all)
+names(go_results) <- comparisons_vec
+go_results <- Filter(Negate(is.null), go_results)
+```
+
+```{r go-plots, fig.width=8, fig.height=6, message=FALSE, warning=FALSE}
+# ── Dot plots for each comparison ─────────────────────────────────────────────
+for (comp in names(go_results)) {
+  ego <- go_results[[comp]]$ego
+  if (is.null(ego) || nrow(as.data.frame(ego)) == 0) next
+
+  p_dot <- dotplot(ego, showCategory = 20) +
+    labs(title = paste("GO (BP) Enrichment:", comp)) +
+    theme_bw() +
+    theme(
+      axis.text.y  = element_text(size = 10),
+      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+
+  print(p_dot)
+  ggsave(file.path(OUTPUT_DIR, "Enrichment", paste0("GO_dotplot_", comp, ".svg")),
+         plot = p_dot, device = "svg", width = 8, height = 6)
+
+  # Save table
+  write_csv(as.data.frame(ego),
+            file.path(OUTPUT_DIR, "Enrichment", paste0("GO_results_", comp, ".csv")))
+}
+```
+
+# KEGG Pathway Enrichment
+
+```{r kegg-enrichment, message=FALSE, warning=FALSE}
+run_kegg_enrichment <- function(comp_name, deg_data) {
+  sig_genes <- deg_data %>%
+    filter(Comparison == comp_name, significant) %>%
+    pull(Gene) %>%
+    unique()
+  if (length(sig_genes) < 5) return(NULL)
+
+  gene_ids <- tryCatch(
+    bitr(sig_genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org_db),
+    error = function(e) NULL
+  )
+  if (is.null(gene_ids) || nrow(gene_ids) == 0) return(NULL)
+  gene_ids <- gene_ids %>% distinct(ENTREZID, .keep_all = TRUE)
+
+  kk <- tryCatch(
+    enrichKEGG(gene         = gene_ids$ENTREZID,
+               organism     = if (grepl("Hs", ORG_DB)) "hsa" else "mmu",
+               pAdjustMethod = "BH",
+               pvalueCutoff = ENRICHMENT_FDR),
+    error = function(e) NULL
+  )
+  if (is.null(kk) || nrow(as.data.frame(kk)) == 0) return(NULL)
+
+  list(kk = kk, comparison = comp_name)
+}
+
+kegg_results <- lapply(comparisons_vec, run_kegg_enrichment, deg_data = deg_all)
+names(kegg_results) <- comparisons_vec
+kegg_results <- Filter(Negate(is.null), kegg_results)
+
+for (comp in names(kegg_results)) {
+  kk <- kegg_results[[comp]]$kk
+  p_kegg <- dotplot(kk, showCategory = 20) +
+    labs(title = paste("KEGG Enrichment:", comp)) +
+    theme_bw() +
+    theme(
+      axis.text.y = element_text(size = 10),
+      plot.title  = element_text(size = 14, face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+  print(p_kegg)
+  ggsave(file.path(OUTPUT_DIR, "Enrichment", paste0("KEGG_dotplot_", comp, ".svg")),
+         plot = p_kegg, device = "svg", width = 8, height = 6)
+  write_csv(as.data.frame(kk),
+            file.path(OUTPUT_DIR, "Enrichment", paste0("KEGG_results_", comp, ".csv")))
+}
+```

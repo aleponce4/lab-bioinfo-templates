@@ -148,8 +148,8 @@ for fname in vcf_files:
                 aa_change = aa_change[0]
 
             sample_call = (
-                rec.call_for_sample("SAMPLE")
-                if "SAMPLE" in [s.sample for s in rec.calls]
+                rec.call_for_sample["SAMPLE"]
+                if "SAMPLE" in rec.call_for_sample
                 else rec.calls[0]
             )
             ad = sample_call.data.get("AD", [0, 0])

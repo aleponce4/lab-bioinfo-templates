@@ -30,7 +30,7 @@ ORGANISM      <- "mmusculus"     # gprofiler2 organism code ("hsapiens" for huma
 
 # ── WGCNA network ───────────────────────────────────────────────────────────
 N_THREADS     <- 2               # parallel threads for blockwiseModules
-EXPR_FILTER   <- 10              # remove genes with mean VST < this
+EXPR_FILTER   <- 5               # remove genes with mean VST < this (VST scale ~= log2; typical range 6–15)
 VAR_FILTER    <- 0.5             # keep top fraction by MAD (0–1)
 SOFT_R2       <- 0.80            # scale-free R² target for power selection
 MIN_MOD_SIZE  <- 20              # minimum genes per module

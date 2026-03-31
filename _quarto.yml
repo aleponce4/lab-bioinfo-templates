@@ -5,7 +5,6 @@ project:
   render:
     - index.qmd
     - templates/*/template.qmd
-    - templates/09_wgcna/template.qmd
 
 website:
   title: "Jonsson Lab — Bioinfo Templates"

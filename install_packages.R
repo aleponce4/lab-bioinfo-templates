@@ -12,7 +12,7 @@ cran_pkgs <- c(
   "ggplot2", "ggpubr", "ggridges", "ggrepel", "ggbeeswarm", "ggh4x", "hexbin",
   "viridis", "RColorBrewer", "scales", "patchwork", "svglite", "ragg",
   "scatterpie", "ggspatial", "pheatmap",
-  "WGCNA", "gprofiler2", "igraph",
+  "gprofiler2", "igraph",
   # Statistics
   "car", "broom", "rstatix", "emmeans", "coin", "drc", "vegan",
   # Spatial / maps
@@ -49,7 +49,11 @@ bioc_pkgs <- c(
   "GOplot",
   "ggVennDiagram",
   "ReactomePA",
-  "BiocParallel"           # 09_wgcna (explicit dep of WGCNA)
+  "BiocParallel",          # 09_wgcna
+  "impute",                # WGCNA Bioconductor dep (not on CRAN)
+  "preprocessCore",        # WGCNA Bioconductor dep
+  "GO.db",                 # WGCNA Bioconductor dep
+  "WGCNA"                  # 09_wgcna (installed after its Bioc deps)
 )
 
 bioc_to_install <- bioc_pkgs[!bioc_pkgs %in% installed.packages()[, "Package"]]

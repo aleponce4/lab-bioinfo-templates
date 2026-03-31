@@ -69,15 +69,15 @@ make_mod <- function(prefix, eigengene, n_genes, base_mean = 200) {
   mat
 }
 
-m1  <- make_mod("Turq",   eig1, 100, 200)
-m2  <- make_mod("Blue",   eig2, 100, 180)
-m3  <- make_mod("Red",    eig3,  80, 150)
-m4  <- make_mod("Green",  eig4,  80, 120)
-m5  <- make_mod("Yellow", eig5,  80, 100)
+m1  <- make_mod("Turq",   eig1, 100, 800)
+m2  <- make_mod("Blue",   eig2, 100, 700)
+m3  <- make_mod("Red",    eig3,  80, 600)
+m4  <- make_mod("Green",  eig4,  80, 500)
+m5  <- make_mod("Yellow", eig5,  80, 400)
 
-# Background genes: low-signal Poisson
+# Background genes: moderate counts so VST > 5 after normalization
 bg_mat <- matrix(
-  rpois(160 * n_samples, lambda = sample(50:300, 160, replace = TRUE)),
+  rpois(160 * n_samples, lambda = sample(300:800, 160, replace = TRUE)),
   nrow = 160, ncol = n_samples
 )
 rownames(bg_mat) <- paste0("BG_G", seq_len(160))

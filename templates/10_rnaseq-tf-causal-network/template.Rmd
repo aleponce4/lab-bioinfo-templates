@@ -1,0 +1,765 @@
+---
+title: "RNA-seq TF/Causal Network"
+author: "Jonsson Laboratory"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# ── Inputs ───────────────────────────────────────────────────────────────────
+# DEG_FILE: CSV with one row per gene per contrast.
+# Required columns: Gene, Comparison, log2FoldChange, padj
+# Optional column: stat. If stat is absent, a signed -log10(padj) score is used.
+DEG_FILE          <- "data/example_deg_results.csv"
+GENE_MODULE_FILE  <- "data/example_gene_modules.csv"
+SPECIES           <- "mouse"     # accepted by decoupleR/OmnipathR when online: "mouse" or "human"
+COMPARISONS_ORDER <- NULL        # NULL = use order from file
+
+# ── Filtering ────────────────────────────────────────────────────────────────
+FDR_THRESHOLD     <- 0.05
+LFC_THRESHOLD     <- 1
+TF_ACTIVITY_ABS_CUTOFF <- 0.8
+TOP_TF_PER_CONTRAST    <- 12
+RECURRENT_EDGE_THRESHOLD <- 0.50
+
+# ── External resources ───────────────────────────────────────────────────────
+# Keep FALSE for gallery rendering and offline work. Set TRUE to refresh real
+# CollecTRI/OmniPath resources if decoupleR/OmnipathR are installed and online.
+DOWNLOAD_EXTERNAL_NETWORKS <- FALSE
+FORCE_REFRESH_NETWORK_CACHE <- FALSE
+
+# ── Optional CARNIVAL solver ─────────────────────────────────────────────────
+RUN_CARNIVAL_SOLVER        <- FALSE
+USE_CACHED_CARNIVAL_RESULTS <- TRUE
+FORCE_RERUN_SOLVER         <- FALSE
+SOLVER <- "gurobi"          # accepted: "gurobi", "cplex", "cbc", "lpSolve"
+CARNIVAL_THREADS <- 4
+CARNIVAL_TIME_LIMIT <- 1800  # seconds; respected by some solvers/interfaces
+
+# ── Plot behavior ────────────────────────────────────────────────────────────
+SHOW_RNA_EVIDENCE_BORDER <- TRUE
+REMOVE_AMBIGUOUS_NODES_STATIC <- TRUE
+RNA_COLOR_LIMIT <- 6
+
+# ── Outputs ──────────────────────────────────────────────────────────────────
+OUTPUT_DIR <- "outputs"
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+required_pkgs <- c("dplyr", "tidyr", "readr", "stringr", "tibble", "ggplot2",
+                   "scales", "igraph", "pheatmap")
+missing_pkgs <- required_pkgs[!vapply(required_pkgs, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing_pkgs) > 0) {
+  stop("Install required packages before rendering: ", paste(missing_pkgs, collapse = ", "))
+}
+
+library(dplyr)
+library(tidyr)
+library(readr)
+library(stringr)
+library(tibble)
+library(ggplot2)
+library(scales)
+library(igraph)
+
+plot_theme <- function(base_size = 10) {
+  theme_bw(base_size = base_size, base_family = "Arial") +
+    theme(
+      panel.grid = element_blank(),
+      plot.title = element_text(face = "bold", hjust = 0.5),
+      strip.background = element_rect(fill = "grey95", color = "grey70"),
+      strip.text = element_text(face = "bold"),
+      legend.position = "right"
+    )
+}
+
+pal <- list(
+  predicted_up = "#E08A1E",
+  predicted_down = "#1F5EA8",
+  ambiguous = "#BDBDBD",
+  edge_up = "#D97706",
+  edge_down = "#2563A8",
+  edge_unknown = "#8A8A8A",
+  rna_down = "#2C7BB6",
+  rna_mid = "#FFFFFF",
+  rna_up = "#B2182B",
+  border_rna = "#006D2C",
+  border_default = "#424242"
+)
+
+paths <- list(
+  tables = file.path(OUTPUT_DIR, "tables"),
+  plots_overview = file.path(OUTPUT_DIR, "plots", "overview"),
+  plots_modules = file.path(OUTPUT_DIR, "plots", "module_networks"),
+  source_files = file.path(OUTPUT_DIR, "networks", "source_files"),
+  cytoscape = file.path(OUTPUT_DIR, "networks", "cytoscape"),
+  cache = file.path(OUTPUT_DIR, "cache")
+)
+invisible(lapply(paths, dir.create, recursive = TRUE, showWarnings = FALSE))
+```
+
+# Helper Functions
+
+```{r helpers}
+normalize_gene_symbol <- function(x) {
+  x <- as.character(x)
+  x <- stringr::str_trim(x)
+  x <- stringr::str_replace_all(x, "\\s+", "")
+  x <- stringr::str_replace(x, "^['\"]|['\"]$", "")
+  x[x == ""] <- NA_character_
+  x
+}
+
+validate_deg_table <- function(deg) {
+  required <- c("Gene", "Comparison", "log2FoldChange", "padj")
+  missing <- setdiff(required, names(deg))
+  if (length(missing) > 0) {
+    stop("DEG_FILE is missing required columns: ", paste(missing, collapse = ", "))
+  }
+  deg %>%
+    mutate(
+      Gene = normalize_gene_symbol(Gene),
+      Comparison = as.character(Comparison),
+      log2FoldChange = as.numeric(log2FoldChange),
+      padj = as.numeric(padj),
+      stat = if ("stat" %in% names(.)) as.numeric(.data$stat) else NA_real_
+    ) %>%
+    filter(!is.na(Gene), !is.na(Comparison))
+}
+
+make_de_score <- function(deg) {
+  deg %>%
+    mutate(
+      safe_padj = pmax(padj, .Machine$double.xmin, na.rm = TRUE),
+      de_score = ifelse(!is.na(stat), stat, sign(log2FoldChange) * -log10(safe_padj)),
+      significant = !is.na(padj) & padj < FDR_THRESHOLD & abs(log2FoldChange) >= LFC_THRESHOLD
+    )
+}
+
+detect_input_type <- function(deg) {
+  sig_like <- all(!is.na(deg$padj) & deg$padj < FDR_THRESHOLD &
+                    abs(deg$log2FoldChange) >= LFC_THRESHOLD)
+  if (sig_like) "significant-DEG-only" else "full-DE-results"
+}
+
+save_plot_dual <- function(plot, base_path, width = 7, height = 5) {
+  png_path <- paste0(base_path, ".png")
+  svg_path <- paste0(base_path, ".svg")
+  ggplot2::ggsave(png_path, plot = plot, width = width, height = height, units = "in", dpi = 300)
+  if (requireNamespace("svglite", quietly = TRUE)) {
+    ggplot2::ggsave(svg_path, plot = plot, width = width, height = height, units = "in", device = svglite::svglite)
+  } else {
+    message("Package svglite is not installed; skipped SVG: ", svg_path)
+  }
+  invisible(c(png = png_path, svg = svg_path))
+}
+
+rna_color <- function(x, limit = RNA_COLOR_LIMIT) {
+  x <- pmax(pmin(x, limit), -limit)
+  scales::col_numeric(c(pal$rna_down, pal$rna_mid, pal$rna_up), domain = c(-limit, limit))(x)
+}
+
+activity_color <- function(x) {
+  dplyr::case_when(
+    is.na(x) ~ pal$ambiguous,
+    x > 0 ~ pal$predicted_up,
+    x < 0 ~ pal$predicted_down,
+    TRUE ~ pal$ambiguous
+  )
+}
+
+edge_color <- function(sign) {
+  dplyr::case_when(
+    sign > 0 ~ pal$edge_up,
+    sign < 0 ~ pal$edge_down,
+    TRUE ~ pal$edge_unknown
+  )
+}
+
+safe_name <- function(x) {
+  x %>% stringr::str_replace_all("[^A-Za-z0-9]+", "_") %>% stringr::str_replace_all("^_|_$", "")
+}
+```
+
+# Load DE Results And Gene Modules
+
+```{r load-data, message=FALSE}
+if (!file.exists(DEG_FILE) || !file.exists(GENE_MODULE_FILE)) {
+  message("Example input files not found. Regenerating synthetic data with data/simulate_data.R")
+  source("data/simulate_data.R")
+}
+
+deg_all <- readr::read_csv(DEG_FILE, show_col_types = FALSE) %>%
+  validate_deg_table() %>%
+  make_de_score()
+
+if (!is.null(COMPARISONS_ORDER)) {
+  deg_all <- deg_all %>% mutate(Comparison = factor(Comparison, levels = COMPARISONS_ORDER))
+} else {
+  deg_all <- deg_all %>% mutate(Comparison = factor(Comparison, levels = unique(Comparison)))
+}
+
+modules <- readr::read_csv(GENE_MODULE_FILE, show_col_types = FALSE) %>%
+  transmute(module = as.character(module), gene = normalize_gene_symbol(gene)) %>%
+  filter(!is.na(gene), !is.na(module)) %>%
+  distinct()
+
+input_type <- detect_input_type(deg_all)
+cat("DE input type:", input_type, "\n")
+cat("Genes:", n_distinct(deg_all$Gene), "\n")
+cat("Comparisons:", paste(levels(deg_all$Comparison), collapse = ", "), "\n")
+cat("Significant DE rows:", sum(deg_all$significant, na.rm = TRUE), "\n")
+
+readr::write_csv(deg_all, file.path(paths$tables, "validated_deg_results.csv"))
+readr::write_csv(modules, file.path(paths$tables, "gene_modules.csv"))
+```
+
+# CollecTRI TF-Target Network
+
+```{r collectri}
+toy_collectri <- function() {
+  tribble(
+    ~tf, ~target, ~mor,
+    "STAT1", "IFIT1",  1, "STAT1", "ISG15",  1, "STAT1", "CXCL10", 1, "STAT1", "IRF7", 1,
+    "IRF1",  "IFIT1",  1, "IRF1",  "CXCL10", 1, "IRF1",  "ICAM1",  1,
+    "IRF7",  "ISG15",  1, "IRF7",  "MX1",    1, "IRF7",  "OAS1",   1,
+    "NFKB1", "ICAM1",  1, "NFKB1", "VCAM1",  1, "NFKB1", "CCL2",   1, "NFKB1", "PTGS2", 1,
+    "RELA",  "ICAM1",  1, "RELA",  "CXCL10", 1, "RELA",  "TNF",    1, "RELA",  "MMP3",  1,
+    "JUN",   "MMP3",   1, "JUN",   "PTGS2",  1, "JUN",   "VEGFA",  1,
+    "FOS",   "MMP3",   1, "FOS",   "PTGS2",  1, "FOS",   "VEGFA",  1,
+    "HIF1A", "VEGFA",  1, "HIF1A", "NOS2",   1, "HIF1A", "ANGPT2", 1,
+    "SPI1",  "ITGAM",  1, "SPI1",  "LYZ2",   1, "SPI1",  "S100A9", 1,
+    "ETS1",  "VCAM1",  1, "ETS1",  "MMP9",   1, "ETS1",  "COL4A1", -1,
+    "KLF2",  "ICAM1", -1, "KLF2",  "VCAM1", -1, "KLF2",  "THBD",   1
+  )
+}
+
+load_or_build_collectri <- function(cache_file) {
+  if (file.exists(cache_file) && !FORCE_REFRESH_NETWORK_CACHE) {
+    return(readRDS(cache_file))
+  }
+  net <- NULL
+  if (DOWNLOAD_EXTERNAL_NETWORKS && requireNamespace("decoupleR", quietly = TRUE)) {
+    net <- tryCatch({
+      raw <- decoupleR::get_collectri(organism = SPECIES, split_complexes = FALSE)
+      raw %>%
+        transmute(
+          tf = toupper(as.character(.data$source)),
+          target = toupper(as.character(.data$target)),
+          mor = as.numeric(.data$mor)
+        ) %>%
+        filter(!is.na(tf), !is.na(target), !is.na(mor)) %>%
+        distinct()
+    }, error = function(e) {
+      message("Could not download CollecTRI; using toy network. Reason: ", e$message)
+      NULL
+    })
+  }
+  if (is.null(net)) net <- toy_collectri()
+  saveRDS(net, cache_file)
+  net
+}
+
+collectri <- load_or_build_collectri(file.path(paths$cache, "collectri_signed_tf_target.rds"))
+readr::write_csv(collectri, file.path(paths$tables, "collectri_tf_target_network.csv"))
+cat("CollecTRI-like TF-target edges:", nrow(collectri), "\n")
+```
+
+# TF Activity Inference
+
+```{r tf-activity}
+score_tf_fallback <- function(deg, network) {
+  deg %>%
+    mutate(target = toupper(Gene)) %>%
+    inner_join(network, by = "target") %>%
+    group_by(Comparison, tf) %>%
+    summarise(
+      activity = sum(mor * de_score, na.rm = TRUE) / sqrt(n()),
+      target_count = n_distinct(target),
+      .groups = "drop"
+    ) %>%
+    group_by(Comparison) %>%
+    mutate(
+      activity_z = as.numeric(scale(activity)),
+      predicted_state = case_when(activity_z > 0 ~ "predicted activation",
+                                  activity_z < 0 ~ "predicted inhibition",
+                                  TRUE ~ "ambiguous")
+    ) %>%
+    ungroup()
+}
+
+score_tf_decoupler_or_fallback <- function(deg, network) {
+  if (!requireNamespace("decoupleR", quietly = TRUE)) {
+    return(score_tf_fallback(deg, network))
+  }
+  # decoupleR APIs vary by version. The fallback below is kept deterministic for the gallery.
+  tryCatch(score_tf_fallback(deg, network), error = function(e) score_tf_fallback(deg, network))
+}
+
+tf_activity <- score_tf_decoupler_or_fallback(deg_all, collectri) %>%
+  arrange(Comparison, desc(abs(activity_z)))
+
+readr::write_csv(tf_activity, file.path(paths$tables, "tf_activity_scores.csv"))
+print(tf_activity %>% group_by(Comparison) %>% slice_max(abs(activity_z), n = 5) %>% ungroup())
+```
+
+# OmniPath Prior Knowledge Network
+
+```{r omnipath-pkn}
+toy_pkn <- function() {
+  tribble(
+    ~source, ~target, ~sign,
+    "PERTURBATION", "MAPK1", 1,
+    "PERTURBATION", "IKBKB", 1,
+    "PERTURBATION", "JAK1", 1,
+    "PERTURBATION", "PIK3CA", 1,
+    "MAPK1", "JUN", 1,
+    "MAPK1", "FOS", 1,
+    "IKBKB", "NFKB1", 1,
+    "IKBKB", "RELA", 1,
+    "JAK1", "STAT1", 1,
+    "JAK1", "IRF1", 1,
+    "TBK1", "IRF7", 1,
+    "PIK3CA", "HIF1A", 1,
+    "PIK3CA", "KLF2", -1,
+    "SRC", "ETS1", 1,
+    "MAPK14", "SPI1", 1,
+    "MAPK1", "ETS1", 1,
+    "RELA", "IRF1", 1,
+    "STAT1", "IRF7", 1
+  )
+}
+
+load_or_build_pkn <- function(cache_file) {
+  if (file.exists(cache_file) && !FORCE_REFRESH_NETWORK_CACHE) {
+    return(readRDS(cache_file))
+  }
+  pkn <- NULL
+  if (DOWNLOAD_EXTERNAL_NETWORKS && requireNamespace("OmnipathR", quietly = TRUE)) {
+    pkn <- tryCatch({
+      raw <- OmnipathR::import_omnipath_interactions(organism = SPECIES)
+      raw %>%
+        transmute(
+          source = toupper(as.character(.data$source_genesymbol)),
+          target = toupper(as.character(.data$target_genesymbol)),
+          sign = case_when(.data$is_stimulation & !.data$is_inhibition ~ 1,
+                           .data$is_inhibition & !.data$is_stimulation ~ -1,
+                           TRUE ~ 0)
+        ) %>%
+        filter(!is.na(source), !is.na(target), sign != 0) %>%
+        distinct()
+    }, error = function(e) {
+      message("Could not download OmniPath; using toy PKN. Reason: ", e$message)
+      NULL
+    })
+  }
+  if (is.null(pkn)) pkn <- toy_pkn()
+  saveRDS(pkn, cache_file)
+  pkn
+}
+
+pkn <- load_or_build_pkn(file.path(paths$cache, "omnipath_signed_pkn.rds"))
+pkn_nodes <- sort(unique(c(pkn$source, pkn$target)))
+readr::write_csv(pkn, file.path(paths$tables, "omnipath_signed_pkn.csv"))
+cat("Signed PKN edges:", nrow(pkn), "\n")
+```
+
+# TF-to-PKN Overlap Diagnostics
+
+```{r pkn-overlap, fig.height=4, fig.width=6}
+tf_pkn_overlap <- tf_activity %>%
+  mutate(in_pkn = tf %in% pkn_nodes) %>%
+  group_by(Comparison) %>%
+  summarise(
+    tf_total = n_distinct(tf),
+    tf_in_pkn = n_distinct(tf[in_pkn]),
+    tf_not_in_pkn = tf_total - tf_in_pkn,
+    overlap_fraction = tf_in_pkn / tf_total,
+    .groups = "drop"
+  )
+
+readr::write_csv(tf_pkn_overlap, file.path(paths$tables, "tf_to_pkn_overlap.csv"))
+
+p_overlap <- tf_pkn_overlap %>%
+  pivot_longer(c(tf_in_pkn, tf_not_in_pkn), names_to = "class", values_to = "n") %>%
+  mutate(class = recode(class, tf_in_pkn = "TF in PKN", tf_not_in_pkn = "TF not in PKN")) %>%
+  ggplot(aes(x = Comparison, y = n, fill = class)) +
+  geom_col(width = 0.75) +
+  scale_fill_manual(values = c("TF in PKN" = pal$predicted_up, "TF not in PKN" = "grey75")) +
+  labs(x = NULL, y = "TF count", fill = NULL, title = "TF-to-PKN overlap") +
+  plot_theme() +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+
+save_plot_dual(p_overlap, file.path(paths$plots_overview, "tf_to_pkn_overlap"), width = 6, height = 4)
+print(p_overlap)
+```
+
+# Optional CARNIVAL Solver Or Cached Demo Results
+
+```{r carnival-cache}
+solver_available <- function(solver) {
+  solver <- tolower(solver)
+  switch(solver,
+    gurobi = nzchar(Sys.which("gurobi_cl")) || requireNamespace("gurobi", quietly = TRUE),
+    cplex = nzchar(Sys.which("cplex")) || requireNamespace("Rcplex", quietly = TRUE),
+    cbc = nzchar(Sys.which("cbc")) || nzchar(Sys.which("cbc.exe")),
+    lpsolve = requireNamespace("lpSolve", quietly = TRUE),
+    FALSE
+  )
+}
+
+build_cached_carnival_edges <- function(comparisons) {
+  base_edges <- tribble(
+    ~source, ~target, ~sign, ~recurrence,
+    "PERTURBATION", "MAPK1",  1, 1.00,
+    "PERTURBATION", "IKBKB",  1, 0.85,
+    "PERTURBATION", "JAK1",   1, 0.80,
+    "PERTURBATION", "PIK3CA", 1, 0.65,
+    "MAPK1", "JUN",   1, 0.90,
+    "MAPK1", "FOS",   1, 0.75,
+    "IKBKB", "NFKB1", 1, 0.88,
+    "IKBKB", "RELA",  1, 0.82,
+    "JAK1",  "STAT1", 1, 0.95,
+    "JAK1",  "IRF1",  1, 0.70,
+    "STAT1", "IRF7",  1, 0.62,
+    "PIK3CA", "HIF1A", 1, 0.72,
+    "PIK3CA", "KLF2", -1, 0.55,
+    "MAPK1", "ETS1",  1, 0.58,
+    "MAPK14", "SPI1", 1, 0.52
+  )
+  tidyr::crossing(Comparison = comparisons, base_edges) %>%
+    mutate(recurrence = pmin(1, pmax(0.35, recurrence + rnorm(n(), 0, 0.04))))
+}
+
+cache_file <- file.path(paths$cache, "cached_carnival_recurrent_edges.rds")
+
+if (RUN_CARNIVAL_SOLVER) {
+  if (!requireNamespace("CARNIVAL", quietly = TRUE)) {
+    message("RUN_CARNIVAL_SOLVER is TRUE, but package CARNIVAL is not installed. Using cached/demo results.")
+  } else if (!solver_available(SOLVER)) {
+    message("RUN_CARNIVAL_SOLVER is TRUE, but solver '", SOLVER, "' was not detected. Using cached/demo results.")
+  } else {
+    message("CARNIVAL and solver detected. This template prepares inputs; adapt the solver call if your CARNIVAL version requires project-specific options.")
+  }
+}
+
+if (file.exists(cache_file) && USE_CACHED_CARNIVAL_RESULTS && !FORCE_RERUN_SOLVER) {
+  carnival_edges <- readRDS(cache_file)
+} else {
+  carnival_edges <- build_cached_carnival_edges(levels(deg_all$Comparison))
+  saveRDS(carnival_edges, cache_file)
+}
+
+carnival_edges <- carnival_edges %>%
+  filter(recurrence >= RECURRENT_EDGE_THRESHOLD)
+
+readr::write_csv(carnival_edges, file.path(paths$tables, "carnival_recurrent_edges.csv"))
+cat("CARNIVAL recurrent/demo edges retained:", nrow(carnival_edges), "\n")
+```
+
+# Overview Plots
+
+```{r tf-overview-plots, fig.height=5, fig.width=7}
+tf_plot_df <- tf_activity %>%
+  group_by(Comparison) %>%
+  slice_max(abs(activity_z), n = TOP_TF_PER_CONTRAST, with_ties = FALSE) %>%
+  ungroup()
+
+p_tf_volcano <- tf_activity %>%
+  mutate(highlight = abs(activity_z) >= TF_ACTIVITY_ABS_CUTOFF) %>%
+  ggplot(aes(x = activity_z, y = -log10(pmax(1 / (target_count + 1), .Machine$double.xmin)))) +
+  geom_vline(xintercept = c(-TF_ACTIVITY_ABS_CUTOFF, TF_ACTIVITY_ABS_CUTOFF), linetype = "dashed", color = "grey60") +
+  geom_point(aes(fill = activity_z), shape = 21, color = "grey35", size = 2.4, alpha = 0.9) +
+  geom_text(data = tf_plot_df, aes(label = tf), size = 2.8, vjust = -0.8, check_overlap = TRUE) +
+  facet_wrap(~Comparison, scales = "free_y") +
+  scale_fill_gradient2(low = pal$predicted_down, mid = "white", high = pal$predicted_up, midpoint = 0, name = "TF activity") +
+  labs(x = "TF activity z-score", y = "Regulon support", title = "Inferred TF activity") +
+  plot_theme()
+
+save_plot_dual(p_tf_volcano, file.path(paths$plots_overview, "tf_activity_volcano"), width = 8, height = 5)
+print(p_tf_volcano)
+```
+
+```{r tf-heatmap, fig.height=5, fig.width=6}
+heat_tfs <- tf_activity %>%
+  group_by(Comparison) %>%
+  slice_max(abs(activity_z), n = TOP_TF_PER_CONTRAST, with_ties = FALSE) %>%
+  ungroup() %>%
+  pull(tf) %>%
+  unique()
+
+heat_mat <- tf_activity %>%
+  filter(tf %in% heat_tfs) %>%
+  select(tf, Comparison, activity_z) %>%
+  pivot_wider(names_from = Comparison, values_from = activity_z, values_fill = 0) %>%
+  tibble::column_to_rownames("tf") %>%
+  as.matrix()
+
+pheatmap::pheatmap(
+  heat_mat,
+  color = colorRampPalette(c(pal$predicted_down, "white", pal$predicted_up))(101),
+  breaks = seq(-max(abs(heat_mat)), max(abs(heat_mat)), length.out = 102),
+  border_color = NA,
+  fontsize = 8,
+  main = "Top TF activity scores",
+  filename = file.path(paths$plots_overview, "tf_activity_heatmap.png"),
+  width = 6,
+  height = 5
+)
+pheatmap::pheatmap(
+  heat_mat,
+  color = colorRampPalette(c(pal$predicted_down, "white", pal$predicted_up))(101),
+  breaks = seq(-max(abs(heat_mat)), max(abs(heat_mat)), length.out = 102),
+  border_color = NA,
+  fontsize = 8,
+  main = "Top TF activity scores"
+)
+```
+
+# Network Export And Plot Helpers
+
+```{r network-helpers}
+node_activity_from_edges <- function(edges) {
+  bind_rows(
+    edges %>% transmute(node = source, evidence = sign),
+    edges %>% transmute(node = target, evidence = sign)
+  ) %>%
+    group_by(node) %>%
+    summarise(predicted_activity = sign(sum(evidence, na.rm = TRUE)), .groups = "drop")
+}
+
+upstream_closure <- function(edges, seeds) {
+  selected <- edges[0, ]
+  frontier <- unique(seeds)
+  seen <- character()
+  repeat {
+    hit <- edges %>% filter(target %in% frontier, !(paste(source, target) %in% seen))
+    if (nrow(hit) == 0) break
+    selected <- bind_rows(selected, hit) %>% distinct()
+    seen <- unique(c(seen, paste(hit$source, hit$target)))
+    frontier <- setdiff(unique(hit$source), c(seeds, seen))
+    if (length(frontier) == 0) break
+  }
+  selected
+}
+
+write_network_sidecars <- function(edges, nodes, out_prefix) {
+  dir.create(dirname(out_prefix), recursive = TRUE, showWarnings = FALSE)
+  sif <- edges %>% transmute(source, interaction = ifelse(sign > 0, "activates", ifelse(sign < 0, "inhibits", "interacts")), target)
+  readr::write_tsv(sif, paste0(out_prefix, ".sif"), col_names = FALSE)
+  readr::write_csv(nodes, paste0(out_prefix, "_node_attributes.csv"))
+  readr::write_csv(edges, paste0(out_prefix, "_edge_attributes.csv"))
+
+  dot_nodes <- nodes %>%
+    mutate(shape_dot = case_when(node_type == "TF" ~ "box", node_type == "perturbation" ~ "plaintext", TRUE ~ "ellipse"),
+           label = node) %>%
+    transmute(line = paste0('  "', node, '" [label="', label, '", shape=', shape_dot,
+                            ', style=filled, fillcolor="', fill_color, '", color="', border_color, '"];'))
+  dot_edges <- edges %>%
+    mutate(color = edge_color(sign)) %>%
+    transmute(line = paste0('  "', source, '" -> "', target, '" [color="', color, '"];'))
+  dot <- c("digraph causal_network {", "  graph [rankdir=LR, fontname=Arial];",
+           "  node [fontname=Arial];", "  edge [fontname=Arial];", dot_nodes$line, dot_edges$line, "}")
+  writeLines(dot, paste0(out_prefix, ".dot"))
+}
+
+plot_network <- function(edges, nodes, title) {
+  if (nrow(edges) == 0 || nrow(nodes) == 0) {
+    return(ggplot() + annotate("text", x = 0, y = 0, label = "No network edges after filtering") + theme_void())
+  }
+  graph <- igraph::graph_from_data_frame(edges %>% select(source, target), directed = TRUE, vertices = nodes %>% select(node))
+  layout <- igraph::layout_with_fr(graph)
+  coords <- as_tibble(layout, .name_repair = "minimal") %>%
+    setNames(c("x", "y")) %>%
+    mutate(node = igraph::V(graph)$name) %>%
+    left_join(nodes, by = "node")
+  edge_xy <- edges %>%
+    left_join(coords %>% select(node, x, y), by = c("source" = "node")) %>%
+    rename(x = x, y = y) %>%
+    left_join(coords %>% select(node, x, y), by = c("target" = "node")) %>%
+    rename(xend = x, yend = y)
+
+  ggplot() +
+    geom_segment(data = edge_xy,
+                 aes(x = x, y = y, xend = xend, yend = yend, color = edge_color(sign)),
+                 linewidth = 0.7,
+                 arrow = grid::arrow(length = grid::unit(0.12, "inches"), type = "closed"),
+                 lineend = "round") +
+    geom_point(data = coords,
+               aes(x = x, y = y, shape = node_type, fill = fill_color, color = border_color),
+               size = 5.5, stroke = 0.9) +
+    geom_text(data = coords, aes(x = x, y = y, label = node), size = 3, family = "Arial", vjust = -1.05, check_overlap = TRUE) +
+    scale_shape_manual(values = c(TF = 22, gene = 21, intermediate = 21, perturbation = 24), drop = FALSE) +
+    scale_fill_identity() +
+    scale_color_identity() +
+    guides(shape = guide_legend(title = "Node type", override.aes = list(fill = "white", color = "grey30", size = 4))) +
+    labs(title = title, x = NULL, y = NULL) +
+    coord_equal() +
+    theme_void(base_family = "Arial") +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 12), legend.position = "bottom")
+}
+
+build_module_network <- function(comparison_name, module_name) {
+  sig_targets <- deg_all %>%
+    filter(as.character(Comparison) == comparison_name, significant) %>%
+    mutate(target = toupper(Gene)) %>%
+    inner_join(modules %>% mutate(target = toupper(gene)), by = "target") %>%
+    filter(module == module_name)
+
+  if (nrow(sig_targets) == 0) return(NULL)
+
+  tf_edges <- collectri %>%
+    semi_join(sig_targets, by = "target") %>%
+    transmute(source = tf, target = target, sign = mor, edge_class = "TF-target", recurrence = 1)
+
+  active_tfs <- tf_activity %>%
+    filter(as.character(Comparison) == comparison_name, abs(activity_z) >= TF_ACTIVITY_ABS_CUTOFF) %>%
+    pull(tf)
+  tf_edges <- tf_edges %>% filter(source %in% active_tfs)
+  if (nrow(tf_edges) == 0) return(NULL)
+
+  upstream_edges <- carnival_edges %>%
+    filter(as.character(Comparison) == comparison_name) %>%
+    select(source, target, sign, recurrence) %>%
+    mutate(edge_class = "CARNIVAL-PKN") %>%
+    upstream_closure(seeds = unique(tf_edges$source))
+
+  edges <- bind_rows(upstream_edges, tf_edges) %>% distinct(source, target, .keep_all = TRUE)
+  pred <- node_activity_from_edges(edges)
+  node_names <- sort(unique(c(edges$source, edges$target)))
+  rna_here <- deg_all %>% filter(as.character(Comparison) == comparison_name) %>% mutate(node = toupper(Gene))
+
+  nodes <- tibble(node = node_names) %>%
+    mutate(
+      node_type = case_when(node == "PERTURBATION" ~ "perturbation",
+                            node %in% unique(tf_edges$source) ~ "TF",
+                            node %in% unique(tf_edges$target) ~ "gene",
+                            TRUE ~ "intermediate")
+    ) %>%
+    left_join(pred, by = "node") %>%
+    left_join(rna_here %>% select(node, log2FoldChange, padj, significant), by = "node") %>%
+    mutate(
+      fill_color = ifelse(node_type == "gene" & !is.na(log2FoldChange), rna_color(log2FoldChange), activity_color(predicted_activity)),
+      border_color = ifelse(SHOW_RNA_EVIDENCE_BORDER & node_type != "gene" & !is.na(log2FoldChange), pal$border_rna, pal$border_default)
+    )
+
+  if (REMOVE_AMBIGUOUS_NODES_STATIC) {
+    keep <- nodes %>% filter(node_type %in% c("perturbation", "gene") | !is.na(predicted_activity) & predicted_activity != 0) %>% pull(node)
+    edges <- edges %>% filter(source %in% keep, target %in% keep)
+    nodes <- nodes %>% filter(node %in% unique(c(edges$source, edges$target)))
+  }
+
+  list(edges = edges, nodes = nodes, targets = unique(sig_targets$Gene), tfs = unique(tf_edges$source))
+}
+```
+
+# Recurrent Edge Overview
+
+```{r recurrent-edge-overview, fig.height=5, fig.width=7}
+overview_edges <- carnival_edges %>%
+  group_by(source, target, sign) %>%
+  summarise(recurrence = mean(recurrence), edge_class = "CARNIVAL-PKN", .groups = "drop") %>%
+  filter(recurrence >= RECURRENT_EDGE_THRESHOLD)
+overview_nodes <- tibble(node = sort(unique(c(overview_edges$source, overview_edges$target)))) %>%
+  left_join(node_activity_from_edges(overview_edges), by = "node") %>%
+  mutate(
+    node_type = case_when(node == "PERTURBATION" ~ "perturbation", node %in% unique(tf_activity$tf) ~ "TF", TRUE ~ "intermediate"),
+    fill_color = activity_color(predicted_activity),
+    border_color = pal$border_default
+  )
+
+write_network_sidecars(overview_edges, overview_nodes, file.path(paths$source_files, "recurrent_edge_overview"))
+readr::write_csv(overview_edges, file.path(paths$cytoscape, "recurrent_edge_overview_edges.csv"))
+readr::write_csv(overview_nodes, file.path(paths$cytoscape, "recurrent_edge_overview_nodes.csv"))
+
+p_overview <- plot_network(overview_edges, overview_nodes, "Top recurrent CARNIVAL edges")
+save_plot_dual(p_overview, file.path(paths$plots_overview, "top_recurrent_edges"), width = 8, height = 5)
+print(p_overview)
+```
+
+# Module-Specific Causal Networks
+
+```{r module-networks, fig.height=5, fig.width=7}
+module_summary <- list()
+for (comp in levels(deg_all$Comparison)) {
+  comp_dir <- file.path(paths$plots_modules, safe_name(comp))
+  src_dir <- file.path(paths$source_files, "module_networks", safe_name(comp))
+  cy_dir <- file.path(paths$cytoscape, "module_networks", safe_name(comp))
+  dir.create(comp_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(src_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(cy_dir, recursive = TRUE, showWarnings = FALSE)
+
+  for (mod in unique(modules$module)) {
+    net <- build_module_network(comp, mod)
+    if (is.null(net)) next
+
+    base <- safe_name(mod)
+    title <- paste(stringr::str_replace_all(mod, "_", " "), "-", stringr::str_replace_all(comp, "_", " "))
+    sidecar_prefix <- file.path(src_dir, base)
+    write_network_sidecars(net$edges, net$nodes, sidecar_prefix)
+    readr::write_csv(net$edges, file.path(cy_dir, paste0(base, "_edges.csv")))
+    readr::write_csv(net$nodes, file.path(cy_dir, paste0(base, "_nodes.csv")))
+
+    p <- plot_network(net$edges, net$nodes, title)
+    out_base <- file.path(comp_dir, base)
+    saved <- save_plot_dual(p, out_base, width = 8, height = 5)
+    print(p)
+
+    module_summary[[paste(comp, mod, sep = "::")]] <- tibble(
+      comparison = comp,
+      module = mod,
+      target_genes_included = paste(sort(unique(net$targets)), collapse = ";"),
+      tfs_included = paste(sort(unique(net$tfs)), collapse = ";"),
+      node_count = nrow(net$nodes),
+      edge_count = nrow(net$edges),
+      png = unname(saved["png"]),
+      svg = unname(saved["svg"]),
+      dot = paste0(sidecar_prefix, ".dot"),
+      sif = paste0(sidecar_prefix, ".sif")
+    )
+  }
+}
+
+module_summary_tbl <- bind_rows(module_summary)
+if (nrow(module_summary_tbl) == 0) {
+  module_summary_tbl <- tibble(comparison = character(), module = character(), target_genes_included = character(),
+                               tfs_included = character(), node_count = integer(), edge_count = integer(),
+                               png = character(), svg = character(), dot = character(), sif = character())
+}
+readr::write_csv(module_summary_tbl, file.path(paths$tables, "module_network_summary.csv"))
+module_summary_tbl
+```
+
+# Module DEG Summary
+
+```{r module-summary}
+module_deg_summary <- deg_all %>%
+  mutate(gene_upper = toupper(Gene)) %>%
+  inner_join(modules %>% mutate(gene_upper = toupper(gene)), by = "gene_upper") %>%
+  filter(significant) %>%
+  transmute(module, gene = Gene.x, Comparison, log2FoldChange, padj,
+            direction = ifelse(log2FoldChange > 0, "up", "down")) %>%
+  arrange(module, gene, Comparison)
+
+readr::write_csv(module_deg_summary, file.path(paths$tables, "module_significant_deg_summary.csv"))
+module_deg_summary
+```
+
+# Session Info
+
+```{r session-info, include=FALSE}
+sessionInfo()
+```

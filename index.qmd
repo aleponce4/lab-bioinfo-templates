@@ -149,6 +149,18 @@ eigengene trajectories, hub gene ranking, and gprofiler2 enrichment per module.
 :::
 :::
 
+::: {.template-card .card-genomics}
+::: {.card-body}
+#### 10 — RNA-seq TF/Causal Network
+[R]{.badge-r}
+
+DE-table-first TF activity scoring, signed prior-network overlap, cached CARNIVAL-style causal networks,
+module network plots, and Cytoscape-ready exports.
+
+[Open Template →](templates/10_rnaseq-tf-causal-network/template.html){.btn .btn-primary}
+:::
+:::
+
 :::
 
 ---
@@ -165,7 +177,7 @@ Searchable list of all templates — same content as the cards above.
 library(DT)
 
 templates <- data.frame(
-  `#` = c("01", "02", "03", "04", "05", "06", "07", "08", "09"),
+  `#` = c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10"),
   Template = c(
     "<a href='templates/01_plaque-assay-violin/template.html'>Plaque Assay + Violin Plots</a>",
     "<a href='templates/02_image-infection-dose-response/template.html'>Image Infection + Dose-Response</a>",
@@ -175,14 +187,15 @@ templates <- data.frame(
     "<a href='templates/06_go-enrichment/template.html'>GO Enrichment Analysis</a>",
     "<a href='templates/07_rnaseq-deseq2/template.html'>RNA-seq / DESeq2</a>",
     "<a href='templates/08_vcf-mutation-analysis/template.html'>VCF Mutation Analysis</a>",
-    "<a href='templates/09_wgcna/template.html'>WGCNA Co-Expression Analysis</a>"
+    "<a href='templates/09_wgcna/template.html'>WGCNA Co-Expression Analysis</a>",
+    "<a href='templates/10_rnaseq-tf-causal-network/template.html'>RNA-seq TF/Causal Network</a>"
   ),
   Category = c(
     "Infection & Virology", "Infection & Virology", "Infection & Virology",
     "Immunology", "Phylogenetics", "Genomics", "Transcriptomics", "Genomics",
-    "Transcriptomics"
+    "Transcriptomics", "Transcriptomics"
   ),
-  Language = c("R", "R", "R", "R", "R", "R", "R", "Python", "R"),
+  Language = c("R", "R", "R", "R", "R", "R", "R", "Python", "R", "R"),
   `Key Statistics` = c(
     "One-way ANOVA, Tukey HSD",
     "4PL dose-response, EC50/CC50",
@@ -192,7 +205,8 @@ templates <- data.frame(
     "clusterProfiler, GO/KEGG",
     "DESeq2, Wald test, FDR",
     "Shannon entropy, Kruskal-Wallis",
-    "Bicor, scale-free topology, module-trait r (FDR)"
+    "Bicor, scale-free topology, module-trait r (FDR)",
+    "TF activity score, PKN overlap, recurrent causal edges"
   ),
   `Key Plots` = c(
     "Violin + jitter, log10 titer",
@@ -203,7 +217,8 @@ templates <- data.frame(
     "Dot plot, bar, Venn",
     "Volcano, PCA, heatmap, bubble",
     "Mutation freq bar, entropy heatmap",
-    "Dendrogram, module-trait heatmap, eigengene trajectories, hub bubble"
+    "Dendrogram, module-trait heatmap, eigengene trajectories, hub bubble",
+    "TF volcano, TF heatmap, recurrent-edge graph, module networks"
   ),
   check.names = FALSE,
   stringsAsFactors = FALSE

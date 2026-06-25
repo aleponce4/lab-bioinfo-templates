@@ -46,6 +46,8 @@ website:
               href: templates/08_vcf-mutation-analysis/template.qmd
             - text: "09 · WGCNA Co-Expression"
               href: templates/09_wgcna/template.qmd
+            - text: "10 · RNA-seq TF/Causal Network"
+              href: templates/10_rnaseq-tf-causal-network/template.qmd
         - section: "Phylogenetics"
           contents:
             - text: "05 · Phylo-Geographic Analysis"

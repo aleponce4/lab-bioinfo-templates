@@ -15,10 +15,12 @@ Browse the live gallery at: **https://aleponce4.github.io/lab-bioinfo-templates*
 | 06 | GO Enrichment Analysis | R | clusterProfiler, KEGG/Reactome |
 | 07 | RNA-seq / DESeq2 | R | End-to-end DESeq2, QC diagnostics, heatmaps, bubble/triangle plots |
 | 08 | VCF Mutation Analysis | Python | Entropy, mutation frequency, heatmaps |
+| 09 | WGCNA Co-Expression Analysis | R | Co-expression modules, module-trait correlation, hub genes |
+| 10 | RNA-seq TF/Causal Network | R | TF activity, signed PKN overlap, cached CARNIVAL-style networks |
 
 ## Quick Start
 
-### R Templates (01–07)
+### R Templates (01–07, 09–10)
 
 ```r
 # 1. Install all R packages once

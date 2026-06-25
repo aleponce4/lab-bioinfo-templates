@@ -17,6 +17,8 @@ cran_pkgs <- c(
   "car", "broom", "rstatix", "emmeans", "coin", "drc", "vegan",
   # Spatial / maps
   "sf", "rnaturalearth", "rnaturalearthdata", "gtools", "ape",
+  # APIs / export helpers
+  "jsonlite", "httr",
   # Misc
   "knitr", "DT", "gt", "here", "forcats", "geosphere", "survival"
 )
@@ -53,7 +55,10 @@ bioc_pkgs <- c(
   "impute",                # WGCNA Bioconductor dep (not on CRAN)
   "preprocessCore",        # WGCNA Bioconductor dep
   "GO.db",                 # WGCNA Bioconductor dep
-  "WGCNA"                  # 09_wgcna (installed after its Bioc deps)
+  "WGCNA",                 # 09_wgcna (installed after its Bioc deps)
+  "decoupleR",             # 10_rnaseq-tf-causal-network
+  "OmnipathR",             # 10_rnaseq-tf-causal-network
+  "CARNIVAL"               # 10_rnaseq-tf-causal-network; solver still installed separately
 )
 
 bioc_to_install <- bioc_pkgs[!bioc_pkgs %in% installed.packages()[, "Package"]]

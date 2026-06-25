@@ -1,6 +1,15 @@
 name: Validate Template 10
 
 on:
+  push:
+    branches:
+      - feature/rnaseq-tf-causal-network-template
+    paths:
+      - "templates/10_rnaseq-tf-causal-network/**"
+      - "index.qmd"
+      - "_quarto.yml"
+      - "install_packages.R"
+      - ".github/workflows/validate-template-10.yml"
   pull_request:
     paths:
       - "templates/10_rnaseq-tf-causal-network/**"

@@ -1,0 +1,67 @@
+name: Validate Template 10
+
+on:
+  pull_request:
+    paths:
+      - "templates/10_rnaseq-tf-causal-network/**"
+      - "index.qmd"
+      - "_quarto.yml"
+      - "install_packages.R"
+      - ".github/workflows/validate-template-10.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-template-10:
+    name: Render template 10 and gallery index
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      R_KEEP_PKG_SOURCE: no
+      RSPM: https://packagemanager.posit.co/cran/__linux__/jammy/latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Install lightweight render dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          cache: true
+          packages: |
+            any::dplyr
+            any::tidyr
+            any::readr
+            any::stringr
+            any::tibble
+            any::ggplot2
+            any::scales
+            any::igraph
+            any::DT
+            any::svglite
+
+      - name: Render template 10
+        run: quarto render templates/10_rnaseq-tf-causal-network/template.qmd
+
+      - name: Render gallery index
+        run: quarto render index.qmd
+
+      - name: Confirm expected template outputs
+        shell: bash
+        run: |
+          test -f docs/templates/10_rnaseq-tf-causal-network/template.html
+          test -f templates/10_rnaseq-tf-causal-network/outputs/tables/tf_activity_scores.csv
+          test -f templates/10_rnaseq-tf-causal-network/outputs/plots/overview/tf_activity_volcano.png
+          test -f templates/10_rnaseq-tf-causal-network/outputs/networks/source_files/recurrent_edge_overview.dot

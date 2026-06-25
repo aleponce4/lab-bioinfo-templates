@@ -366,9 +366,11 @@ plot_network <- function(edges, nodes, title) {
   if (!nrow(edges) || !nrow(nodes)) return(ggplot() + annotate("text", 0, 0, label = "No network edges after filtering") + theme_void())
   graph <- graph_from_data_frame(edges %>% select(source, target), directed = TRUE, vertices = nodes %>% select(node))
   coords <- as_tibble(layout_with_fr(graph), .name_repair = "minimal") %>% setNames(c("x", "y")) %>% mutate(node = V(graph)$name) %>% left_join(nodes, by = "node")
-  edge_xy <- edges %>% left_join(coords %>% select(node, x, y), by = c("source" = "node")) %>% rename(x = x, y = y) %>% left_join(coords %>% select(node, x, y), by = c("target" = "node")) %>% rename(xend = x, yend = y)
+  edge_xy <- edges %>%
+    left_join(coords %>% select(node, x_source = x, y_source = y), by = c("source" = "node")) %>%
+    left_join(coords %>% select(node, x_target = x, y_target = y), by = c("target" = "node"))
   ggplot() +
-    geom_segment(data = edge_xy, aes(x, y, xend = xend, yend = yend, color = edge_color(sign)), linewidth = 0.7,
+    geom_segment(data = edge_xy, aes(x = x_source, y = y_source, xend = x_target, yend = y_target, color = edge_color(sign)), linewidth = 0.7,
                  arrow = grid::arrow(length = grid::unit(0.12, "inches"), type = "closed"), lineend = "round") +
     geom_point(data = coords, aes(x, y, shape = node_type, fill = fill_color, color = border_color), size = 5.5, stroke = 0.9) +
     geom_text(data = coords, aes(x, y, label = node), size = 3, family = "Arial", vjust = -1.05, check_overlap = TRUE) +

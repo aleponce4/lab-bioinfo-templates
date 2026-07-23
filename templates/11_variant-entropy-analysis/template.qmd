@@ -1,0 +1,457 @@
+---
+title: "09 · Variant Frequency + Shannon Entropy"
+subtitle: "Intra-host variant frequency scatter, Shannon entropy curves, and caller-overlap Venn diagrams"
+description: |
+  LoFreq and iVar variant calls across days post-infection (DPI). Variant frequency
+  scatter plots with gene-boundary annotation, genome-wide Shannon entropy trajectories
+  with SEM ribbons, and caller-overlap Venn diagrams to quantify agreement.
+categories: [genomics, virology, variant-calling, entropy, Shannon, LoFreq, iVar]
+jupyter: python3
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | CSV variant tables: `LoFreq_variants.csv`, `iVar_variants.csv`, `gene_coords.csv`, `manifest.csv` |
+| **Key packages** | `pandas`, `numpy`, `matplotlib`, `scipy`, `matplotlib_venn` (optional) |
+| **Statistics** | Shannon entropy (natural log) · Allele frequency filtering · Caller overlap |
+| **Output** | Variant frequency scatter (SVG/PNG) · Entropy curves (SVG/PNG) · Venn diagram (SVG/PNG) |
+| **Download** | [template.ipynb](template.ipynb) |
+
+Edit `FILTER_MIN_DP` and `FILTER_MIN_AF` to set depth and allele-frequency cut-offs. Modify `DPI_CONFIG` to control colour and display order for each DPI group.
+
+[← Gallery](../../index.html){.btn .btn-outline-secondary}
+[Download .ipynb](template.ipynb){.btn .btn-primary}
+
+---
+
+## User Configuration
+
+```{python}
+#| label: user-config
+
+# ── USER CONFIGURATION ────────────────────────────────────────────────────────
+
+# Minimum read depth to retain a variant
+FILTER_MIN_DP = 500
+
+# Minimum allele frequency to retain a variant (e.g. 0.01 = 1%)
+FILTER_MIN_AF = 0.01
+
+# Paths to input data (relative to this file)
+LOFREQ_CSV   = "data/LoFreq_variants.csv"
+IVAR_CSV     = "data/iVar_variants.csv"
+GENE_COORDS  = "data/gene_coords.csv"
+MANIFEST_CSV = "data/manifest.csv"
+
+# DPI group configuration — colours must match Okabe-Ito palette
+DPI_CONFIG = {
+    1: {"label": "DPI 1", "color": "#E69F00"},
+    3: {"label": "DPI 3", "color": "#56B4E9"},
+    5: {"label": "DPI 5", "color": "#009E73"},
+}
+
+# Output directory for plots
+OUTPUT_DIR = "outputs"
+
+# Sliding-window size for entropy curves (genomic positions)
+WINDOW_SIZE = 200
+
+# ─────────────────────────────────────────────────────────────────────────────
+```
+
+## Setup
+
+```{python}
+#| label: setup
+
+import os
+import warnings
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.stats import entropy
+from collections import defaultdict
+
+warnings.filterwarnings("ignore")
+
+# ── Global plot theme: white background, no grid, black spine, Arial ─────────
+plt.rcParams.update({
+    "font.family":      "sans-serif",
+    "font.sans-serif":  ["Arial", "Helvetica", "DejaVu Sans"],
+    "axes.facecolor":   "white",
+    "figure.facecolor": "white",
+    "axes.grid":        False,
+    "axes.edgecolor":   "black",
+    "axes.linewidth":   1.0,
+    "axes.spines.top":    True,
+    "axes.spines.right": True,
+    "axes.titlesize":    12,
+    "axes.labelsize":    10,
+    "xtick.labelsize":   9,
+    "ytick.labelsize":   9,
+    "legend.fontsize":   9,
+    "figure.dpi":       150,
+})
+pd.set_option("display.width", 1000)
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+print(f"Output will be saved to: {os.path.abspath(OUTPUT_DIR)}")
+
+# ── Okabe-Ito palette helpers ────────────────────────────────────────────────
+OKABE_ITO = {
+    "orange":       "#E69F00",
+    "sky_blue":     "#56B4E9",
+    "bluish_green": "#009E73",
+    "amber":        "#F5C710",
+    "blue":         "#0072B2",
+    "vermillion":   "#D55E00",
+    "reddish_purple": "#CC79A7",
+    "black":        "#000000",
+}
+
+DPI_COLORS = {dpi: cfg["color"] for dpi, cfg in DPI_CONFIG.items()}
+DPI_LABELS = {dpi: cfg["label"] for dpi, cfg in DPI_CONFIG.items()}
+DPI_ORDER  = sorted(DPI_CONFIG.keys())
+```
+
+## Load Data
+
+```{python}
+#| label: load-data
+
+manifest = pd.read_csv(MANIFEST_CSV)
+print(f"Manifest: {len(manifest)} samples")
+print(manifest.head(), "\n")
+
+gene_coords = pd.read_csv(GENE_COORDS)
+print(f"Gene coordinates: {len(gene_coords)} genes")
+print(gene_coords.head(), "\n")
+
+lofreq_raw = pd.read_csv(LOFREQ_CSV)
+ivar_raw   = pd.read_csv(IVAR_CSV)
+print(f"LoFreq: {len(lofreq_raw)} variants")
+print(f"iVar:   {len(ivar_raw)} variants")
+
+for df, name in [(lofreq_raw, "LoFreq"), (ivar_raw, "iVar")]:
+    missing = {"AF", "DP", "POS", "sample_id", "dpi"} - set(df.columns)
+    if missing:
+        raise ValueError(f"{name} CSV is missing required columns: {missing}")
+
+# Merge variant data into a single DataFrame with a 'caller' column
+lofreq_raw["caller"] = "LoFreq"
+ivar_raw["caller"]   = "iVar"
+all_vars = pd.concat([lofreq_raw, ivar_raw], ignore_index=True)
+
+# Attach DPI from manifest
+if "dpi" not in all_vars.columns:
+    dpi_map = dict(zip(manifest["sample_id"], manifest["dpi"]))
+    all_vars["dpi"] = all_vars["sample_id"].map(dpi_map)
+
+print(f"\nCombined: {len(all_vars)} total variants")
+all_vars.head()
+```
+
+## Quality Control: Depth & Frequency Filtering
+
+```{python}
+#| label: qc-filter
+
+pre = len(all_vars)
+all_vars = all_vars[
+    (all_vars["DP"] >= FILTER_MIN_DP) &
+    (all_vars["AF"] >= FILTER_MIN_AF)
+].copy()
+print(f"Retained {len(all_vars)} / {pre} variants "
+      f"(DP ≥ {FILTER_MIN_DP}, AF ≥ {FILTER_MIN_AF})")
+
+# Assign variant classification for plotting
+def classify_variant(row):
+    if row.get("consequence", "") == "missense_variant":
+        return "missense"
+    elif row.get("gene", "") == "intergenic":
+        return "intergenic"
+    else:
+        return "synonymous/other"
+
+all_vars["variant_class"] = all_vars.apply(classify_variant, axis=1)
+print(all_vars["variant_class"].value_counts().to_string())
+```
+
+## 1. Variant Frequency Scatter
+
+Genomic position on the x-axis, log10(allele frequency) on the y-axis, with gene
+boundaries as vertical spans and DPI as colour.
+
+```{python}
+#| label: plot-variant-scatter
+#| fig-width: 14
+#| fig-height: 5
+
+from matplotlib.patches import Patch
+
+# Define marker shapes per variant class
+class_styles = {
+    "missense":       {"marker": "o", "s": 18, "edgecolors": "black", "linewidths": 0.3},
+    "synonymous/other": {"marker": "s", "s": 14, "edgecolors": "black", "linewidths": 0.3},
+    "intergenic":     {"marker": "^", "s": 16, "edgecolors": "black", "linewidths": 0.3},
+}
+
+gene_colors = plt.cm.Set3(np.linspace(0, 1, len(gene_coords)))
+
+for caller in ["LoFreq", "iVar"]:
+    fig, ax = plt.subplots(figsize=(14, 5), constrained_layout=True)
+    cdf = all_vars[all_vars["caller"] == caller]
+
+    for dpi in DPI_ORDER:
+        sub = cdf[cdf["dpi"] == dpi]
+        for vclass, style in class_styles.items():
+            pts = sub[sub["variant_class"] == vclass]
+            if pts.empty:
+                continue
+            ax.scatter(
+                pts["POS"], pts["AF"],
+                c=DPI_COLORS[dpi],
+                marker=style["marker"],
+                s=style["s"],
+                edgecolors=style["edgecolors"],
+                linewidths=style["linewidths"],
+                alpha=0.7,
+                label=f"{DPI_LABELS[dpi]} — {vclass}" if dpi == DPI_ORDER[0] else "",
+                zorder=2,
+            )
+
+    # Gene boundary spans
+    for (_, gene_row), gc in zip(gene_coords.iterrows(), gene_colors):
+        ax.axvspan(
+            gene_row["start"], gene_row["end"],
+            alpha=0.08, color=gc, zorder=0,
+            label=gene_row["gene"],
+        )
+
+    ax.set_yscale("log")
+    ax.set_ylabel("Allele Frequency (log scale)")
+    ax.set_xlabel("Genomic Position (nt)")
+    ax.set_title(f"Variant Frequency — {caller}")
+    ax.set_xlim(1, max(cdf["POS"].max(), gene_coords["end"].max()))
+
+    # Deduplicated legend
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    ax.legend(by_label.values(), by_label.keys(),
+              loc="upper left", fontsize=7, ncol=2,
+              frameon=False)
+
+    out_svg = os.path.join(OUTPUT_DIR, f"variant_scatter_{caller}.svg")
+    out_png = os.path.join(OUTPUT_DIR, f"variant_scatter_{caller}.png")
+    fig.savefig(out_svg, format="svg", bbox_inches="tight")
+    fig.savefig(out_png, format="png", bbox_inches="tight", dpi=150)
+    plt.show()
+    print(f"Saved: {out_svg}, {out_png}")
+```
+
+## 2. Shannon Entropy Curves per DPI
+
+Sliding-window Shannon entropy computed genome-wide. A separate curve (mean ± SEM)
+is drawn for each DPI group so that entropy accumulation can be compared through the
+course of infection.
+
+```{python}
+#| label: entropy-curves
+#| fig-width: 14
+#| fig-height: 5
+
+SEM_ALPHA = 0.20
+
+def shannon_entropy(af_values):
+    """Binary Shannon entropy (natural log) for a list of variant AFs. Expects AFs as float."""
+    vals = np.asarray(af_values, dtype=float)
+    ref_freq = 1.0 - vals
+    ent = -(vals * np.log(vals + 1e-300) + ref_freq * np.log(ref_freq + 1e-300))
+    return ent
+
+# Build position-indexed dictionary per DPI
+# Key: dpi → dict of {position: [AF values across replicates]}
+genome_len = int(gene_coords["end"].max())
+entropy_data = {dpi: {pos: [] for pos in range(1, genome_len + 1)}
+                for dpi in DPI_ORDER}
+
+for _, row in all_vars.iterrows():
+    dpi = row["dpi"]
+    pos = row["POS"]
+    if dpi in entropy_data and 1 <= pos <= genome_len:
+        entropy_data[dpi][pos].append(row["AF"])
+
+# Sliding window (windows are overlapping — step = 1 for smoothness)
+half = WINDOW_SIZE // 2
+dpi_curves = {}
+
+for dpi in DPI_ORDER:
+    pos_dict = entropy_data[dpi]
+    x_positions = []
+    y_means  = []
+    y_sems   = []
+
+    for center in range(half + 1, genome_len - half + 1):
+        window_afs = []
+        for wp in range(center - half, center + half):
+            window_afs.extend(pos_dict.get(wp, []))
+
+        if len(window_afs) < 2:
+            continue
+
+        window_ent = shannon_entropy(window_afs)
+        x_positions.append(center)
+        y_means.append(np.mean(window_ent))
+        y_sems.append(np.std(window_ent, ddof=1) / np.sqrt(len(window_afs)))
+
+    dpi_curves[dpi] = (np.array(x_positions), np.array(y_means), np.array(y_sems))
+
+# Plot
+fig, ax = plt.subplots(figsize=(14, 5), constrained_layout=True)
+
+for dpi in DPI_ORDER:
+    if dpi not in dpi_curves:
+        continue
+    x_pos, y_mean, y_sem = dpi_curves[dpi]
+    ax.plot(x_pos, y_mean, color=DPI_COLORS[dpi], linewidth=1.2,
+            label=DPI_LABELS[dpi])
+    ax.fill_between(x_pos, y_mean - y_sem, y_mean + y_sem,
+                    color=DPI_COLORS[dpi], alpha=SEM_ALPHA, linewidth=0)
+
+for (_, gene_row), gc in zip(gene_coords.iterrows(), gene_colors):
+    ax.axvspan(
+        gene_row["start"], gene_row["end"],
+        alpha=0.08, color=gc, zorder=0,
+    )
+
+ax.set_xlim(1, genome_len)
+ax.set_xlabel("Genomic Position (nt)")
+ax.set_ylabel("Shannon Entropy (nat)")
+ax.set_title(f"Genome-Wide Shannon Entropy (sliding window = {WINDOW_SIZE} nt)")
+ax.legend(loc="upper right", frameon=False)
+
+out_svg = os.path.join(OUTPUT_DIR, "entropy_curves.svg")
+out_png = os.path.join(OUTPUT_DIR, "entropy_curves.png")
+fig.savefig(out_svg, format="svg", bbox_inches="tight")
+fig.savefig(out_png, format="png", bbox_inches="tight", dpi=150)
+plt.show()
+print(f"Saved: {out_svg}, {out_png}")
+```
+
+## 3. LoFreq vs iVar Caller Overlap (Venn)
+
+Shared variant positions between LoFreq and iVar, per DPI group.  Uses
+`matplotlib_venn` if installed; otherwise prints a contingency table.
+
+```{python}
+#| label: caller-venn
+#| fig-width: 10
+#| fig-height: 4
+
+lofreq_positions = {
+    dpi: set(all_vars[(all_vars["caller"] == "LoFreq") & (all_vars["dpi"] == dpi)]["POS"])
+    for dpi in DPI_ORDER
+}
+ivar_positions = {
+    dpi: set(all_vars[(all_vars["caller"] == "iVar") & (all_vars["dpi"] == dpi)]["POS"])
+    for dpi in DPI_ORDER
+}
+
+try:
+    from matplotlib_venn import venn2
+
+    n_dpis = len(DPI_ORDER)
+    fig, axes = plt.subplots(1, n_dpis, figsize=(n_dpis * 3.5, 3.5),
+                             constrained_layout=True)
+    if n_dpis == 1:
+        axes = [axes]
+
+    for ax, dpi in zip(axes, DPI_ORDER):
+        lf_set = lofreq_positions.get(dpi, set())
+        iv_set = ivar_positions.get(dpi, set())
+
+        v = venn2(
+            subsets=(len(lf_set - iv_set), len(iv_set - lf_set), len(lf_set & iv_set)),
+            set_labels=("LoFreq", "iVar"),
+            ax=ax,
+        )
+        if v.get_label_by_id("10"):
+            v.get_label_by_id("10").set_text(len(lf_set - iv_set))
+        if v.get_label_by_id("01"):
+            v.get_label_by_id("01").set_text(len(iv_set - lf_set))
+        if v.get_label_by_id("11"):
+            v.get_label_by_id("11").set_text(len(lf_set & iv_set))
+
+        # Apply Okabe-Ito colours to the diagram
+        for patch_id, color in [("10", OKABE_ITO["orange"]), ("01", OKABE_ITO["bluish_green"])]:
+            p = v.get_patch_by_id(patch_id)
+            if p:
+                p.set_color(color)
+                p.set_alpha(0.5)
+
+        ax.set_title(DPI_LABELS[dpi])
+
+    out_svg = os.path.join(OUTPUT_DIR, "caller_overlap_venn.svg")
+    out_png = os.path.join(OUTPUT_DIR, "caller_overlap_venn.png")
+    fig.savefig(out_svg, format="svg", bbox_inches="tight")
+    fig.savefig(out_png, format="png", bbox_inches="tight", dpi=150)
+    plt.show()
+    print(f"Saved: {out_svg}, {out_png}")
+
+except ImportError:
+    print(
+        "matplotlib_venn is not installed — printing overlap contingency table instead.\n"
+        "Install with: pip install matplotlib-venn"
+    )
+
+    rows = []
+    for dpi in DPI_ORDER:
+        lf = lofreq_positions.get(dpi, set())
+        iv = ivar_positions.get(dpi, set())
+        rows.append({
+            "DPI":          dpi,
+            "LoFreq only":  len(lf - iv),
+            "iVar only":    len(iv - lf),
+            "Shared":       len(lf & iv),
+            "Total union":  len(lf | iv),
+        })
+
+    overlap_df = pd.DataFrame(rows)
+    overlap_df.to_csv(os.path.join(OUTPUT_DIR, "caller_overlap_summary.csv"), index=False)
+    print("Saved: caller_overlap_summary.csv")
+    print(overlap_df.to_string(index=False))
+```
+
+## Summary: Variant Counts per DPI per Caller
+
+```{python}
+#| label: summary-table
+
+summary = (
+    all_vars
+    .groupby(["dpi", "caller"])["POS"]
+    .count()
+    .unstack(fill_value=0)
+)
+summary.columns.name = None
+summary.index.name = "DPI"
+
+# Add variant-class breakdown
+class_summary = (
+    all_vars
+    .groupby(["dpi", "variant_class"])["POS"]
+    .count()
+    .unstack(fill_value=0)
+)
+
+print("=== Variants per DPI per Caller ===")
+print(summary.to_string())
+print(f"\nSaved {len(all_vars)} filtered variants to memory; "
+      f"CSV inputs from data/ directory.")
+summary.to_csv(os.path.join(OUTPUT_DIR, "variant_summary_by_caller.csv"))
+class_summary.to_csv(os.path.join(OUTPUT_DIR, "variant_summary_by_class.csv"))
+print("Saved: variant_summary_by_caller.csv, variant_summary_by_class.csv")
+```

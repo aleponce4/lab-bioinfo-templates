@@ -1,0 +1,313 @@
+---
+title: "12 · Selection Pressure (πN-πS)"
+subtitle: "Per-gene selection pressure bar plots with FDR significance"
+description: |
+  Computes per-gene mean Δ(πN−πS) pooled across all DPI timepoints, maps
+  bar colour to limma FDR via viridis, overlays significance stars (∗∗∗ / ∗∗ / ∗),
+  produces a stacked DPI panel comparing dpi3 vs dpi5, and exports
+  publication-ready PNG + SVG figures.
+categories: [genomics, virology, selection, piN-piS, evolution]
+jupyter: python3
+---
+
+## Overview
+
+| Item | Details |
+|------|---------|
+| **Input** | `delta_per_sample.csv` · `selection_gene_key.csv` (in `data/`) |
+| **Key packages** | `pandas`, `numpy`, `matplotlib`, `scipy` |
+| **Statistics** | Mean ± SEM · Limma BH FDR · Kruskal–Wallis BH FDR |
+| **Output** | `selection_pressure_bar.png/.svg` · `selection_pressure_stacked_dpi.png/.svg` |
+| **Download** | [template.qmd](template.qmd) |
+
+Edit `GENE_ORDER` if your pathogen uses a different gene / protein name ordering. The
+default palette maps `FDR ≥ 0.05` bars to grey; significant bars use the viridis
+colormap scaled from the minimum observed FDR to 0.05.
+
+[← Gallery](../../index.html){.btn .btn-outline-secondary}
+[Download .qmd](template.qmd){.btn .btn-primary}
+
+---
+
+## User Configuration
+
+```{python}
+#| label: user-config
+
+GENE_ORDER = ["nsp1", "nsp2", "nsp3", "nsp4", "capsid", "E3", "E2", "6K", "E1"]
+
+FDR_COLUMN       = "limma_overall_bh_fdr"   # or "kruskal_bh_fdr"
+FDR_ALPHA        = 0.05                      # significance threshold for colour/star
+FDR_STAR_THRESH  = [0.001, 0.01, 0.05]       # *** / ** / *
+DPI_PANEL_LABELS = ["dpi3", "dpi5"]
+
+OUTPUT_DIR = "outputs"
+DPI_EXPORT = 300
+```
+
+## Setup
+
+```{python}
+#| label: setup
+
+import os
+import warnings
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+from scipy.stats import sem
+
+warnings.filterwarnings("ignore")
+
+# ── Publication matplotlib style ──────────────────────────────────────────
+plt.rcParams.update({
+    "font.family":      "Arial",
+    "font.size":        8,
+    "axes.titlesize":   9,
+    "axes.labelsize":   8,
+    "xtick.labelsize":  7,
+    "ytick.labelsize":  7,
+    "legend.fontsize":  7,
+    "figure.facecolor": "white",
+    "axes.facecolor":   "white",
+    "axes.edgecolor":   "black",
+    "axes.linewidth":   0.8,
+    "axes.grid":        False,
+    "grid.alpha":       0.0,
+    "xtick.color":      "black",
+    "ytick.color":      "black",
+    "svg.fonttype":     "none",
+})
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+print(f"Outputs will be saved to: {os.path.abspath(OUTPUT_DIR)}")
+```
+
+## Load Data
+
+```{python}
+#| label: load-data
+
+delta_df  = pd.read_csv("data/delta_per_sample.csv")
+gene_key  = pd.read_csv("data/selection_gene_key.csv")
+
+print(f"Loaded delta_per_sample.csv  — {len(delta_df)} rows, columns: {list(delta_df.columns)}")
+print(f"Loaded selection_gene_key.csv — {len(gene_key)} rows,  columns: {list(gene_key.columns)}")
+
+# Ensure gene_key has the expected FDR column
+assert FDR_COLUMN in gene_key.columns, (
+    f"FDR column '{FDR_COLUMN}' not found in selection_gene_key.csv. "
+    f"Available: {list(gene_key.columns)}"
+)
+
+delta_df.head()
+```
+
+```{python}
+#| label: preview-gene-key
+
+gene_key[["product", "mean_delta", FDR_COLUMN]].set_index("product").round(4)
+```
+
+## Panel 1 — Mean Δ(πN−πS) per Gene (Pooled)
+
+```{python}
+#| label: panel1-calc
+
+summary_rows = []
+for gene in GENE_ORDER:
+    mask  = delta_df["product"] == gene
+    vals  = delta_df.loc[mask, "delta_piN_minus_piS"]
+    summary_rows.append({
+        "gene":       gene,
+        "mean_delta": vals.mean(),
+        "sem":        vals.sem(),
+        "n":          len(vals),
+    })
+
+pooled_df = pd.DataFrame(summary_rows)
+pooled_df = pooled_df.merge(
+    gene_key[["product", FDR_COLUMN]].rename(columns={"product": "gene"}),
+    on="gene", how="left"
+)
+
+# Cap FDR at 0.99 for visualisation; clamp negative / NaN to 0.001
+pooled_df[FDR_COLUMN] = pooled_df[FDR_COLUMN].clip(lower=0.0, upper=0.99).fillna(0.99)
+pooled_df
+```
+
+```{python}
+#| label: panel1-plot
+#| fig-width: 7
+#| fig-height: 4
+
+# ── Colour mapping: viridis for sig, grey for non-sig ─────────────────────
+cmap     = plt.cm.viridis
+fdr_vals = pooled_df.loc[pooled_df[FDR_COLUMN] < FDR_ALPHA, FDR_COLUMN]
+vmin     = fdr_vals.min() if len(fdr_vals) > 0 else 0.001
+vmax     = FDR_ALPHA
+
+def bar_color(fdr):
+    if fdr < FDR_ALPHA:
+        return cmap((fdr - vmin) / (vmax - vmin))
+    return "#aaaaaa"
+
+def star_label(fdr):
+    if fdr < 0.001:
+        return "***"
+    if fdr < 0.01:
+        return "**"
+    if fdr < 0.05:
+        return "*"
+    return ""
+
+colors = [bar_color(f) for f in pooled_df[FDR_COLUMN]]
+stars  = [star_label(f) for f in pooled_df[FDR_COLUMN]]
+
+fig, ax = plt.subplots(figsize=(7, 4))
+x       = np.arange(len(pooled_df))
+
+bars = ax.bar(x, pooled_df["mean_delta"], yerr=pooled_df["sem"],
+              color=colors, edgecolor="black", linewidth=0.5,
+              capsize=3, error_kw={"linewidth": 0.8})
+
+# ── Significance stars ────────────────────────────────────────────────────
+for xi, (val, sem_val, star) in enumerate(zip(
+    pooled_df["mean_delta"], pooled_df["sem"], stars
+)):
+    if star:
+        sign = 1 if val >= 0 else -1
+        offset = sem_val + np.ptp(pooled_df["mean_delta"]) * 0.04
+        ax.text(xi, val + sign * offset, star, ha="center", va="center",
+                fontsize=10, fontweight="bold")
+
+# ── Decor ─────────────────────────────────────────────────────────────────
+ax.axhline(0, color="black", linewidth=0.8)
+ax.set_xticks(x)
+ax.set_xticklabels(pooled_df["gene"], rotation=30, ha="right")
+ax.set_ylabel("Δ(πN − πS)")
+ax.set_title("Selection Pressure per Gene (pooled DPIs)", fontweight="bold")
+
+# ── Colour bar ────────────────────────────────────────────────────────────
+sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=vmin, vmax=vmax))
+sm.set_array([])
+cbar = fig.colorbar(sm, ax=ax, shrink=0.65, aspect=20, pad=0.02)
+cbar.set_label("limma BH FDR", fontsize=7)
+cbar.ax.tick_params(labelsize=6)
+
+fig.tight_layout()
+
+png_path = os.path.join(OUTPUT_DIR, "selection_pressure_bar.png")
+svg_path = os.path.join(OUTPUT_DIR, "selection_pressure_bar.svg")
+fig.savefig(png_path, dpi=DPI_EXPORT, bbox_inches="tight")
+fig.savefig(svg_path, format="svg", bbox_inches="tight")
+plt.show()
+
+print(f"Saved: {png_path}")
+print(f"Saved: {svg_path}")
+```
+
+## Panel 2 — Stacked DPI Subplots (dpi3 · dpi5)
+
+```{python}
+#| label: panel2-calc
+
+dpi_df = delta_df[delta_df["dpi"].isin(DPI_PANEL_LABELS)].copy()
+
+dpi_summary = []
+for dpi in DPI_PANEL_LABELS:
+    for gene in GENE_ORDER:
+        mask = (dpi_df["dpi"] == dpi) & (dpi_df["product"] == gene)
+        vals = dpi_df.loc[mask, "delta_piN_minus_piS"]
+        if len(vals) > 0:
+            dpi_summary.append({
+                "dpi":        dpi,
+                "gene":       gene,
+                "mean_delta": vals.mean(),
+                "sem":        vals.sem(),
+                "n":          len(vals),
+            })
+
+dpi_pooled = pd.DataFrame(dpi_summary)
+dpi_pooled = dpi_pooled.merge(
+    gene_key[["product", FDR_COLUMN]].rename(columns={"product": "gene"}),
+    on="gene", how="left"
+)
+dpi_pooled[FDR_COLUMN] = dpi_pooled[FDR_COLUMN].clip(lower=0.0, upper=0.99).fillna(0.99)
+dpi_pooled.head()
+```
+
+```{python}
+#| label: panel2-plot
+#| fig-width: 10
+#| fig-height: 4.5
+
+n_dpis  = len(DPI_PANEL_LABELS)
+fig, axes = plt.subplots(1, n_dpis, figsize=(10, 4.5), sharey=True)
+
+for ax, dpi_label in zip(axes, DPI_PANEL_LABELS):
+    sub = dpi_pooled[dpi_pooled["dpi"] == dpi_label].copy()
+    sub = sub.set_index("gene").reindex(GENE_ORDER).reset_index()
+    sub[FDR_COLUMN] = sub[FDR_COLUMN].fillna(0.99)
+
+    # Recompute colours for this subplot's FDR range
+    sub_fdr_vals = sub.loc[sub[FDR_COLUMN] < FDR_ALPHA, FDR_COLUMN]
+    sub_vmin     = sub_fdr_vals.min() if len(sub_fdr_vals) > 0 else 0.001
+
+    def _sub_bar_color(fdr):
+        if fdr < FDR_ALPHA:
+            return cmap((fdr - sub_vmin) / (vmax - sub_vmin))
+        return "#aaaaaa"
+
+    sub_colors = [_sub_bar_color(f) for f in sub[FDR_COLUMN]]
+    sub_stars  = [star_label(f) for f in sub[FDR_COLUMN]]
+
+    x = np.arange(len(sub))
+    ax.bar(x, sub["mean_delta"], yerr=sub["sem"],
+           color=sub_colors, edgecolor="black", linewidth=0.5,
+           capsize=3, error_kw={"linewidth": 0.8})
+
+    for xi, (val, sem_val, star) in enumerate(zip(
+        sub["mean_delta"], sub["sem"], sub_stars
+    )):
+        if star:
+            sign   = 1 if val >= 0 else -1
+            offset = sem_val + np.ptp(pooled_df["mean_delta"]) * 0.05
+            ax.text(xi, val + sign * offset, star, ha="center", va="center",
+                    fontsize=10, fontweight="bold")
+
+    ax.axhline(0, color="black", linewidth=0.8)
+    ax.set_xticks(x)
+    ax.set_xticklabels(sub["gene"].fillna(""), rotation=30, ha="right")
+    ax.set_title(dpi_label.upper(), fontweight="bold")
+    ax.set_ylabel("Δ(πN − πS)")
+
+fig.tight_layout()
+
+png_path = os.path.join(OUTPUT_DIR, "selection_pressure_stacked_dpi.png")
+svg_path = os.path.join(OUTPUT_DIR, "selection_pressure_stacked_dpi.svg")
+fig.savefig(png_path, dpi=DPI_EXPORT, bbox_inches="tight")
+fig.savefig(svg_path, format="svg", bbox_inches="tight")
+plt.show()
+
+print(f"Saved: {png_path}")
+print(f"Saved: {svg_path}")
+```
+
+## Summary Table
+
+```{python}
+#| label: summary-table
+
+summary_out = pooled_df[["gene", "mean_delta", "sem", FDR_COLUMN]].copy()
+summary_out = summary_out.rename(columns={FDR_COLUMN: "limma_bh_fdr"})
+summary_out["significance"] = [star_label(f) for f in summary_out["limma_bh_fdr"]]
+summary_out = summary_out.round(6)
+
+csv_path = os.path.join(OUTPUT_DIR, "selection_pressure_summary.csv")
+summary_out.to_csv(csv_path, index=False)
+print(f"Saved: {csv_path}")
+summary_out
+```

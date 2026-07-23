@@ -163,6 +163,68 @@ module network plots, and Cytoscape-ready exports.
 
 :::
 
+:::
+
+::: {.gallery-section-heading}
+Viral Genomics
+:::
+
+::: {.card-grid}
+
+::: {.template-card .card-genomics}
+::: {.card-body}
+#### 11 — Variant Frequency + Entropy
+[Python]{.badge-python}
+
+Variant scatter, Shannon entropy per timepoint, and caller-shared mutation Venn diagrams.
+
+[Open Template →](templates/11_variant-entropy-analysis/template.html){.btn .btn-primary}
+:::
+:::
+
+::: {.template-card .card-genomics}
+::: {.card-body}
+#### 12 — Coverage Depth
+[Python]{.badge-python}
+
+Genome-wide sequencing depth curves with gene annotations and DPI comparisons.
+
+[Open Template →](templates/12_coverage-depth-analysis/template.html){.btn .btn-primary}
+:::
+:::
+
+::: {.template-card .card-genomics}
+::: {.card-body}
+#### 13 — Selection Pressure (πN-πS)
+[Python]{.badge-python}
+
+Per-gene delta bar plots with limma/Kruskal FDR stars and DPI panel comparisons.
+
+[Open Template →](templates/13_selection-pressure/template.html){.btn .btn-primary}
+:::
+:::
+
+:::
+
+::: {.gallery-section-heading}
+Haplotype & Population
+:::
+
+::: {.card-grid}
+
+::: {.template-card .card-genomics}
+::: {.card-body}
+#### 14 — Haplotype Composition
+[Python]{.badge-python}
+
+Stacked bar charts of intra-host haplotype frequencies by route, DPI, and replicate.
+
+[Open Template →](templates/14_haplotype-composition/template.html){.btn .btn-primary}
+:::
+:::
+
+:::
+
 ---
 
 ## Reference Index
@@ -177,7 +239,7 @@ Searchable list of all templates — same content as the cards above.
 library(DT)
 
 templates <- data.frame(
-  `#` = c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10"),
+  `#` = c("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14"),
   Template = c(
     "<a href='templates/01_plaque-assay-violin/template.html'>Plaque Assay + Violin Plots</a>",
     "<a href='templates/02_image-infection-dose-response/template.html'>Image Infection + Dose-Response</a>",
@@ -188,14 +250,19 @@ templates <- data.frame(
     "<a href='templates/07_rnaseq-deseq2/template.html'>RNA-seq / DESeq2</a>",
     "<a href='templates/08_vcf-mutation-analysis/template.html'>VCF Mutation Analysis</a>",
     "<a href='templates/09_wgcna/template.html'>WGCNA Co-Expression Analysis</a>",
-    "<a href='templates/10_rnaseq-tf-causal-network/template.html'>RNA-seq TF/Causal Network</a>"
+    "<a href='templates/10_rnaseq-tf-causal-network/template.html'>RNA-seq TF/Causal Network</a>",
+    "<a href='templates/11_variant-entropy-analysis/template.html'>Variant Frequency + Entropy</a>",
+    "<a href='templates/12_coverage-depth-analysis/template.html'>Coverage Depth</a>",
+    "<a href='templates/13_selection-pressure/template.html'>Selection Pressure (piN-piS)</a>",
+    "<a href='templates/14_haplotype-composition/template.html'>Haplotype Composition</a>"
   ),
   Category = c(
     "Infection & Virology", "Infection & Virology", "Infection & Virology",
     "Immunology", "Phylogenetics", "Genomics", "Transcriptomics", "Genomics",
-    "Transcriptomics", "Transcriptomics"
+    "Transcriptomics", "Transcriptomics",
+    "Viral Genomics", "Viral Genomics", "Viral Genomics", "Haplotype & Population"
   ),
-  Language = c("R", "R", "R", "R", "R", "R", "R", "Python", "R", "R"),
+  Language = c("R", "R", "R", "R", "R", "R", "R", "Python", "R", "R", "Python", "Python", "Python", "Python"),
   `Key Statistics` = c(
     "One-way ANOVA, Tukey HSD",
     "4PL dose-response, EC50/CC50",
@@ -206,7 +273,11 @@ templates <- data.frame(
     "DESeq2, Wald test, FDR",
     "Shannon entropy, Kruskal-Wallis",
     "Bicor, scale-free topology, module-trait r (FDR)",
-    "TF activity score, PKN overlap, recurrent causal edges"
+    "TF activity score, PKN overlap, recurrent causal edges",
+    "Shannon entropy, allele frequency",
+    "Coverage depth per position",
+    "piN-piS, Kruskal-Wallis, limma FDR",
+    "Haplotype frequency, SNP clustering"
   ),
   `Key Plots` = c(
     "Violin + jitter, log10 titer",
@@ -218,7 +289,11 @@ templates <- data.frame(
     "Volcano, PCA, heatmap, bubble",
     "Mutation freq bar, entropy heatmap",
     "Dendrogram, module-trait heatmap, eigengene trajectories, hub bubble",
-    "TF volcano, TF heatmap, recurrent-edge graph, module networks"
+    "TF volcano, TF heatmap, recurrent-edge graph, module networks",
+    "Variant scatter, entropy curves, Venn",
+    "Coverage depth curves, gene annotations",
+    "Delta bar plots, FDR colormap, stars",
+    "Stacked bar, route/DPI brackets"
   ),
   check.names = FALSE,
   stringsAsFactors = FALSE

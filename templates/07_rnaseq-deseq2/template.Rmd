@@ -997,35 +997,91 @@ if (isTRUE(OPTIONAL_MODULES$top_heatmaps)) {
 }
 ```
 
-# Bubble Plots {.tabset .tabset-fade}
+# Bubble Plots
 
-```{r bubble-tabset, fig.width=8, fig.height=9, message=FALSE, warning=FALSE, results='asis', echo=FALSE}
-for (pathway_name in names(GENE_SETS)) {
-  cat("\n### ", pathway_name, " {}\n\n", sep = "")
+```{r bubble-carousel-data, fig.height=9, fig.width=8, message=FALSE, warning=FALSE, echo=FALSE}
+bubble_names <- names(GENE_SETS)
+for (pathway_name in bubble_names) {
   p <- make_bubble_plot(pathway_name, GENE_SETS[[pathway_name]], all_results, comparison_levels)
   save_plot_multi(
     p,
     file.path("Bubble_Plots", plot_file_stub(paste0("bubble_", pathway_name))),
-    8,
-    9
+    8, 9
   )
-  print(p)
+  stub <- file.path("Bubble_Plots", plot_file_stub(paste0("bubble_", pathway_name)))
+  ggsave(file.path(OUTPUT_DIR, paste0(stub, "_carousel.png")),
+         plot = p, width = 8, height = 9, dpi = 150)
 }
 ```
 
-# Triangle Plots {.tabset .tabset-fade}
+```{r bubble-carousel-html, echo=FALSE, results='asis'}
+if (length(bubble_names) > 1) {
+  cat('<div id="bubble-carousel" class="carousel slide" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
+  cat('  <div class="carousel-indicators">\n')
+  for (i in seq_along(bubble_names)) {
+    active <- if(i == 1) ' class="active" aria-current="true"' else ''
+    cat(sprintf('    <button type="button" data-bs-target="#bubble-carousel" data-bs-slide-to="%d"%s></button>\n', i-1, active))
+  }
+  cat('  </div>\n  <div class="carousel-inner">\n')
+  for (i in seq_along(bubble_names)) {
+    nm <- bubble_names[i]
+    active <- if(i == 1) ' active' else ''
+    stub <- file.path("Bubble_Plots", plot_file_stub(paste0("bubble_", nm)))
+    img_src <- file.path(OUTPUT_DIR, paste0(stub, "_carousel.png"))
+    cat(sprintf('    <div class="carousel-item%s">\n      <img src="%s" class="d-block w-100" alt="%s" style="background:white;border-radius:4px;">\n    </div>\n',
+      active, img_src, nm))
+  }
+  cat('  </div>\n')
+  cat('  <button class="carousel-control-prev" type="button" data-bs-target="#bubble-carousel" data-bs-slide="prev">\n    <span class="carousel-control-prev-icon" style="background-color:rgba(0,0,0,0.5);border-radius:50%%;padding:18px;"></span>\n  </button>\n')
+  cat('  <button class="carousel-control-next" type="button" data-bs-target="#bubble-carousel" data-bs-slide="next">\n    <span class="carousel-control-next-icon" style="background-color:rgba(0,0,0,0.5);border-radius:50%%;padding:18px;"></span>\n  </button>\n')
+  cat('</div>\n')
+} else if (length(bubble_names) == 1) {
+  stub <- file.path("Bubble_Plots", plot_file_stub(paste0("bubble_", bubble_names[1])))
+  cat(sprintf('<img src="%s/%s_carousel.png" class="d-block w-100" style="background:white;border-radius:4px;">\n', OUTPUT_DIR, stub))
+}
+```
 
-```{r triangle-tabset, fig.width=6, fig.height=9, message=FALSE, warning=FALSE, results='asis', echo=FALSE}
-for (pathway_name in names(GENE_SETS)) {
-  cat("\n### ", pathway_name, " {}\n\n", sep = "")
+# Triangle Plots
+
+```{r triangle-carousel-data, fig.height=9, fig.width=6, message=FALSE, warning=FALSE, echo=FALSE}
+triangle_names <- names(GENE_SETS)
+for (pathway_name in triangle_names) {
   p <- make_triangle_plot(pathway_name, GENE_SETS[[pathway_name]], all_results, comparison_levels)
   save_plot_multi(
     p,
     file.path("Triangle", plot_file_stub(paste0("triangle_", pathway_name))),
-    6,
-    9
+    6, 9
   )
-  print(p)
+  stub <- file.path("Triangle", plot_file_stub(paste0("triangle_", pathway_name)))
+  ggsave(file.path(OUTPUT_DIR, paste0(stub, "_carousel.png")),
+         plot = p, width = 6, height = 9, dpi = 150)
+}
+```
+
+```{r triangle-carousel-html, echo=FALSE, results='asis'}
+if (length(triangle_names) > 1) {
+  cat('<div id="tri-carousel" class="carousel slide" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
+  cat('  <div class="carousel-indicators">\n')
+  for (i in seq_along(triangle_names)) {
+    active <- if(i == 1) ' class="active" aria-current="true"' else ''
+    cat(sprintf('    <button type="button" data-bs-target="#tri-carousel" data-bs-slide-to="%d"%s></button>\n', i-1, active))
+  }
+  cat('  </div>\n  <div class="carousel-inner">\n')
+  for (i in seq_along(triangle_names)) {
+    nm <- triangle_names[i]
+    active <- if(i == 1) ' active' else ''
+    stub <- file.path("Triangle", plot_file_stub(paste0("triangle_", nm)))
+    img_src <- file.path(OUTPUT_DIR, paste0(stub, "_carousel.png"))
+    cat(sprintf('    <div class="carousel-item%s">\n      <img src="%s" class="d-block w-100" alt="%s" style="background:white;border-radius:4px;">\n    </div>\n',
+      active, img_src, nm))
+  }
+  cat('  </div>\n')
+  cat('  <button class="carousel-control-prev" type="button" data-bs-target="#tri-carousel" data-bs-slide="prev">\n    <span class="carousel-control-prev-icon" style="background-color:rgba(0,0,0,0.5);border-radius:50%%;padding:18px;"></span>\n  </button>\n')
+  cat('  <button class="carousel-control-next" type="button" data-bs-target="#tri-carousel" data-bs-slide="next">\n    <span class="carousel-control-next-icon" style="background-color:rgba(0,0,0,0.5);border-radius:50%%;padding:18px;"></span>\n  </button>\n')
+  cat('</div>\n')
+} else if (length(triangle_names) == 1) {
+  stub <- file.path("Triangle", plot_file_stub(paste0("triangle_", triangle_names[1])))
+  cat(sprintf('<img src="%s/%s_carousel.png" class="d-block w-100" style="background:white;border-radius:4px;">\n', OUTPUT_DIR, stub))
 }
 ```
 

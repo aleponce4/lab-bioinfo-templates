@@ -195,7 +195,7 @@ cat('<style>
 }
 .carousel-indicators button { background-color: rgba(0,0,0,0.4); }
 </style>\n')
-cat('<div id="bubble-carousel" class="carousel slide" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
+cat('<div id="bubble-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
 cat('  <div class="carousel-indicators">\n')
 for (i in seq_along(bubble_names)) {
   active <- if(i == 1) ' class="active" aria-current="true"' else ''
@@ -280,7 +280,7 @@ for (comp in go_comps) {
 ```{r go-carousel-html, echo=FALSE, results='asis'}
 if (length(go_comps) > 1) {
   cat('<style>.go-carousel .carousel-item img { background: white; } .go-carousel .carousel-control-prev-icon, .go-carousel .carousel-control-next-icon { background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 18px; } .go-carousel .carousel-indicators button { background-color: rgba(0,0,0,0.4); }</style>\n')
-  cat('<div id="go-carousel" class="carousel slide go-carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
+  cat('<div id="go-carousel" class="carousel slide go-carousel" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
   cat('  <div class="carousel-indicators">\n')
   for (i in seq_along(go_comps)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''
@@ -339,7 +339,7 @@ for (comp in kegg_comps) {
 
 ```{r kegg-carousel-html, echo=FALSE, results='asis'}
 if (length(kegg_comps) > 1) {
-  cat('<div id="kegg-carousel" class="carousel slide go-carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
+  cat('<div id="kegg-carousel" class="carousel slide go-carousel" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
   cat('  <div class="carousel-indicators">\n')
   for (i in seq_along(kegg_comps)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''

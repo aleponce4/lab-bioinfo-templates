@@ -1016,7 +1016,7 @@ for (pathway_name in bubble_names) {
 
 ```{r bubble-carousel-html, echo=FALSE, results='asis'}
 if (length(bubble_names) > 1) {
-  cat('<div id="bubble-carousel" class="carousel slide" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
+  cat('<div id="bubble-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
   cat('  <div class="carousel-indicators">\n')
   for (i in seq_along(bubble_names)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''
@@ -1060,7 +1060,7 @@ for (pathway_name in triangle_names) {
 
 ```{r triangle-carousel-html, echo=FALSE, results='asis'}
 if (length(triangle_names) > 1) {
-  cat('<div id="tri-carousel" class="carousel slide" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
+  cat('<div id="tri-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
   cat('  <div class="carousel-indicators">\n')
   for (i in seq_along(triangle_names)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''

@@ -113,10 +113,9 @@ cat("Comparisons:", paste(levels(deg_all$Comparison), collapse = ", "), "\n")
 cat("Significant DEGs (any comparison):", sum(deg_all$significant, na.rm = TRUE), "\n")
 ```
 
-# Bubble Plots (Gene Set Visualization)
+# Bubble Plots (Gene Set Visualization) {.tabset .tabset-fade}
 
-```{r bubble-plot-fn}
-# ── Shared bubble plot function ────────────────────────────────────────────────
+```{r bubble-generate, fig.height=8, fig.width=8, message=FALSE, warning=FALSE, results='asis', echo=FALSE}
 make_bubble_plot <- function(pathway_name, genes, data) {
   pdata <- data %>%
     filter(Gene %in% genes) %>%
@@ -125,8 +124,7 @@ make_bubble_plot <- function(pathway_name, genes, data) {
       color_group   = ifelse(significant, "significant", "nonsignificant"),
       Gene          = factor(Gene, levels = rev(genes))
     )
-
-  p <- ggplot() +
+  ggplot() +
     geom_point(
       data = filter(pdata, color_group == "nonsignificant"),
       aes(x = Comparison, y = Gene),
@@ -176,36 +174,14 @@ make_bubble_plot <- function(pathway_name, genes, data) {
       color = guide_colorbar(barwidth = 1, barheight = 8)
     ) +
     labs(title = pathway_name, x = "", y = "")
-
-  p
 }
-```
 
-```{r bubble-plots, fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
-# ── Generate one bubble plot per gene set ──────────────────────────────────────
-bubble_plots <- lapply(names(GENE_SETS), function(name) {
-  p <- make_bubble_plot(name, GENE_SETS[[name]], deg_all)
-  ggsave(file.path(OUTPUT_DIR, "Bubble_Plots", paste0(name, ".svg")),
-         plot = p, device = "svg", width = 8, height = 10)
-  p
-})
-names(bubble_plots) <- names(GENE_SETS)
-
-# ── Print individual plots ─────────────────────────────────────────────────────
-for (nm in names(bubble_plots)) print(bubble_plots[[nm]])
-```
-
-```{r bubble-grid, fig.height=8, fig.width=16, message=FALSE, warning=FALSE}
-# ── Combine into a single-row grid ────────────────────────────────────────────
-if (length(bubble_plots) > 1) {
-  combined_plot <- wrap_plots(bubble_plots, ncol = length(bubble_plots)) +
-    plot_annotation(title = "Bubble Plots of Gene Sets") &
-    theme(plot.title = element_text(size = 20, face = "bold", hjust = 0.5))
-
-  ggsave(file.path(OUTPUT_DIR, "Bubble_Plots", "Bubble_Plot_Grid.svg"),
-         plot = combined_plot, device = "svg",
-         width = 8 * length(bubble_plots), height = 10)
-  print(combined_plot)
+for (nm in names(GENE_SETS)) {
+  cat("\n### ", nm, "{}\n\n", sep = "")
+  p <- make_bubble_plot(nm, GENE_SETS[[nm]], deg_all)
+  ggsave(file.path(OUTPUT_DIR, "Bubble_Plots", paste0(nm, ".svg")),
+         plot = p, device = "svg", width = 8, height = 8)
+  print(p)
 }
 ```
 
@@ -229,10 +205,9 @@ for (nm in names(GENE_SETS)) {
 message("Exported wide-format CSVs to ", file.path(OUTPUT_DIR, "Pathway_Heatmaps"))
 ```
 
-# GO Enrichment Analysis
+# GO Enrichment Analysis {.tabset .tabset-fade}
 
 ```{r go-enrichment, message=FALSE, warning=FALSE}
-# ── Per-comparison GO enrichment ───────────────────────────────────────────────
 run_go_enrichment <- function(comp_name, deg_data, ont = "BP") {
   sig_genes <- deg_data %>%
     filter(Comparison == comp_name, significant) %>%
@@ -244,7 +219,6 @@ run_go_enrichment <- function(comp_name, deg_data, ont = "BP") {
     return(NULL)
   }
 
-  # Map gene symbols → Entrez IDs
   gene_ids <- tryCatch(
     bitr(sig_genes, fromType = "SYMBOL", toType = "ENTREZID",
          OrgDb = org_db),
@@ -274,11 +248,12 @@ names(go_results) <- comparisons_vec
 go_results <- Filter(Negate(is.null), go_results)
 ```
 
-```{r go-plots, fig.width=8, fig.height=6, message=FALSE, warning=FALSE}
-# ── Dot plots for each comparison ─────────────────────────────────────────────
+```{r go-plots-tabset, fig.width=8, fig.height=6, message=FALSE, warning=FALSE, results='asis', echo=FALSE}
 for (comp in names(go_results)) {
   ego <- go_results[[comp]]$ego
   if (is.null(ego) || nrow(as.data.frame(ego)) == 0) next
+
+  cat("\n### ", comp, "{}\n\n", sep = "")
 
   p_dot <- dotplot(ego, showCategory = 20) +
     labs(title = paste("GO (BP) Enrichment:", comp)) +
@@ -289,18 +264,15 @@ for (comp in names(go_results)) {
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank()
     )
-
   print(p_dot)
   ggsave(file.path(OUTPUT_DIR, "Enrichment", paste0("GO_dotplot_", comp, ".svg")),
          plot = p_dot, device = "svg", width = 8, height = 6)
-
-  # Save table
   write_csv(as.data.frame(ego),
             file.path(OUTPUT_DIR, "Enrichment", paste0("GO_results_", comp, ".csv")))
 }
 ```
 
-# KEGG Pathway Enrichment
+# KEGG Pathway Enrichment {.tabset .tabset-fade}
 
 ```{r kegg-enrichment, message=FALSE, warning=FALSE}
 run_kegg_enrichment <- function(comp_name, deg_data) {
@@ -332,9 +304,15 @@ run_kegg_enrichment <- function(comp_name, deg_data) {
 kegg_results <- lapply(comparisons_vec, run_kegg_enrichment, deg_data = deg_all)
 names(kegg_results) <- comparisons_vec
 kegg_results <- Filter(Negate(is.null), kegg_results)
+```
 
+```{r kegg-plots-tabset, fig.width=8, fig.height=6, message=FALSE, warning=FALSE, results='asis', echo=FALSE}
 for (comp in names(kegg_results)) {
   kk <- kegg_results[[comp]]$kk
+  if (is.null(kk) || nrow(as.data.frame(kk)) == 0) next
+
+  cat("\n### ", comp, "{}\n\n", sep = "")
+
   p_kegg <- dotplot(kk, showCategory = 20) +
     labs(title = paste("KEGG Enrichment:", comp)) +
     theme_bw() +

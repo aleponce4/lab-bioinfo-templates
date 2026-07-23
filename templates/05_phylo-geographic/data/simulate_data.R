@@ -21,11 +21,11 @@ library(Biostrings)
 n_taxa    <- 30
 taxa_names <- paste0("Sample_", seq_len(n_taxa))
 
-# 8 sites along a north-south gradient, ~150 km total span
+# 8 sites in a realistic 2D scatter (not a straight line), ~200 km span
 site_lookup <- data.frame(
   Site      = paste0("Site_", 1:8),
-  Longitude = c(-69.5, -68.8, -68.2, -67.6, -67.0, -66.3, -65.7, -65.0),
-  Latitude  = c(-22.2, -22.9, -23.5, -24.1, -24.8, -25.4, -26.1, -26.7)
+  Longitude = c(-69.8, -68.2, -70.1, -67.5, -68.9, -66.8, -69.3, -65.5),
+  Latitude  = c(-21.5, -22.8, -24.0, -23.2, -25.6, -25.1, -27.0, -26.3)
 )
 
 # Assign samples to sites (3-4 per site) with clades matching geography

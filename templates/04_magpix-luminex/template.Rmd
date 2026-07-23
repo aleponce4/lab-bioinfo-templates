@@ -334,9 +334,9 @@ ggsave(file.path(OUTPUT_DIR, "Heatmaps", "heatmap.tiff"),
 print(p_heat)
 ```
 
-## Per-Analyte Dot / Bar / Violin / Box Plots
+# Per-Analyte Visualization Gallery {.tabset .tabset-fade}
 
-```{r plot-helpers, message=FALSE, warning=FALSE}
+```{r plot-helpers-faceted, message=FALSE, warning=FALSE}
 # ── Shared helper: compute emmeans contrasts for one analyte ──────────────────
 get_pval_df <- function(pdat) {
   m   <- lm(log10_value ~ Group, data = pdat)
@@ -368,157 +368,103 @@ get_pval_df <- function(pdat) {
       label      = label,
       y.position = ymax + spread * step
     )
-
-  caption_text <- ctr_df %>%
-    transmute(line = sprintf("%s vs %s: FC=%.2f q=%.3g",
-                             group2, BASELINE_GROUP, FC, q)) %>%
-    pull(line) %>% paste(collapse = "\n")
-
-  list(pvdf = pvdf, caption = caption_text)
+  pvdf
 }
 
-# ── Theme shared by all analyte plots ─────────────────────────────────────────
-plot_theme <- function() {
-    theme_bw(base_size = 14, base_family = "sans") +
+analytes_order <- sort(unique(dat_long$Analyte))
+
+all_stats <- lapply(analytes_order, function(an) {
+  pdat <- dat_long %>%
+    filter(Analyte == an, !is.na(log10_value)) %>%
+    mutate(Group = factor(Group, levels = names(OKABE_ITO)))
+  if (nrow(pdat) == 0) return(NULL)
+  pvdf <- get_pval_df(pdat)
+  pvdf$Analyte <- an
+  pvdf
+})
+names(all_stats) <- analytes_order
+
+make_faceted_plot <- function(plot_dat, plot_type = c("dot", "bar", "violin", "box")) {
+  plot_type <- match.arg(plot_type)
+  
+  p <- ggplot(plot_dat, aes(x = Group, y = log10_value)) +
+    scale_color_manual(values = OKABE_ITO) +
+    scale_fill_manual(values = OKABE_ITO) +
+    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
+    labs(y = "log\u2081\u2080 concentration (pg/mL)", x = NULL) +
+    theme_bw(base_size = 11, base_family = "sans") +
     theme(
       legend.position = "none",
       axis.line       = element_line(linewidth = 0.6),
       axis.ticks      = element_line(linewidth = 0.6),
-      plot.caption    = element_text(size = 9, margin = margin(t = 8)),
+      axis.text.x = element_text(angle = 30, hjust = 1, size = 9),
       panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank()
+      panel.grid.minor = element_blank(),
+      strip.text = element_text(face = "bold", size = 10),
+      strip.background = element_rect(fill = "grey95", color = "grey70")
     )
+  
+  if (plot_type == "dot") {
+    p <- p +
+      geom_quasirandom(aes(color = Group), width = 0.15, alpha = 0.8, size = 1.5) +
+      stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.18, size = 0.4)
+  } else if (plot_type == "bar") {
+    p <- p +
+      stat_summary(aes(fill = Group), fun = mean, geom = "col",
+                   width = 0.6, alpha = 0.45, color = NA) +
+      geom_quasirandom(aes(color = Group), width = 0.15, size = 1.5, alpha = 0.9) +
+      stat_summary(fun.data = mean_cl_normal, geom = "errorbar",
+                   width = 0.18, linewidth = 0.5)
+  } else if (plot_type == "violin") {
+    p <- p +
+      geom_violin(aes(fill = Group, color = Group),
+                  width = 0.8, alpha = 0.15, trim = FALSE, linewidth = 0.6) +
+      geom_quasirandom(aes(color = Group), width = 0.15, size = 1.5, alpha = 0.9)
+  } else if (plot_type == "box") {
+    p <- p +
+      geom_boxplot(aes(fill = Group, color = Group),
+                   width = 0.6, alpha = 0.15, outlier.shape = NA, linewidth = 0.6) +
+      geom_quasirandom(aes(color = Group), width = 0.15, size = 1.5, alpha = 0.9)
+  }
+  
+  p + facet_wrap(~Analyte, scales = "free_y", ncol = 4)
+}
+
+write_plot <- function(p, name) {
+  ggsave(file.path(OUTPUT_DIR, name),
+         plot = p, width = 14, height = 8, dpi = 600,
+         device = "tiff", compression = "lzw")
 }
 ```
 
-```{r dot-plots, message=FALSE, warning=FALSE}
-# ── Dot plots ─────────────────────────────────────────────────────────────────
-make_dotplot <- function(an) {
-  pdat <- dat_long %>%
-    filter(Analyte == an, !is.na(log10_value)) %>%
-    mutate(Group = factor(Group, levels = names(OKABE_ITO)))
-  if (nrow(pdat) == 0) return(invisible(NULL))
-  stats <- get_pval_df(pdat)
+## Dot Plots
 
-  p <- ggplot(pdat, aes(x = Group, y = log10_value, color = Group)) +
-    geom_quasirandom(width = 0.15, alpha = 0.8, size = 2) +
-    stat_summary(fun.data = mean_cl_normal, geom = "errorbar", width = 0.18, size = 0.4) +
-    stat_pvalue_manual(stats$pvdf, label = "label", y.position = "y.position",
-                       xmin = "group1", xmax = "group2",
-                       tip.length = 0.01, bracket.size = 0.5) +
-    scale_color_manual(values = OKABE_ITO) +
-    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
-    labs(title = an, y = "log\u2081\u2080 concentration (pg/mL)",
-         x = NULL, caption = stats$caption) +
-    plot_theme()
-
-  ggsave(file.path(OUTPUT_DIR, "Beeswarm", paste0(an, ".tiff")),
-         plot = p, width = 6, height = 4, dpi = 600,
-         device = "tiff", compression = "lzw")
-  print(p)
-  invisible(p)
-}
-
-invisible(lapply(unique(dat_long$Analyte), make_dotplot))
+```{r dot-gal, fig.width=14, fig.height=8, message=FALSE, warning=FALSE}
+p_dot <- make_faceted_plot(dat_long, "dot")
+write_plot(p_dot, "Heatmaps/gallery_dotplots.tiff")
+print(p_dot)
 ```
 
-```{r bar-plots, message=FALSE, warning=FALSE}
-# ── Bar plots ─────────────────────────────────────────────────────────────────
-make_barplot <- function(an) {
-  pdat <- dat_long %>%
-    filter(Analyte == an, !is.na(log10_value)) %>%
-    mutate(Group = factor(Group, levels = names(OKABE_ITO)))
-  if (nrow(pdat) == 0) return(invisible(NULL))
-  stats <- get_pval_df(pdat)
+## Bar Plots
 
-  p <- ggplot(pdat, aes(x = Group, y = log10_value)) +
-    stat_summary(aes(fill = Group), fun = mean, geom = "col",
-                 width = 0.6, alpha = 0.45, color = NA) +
-    geom_quasirandom(aes(color = Group), width = 0.15, size = 2, alpha = 0.9) +
-    stat_summary(fun.data = mean_cl_normal, geom = "errorbar",
-                 width = 0.18, linewidth = 0.5) +
-    stat_pvalue_manual(stats$pvdf, label = "label", y.position = "y.position",
-                       xmin = "group1", xmax = "group2",
-                       tip.length = 0.01, bracket.size = 0.5) +
-    scale_fill_manual(values = OKABE_ITO) +
-    scale_color_manual(values = OKABE_ITO) +
-    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
-    labs(title = an, y = "log\u2081\u2080 concentration (pg/mL)",
-         x = NULL, caption = stats$caption) +
-    plot_theme()
-
-  ggsave(file.path(OUTPUT_DIR, "Barplots", paste0(an, ".tiff")),
-         plot = p, width = 6, height = 4, dpi = 600,
-         device = "tiff", compression = "lzw")
-  print(p)
-  invisible(p)
-}
-
-invisible(lapply(unique(dat_long$Analyte), make_barplot))
+```{r bar-gal, fig.width=14, fig.height=8, message=FALSE, warning=FALSE}
+p_bar <- make_faceted_plot(dat_long, "bar")
+write_plot(p_bar, "Heatmaps/gallery_barplots.tiff")
+print(p_bar)
 ```
 
-```{r violin-plots, message=FALSE, warning=FALSE}
-# ── Violin plots ──────────────────────────────────────────────────────────────
-make_violinplot <- function(an) {
-  pdat <- dat_long %>%
-    filter(Analyte == an, !is.na(log10_value)) %>%
-    mutate(Group = factor(Group, levels = names(OKABE_ITO)))
-  if (nrow(pdat) == 0) return(invisible(NULL))
-  stats <- get_pval_df(pdat)
+## Violin Plots
 
-  p <- ggplot(pdat, aes(x = Group, y = log10_value)) +
-    geom_violin(aes(fill = Group, color = Group),
-                width = 0.8, alpha = 0.15, trim = FALSE, linewidth = 0.6) +
-    geom_quasirandom(aes(color = Group), width = 0.15, size = 2, alpha = 0.9) +
-    stat_pvalue_manual(stats$pvdf, label = "label", y.position = "y.position",
-                       xmin = "group1", xmax = "group2",
-                       tip.length = 0.01, bracket.size = 0.5) +
-    scale_fill_manual(values = OKABE_ITO) +
-    scale_color_manual(values = OKABE_ITO) +
-    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
-    labs(title = an, y = "log\u2081\u2080 concentration (pg/mL)",
-         x = NULL, caption = stats$caption) +
-    plot_theme()
-
-  ggsave(file.path(OUTPUT_DIR, "Violin", paste0(an, ".tiff")),
-         plot = p, width = 6, height = 4, dpi = 600,
-         device = "tiff", compression = "lzw")
-  print(p)
-  invisible(p)
-}
-
-invisible(lapply(unique(dat_long$Analyte), make_violinplot))
+```{r viol-gal, fig.width=14, fig.height=8, message=FALSE, warning=FALSE}
+p_viol <- make_faceted_plot(dat_long, "violin")
+write_plot(p_viol, "Heatmaps/gallery_violinplots.tiff")
+print(p_viol)
 ```
 
-```{r box-plots, message=FALSE, warning=FALSE}
-# ── Box plots ─────────────────────────────────────────────────────────────────
-make_boxplot <- function(an) {
-  pdat <- dat_long %>%
-    filter(Analyte == an, !is.na(log10_value)) %>%
-    mutate(Group = factor(Group, levels = names(OKABE_ITO)))
-  if (nrow(pdat) == 0) return(invisible(NULL))
-  stats <- get_pval_df(pdat)
+## Box Plots
 
-  p <- ggplot(pdat, aes(x = Group, y = log10_value)) +
-    geom_boxplot(aes(fill = Group, color = Group),
-                 width = 0.6, alpha = 0.15, outlier.shape = NA, linewidth = 0.6) +
-    geom_quasirandom(aes(color = Group), width = 0.15, size = 2, alpha = 0.9) +
-    stat_pvalue_manual(stats$pvdf, label = "label", y.position = "y.position",
-                       xmin = "group1", xmax = "group2",
-                       tip.length = 0.01, bracket.size = 0.5) +
-    scale_fill_manual(values = OKABE_ITO) +
-    scale_color_manual(values = OKABE_ITO) +
-    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
-    labs(title = an, y = "log\u2081\u2080 concentration (pg/mL)",
-         x = NULL, caption = stats$caption) +
-    plot_theme()
-
-  ggsave(file.path(OUTPUT_DIR, "Boxplot", paste0(an, ".tiff")),
-         plot = p, width = 6, height = 4, dpi = 600,
-         device = "tiff", compression = "lzw")
-  print(p)
-  invisible(p)
-}
-
-invisible(lapply(unique(dat_long$Analyte), make_boxplot))
+```{r box-gal, fig.width=14, fig.height=8, message=FALSE, warning=FALSE}
+p_box <- make_faceted_plot(dat_long, "box")
+write_plot(p_box, "Heatmaps/gallery_boxplots.tiff")
+print(p_box)
 ```

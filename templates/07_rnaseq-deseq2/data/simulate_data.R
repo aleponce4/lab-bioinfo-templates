@@ -20,7 +20,7 @@ gene_sets <- list(
 )
 
 required_genes <- unique(unlist(gene_sets, use.names = FALSE))
-background_genes <- paste0("Gene_", sprintf("%03d", seq_len(260)))
+background_genes <- paste0("Gene_", sprintf("%04d", seq_len(700)))
 gene_ids <- c(required_genes, background_genes)
 
 metadata <- tidyr::expand_grid(
@@ -66,7 +66,15 @@ simulate_gene_means <- function(sample_row) {
 }
 
 gene_counts <- sapply(seq_len(nrow(metadata)), function(i) {
-  mu <- simulate_gene_means(metadata[i, ])
+  row <- metadata[i, ]
+  mu <- simulate_gene_means(row)
+  # add small random treatment effect to ~15% of background genes for realistic volcano shape
+  if (row$group == "Treatment") {
+    bg_idx <- grep("^Gene_", names(mu))
+    n_noise <- round(length(bg_idx) * 0.15)
+    noise_genes <- sample(bg_idx, n_noise)
+    mu[noise_genes] <- mu[noise_genes] * runif(n_noise, 0.4, 3.0)
+  }
   rnbinom(length(mu), mu = mu, size = 18)
 })
 colnames(gene_counts) <- sample_ids

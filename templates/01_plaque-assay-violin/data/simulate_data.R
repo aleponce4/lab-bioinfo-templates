@@ -19,7 +19,7 @@ groups <- c(
 # Mean log10 titer per group (mock groups near 0, infected groups high)
 mean_log <- c(0.5, 0.5, 6.2, 5.9, 5.8, 5.7, 5.0, 4.8)
 sd_log   <- 0.4
-n_per_group <- 6
+n_per_group <- 12
 
 rows <- list()
 mouse_id <- 1

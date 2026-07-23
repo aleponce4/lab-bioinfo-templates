@@ -997,10 +997,11 @@ if (isTRUE(OPTIONAL_MODULES$top_heatmaps)) {
 }
 ```
 
-# Bubble Plots
+# Bubble Plots {.tabset .tabset-fade}
 
-```{r bubble-plots, fig.width=8, fig.height=9, message=FALSE, warning=FALSE}
-bubble_plots <- lapply(names(GENE_SETS), function(pathway_name) {
+```{r bubble-tabset, fig.width=8, fig.height=9, message=FALSE, warning=FALSE, results='asis', echo=FALSE}
+for (pathway_name in names(GENE_SETS)) {
+  cat("\n### ", pathway_name, " {}\n\n", sep = "")
   p <- make_bubble_plot(pathway_name, GENE_SETS[[pathway_name]], all_results, comparison_levels)
   save_plot_multi(
     p,
@@ -1008,19 +1009,15 @@ bubble_plots <- lapply(names(GENE_SETS), function(pathway_name) {
     8,
     9
   )
-  p
-})
-names(bubble_plots) <- names(GENE_SETS)
-
-for (plot_name in names(bubble_plots)) {
-  print(bubble_plots[[plot_name]])
+  print(p)
 }
 ```
 
-# Triangle Plots
+# Triangle Plots {.tabset .tabset-fade}
 
-```{r triangle-plots, fig.width=6, fig.height=9, message=FALSE, warning=FALSE}
-triangle_plots <- lapply(names(GENE_SETS), function(pathway_name) {
+```{r triangle-tabset, fig.width=6, fig.height=9, message=FALSE, warning=FALSE, results='asis', echo=FALSE}
+for (pathway_name in names(GENE_SETS)) {
+  cat("\n### ", pathway_name, " {}\n\n", sep = "")
   p <- make_triangle_plot(pathway_name, GENE_SETS[[pathway_name]], all_results, comparison_levels)
   save_plot_multi(
     p,
@@ -1028,12 +1025,7 @@ triangle_plots <- lapply(names(GENE_SETS), function(pathway_name) {
     6,
     9
   )
-  p
-})
-names(triangle_plots) <- names(GENE_SETS)
-
-for (plot_name in names(triangle_plots)) {
-  print(triangle_plots[[plot_name]])
+  print(p)
 }
 ```
 

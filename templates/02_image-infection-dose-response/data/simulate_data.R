@@ -12,7 +12,7 @@ ic50      <- 8                          # true IC50 (µM)
 hill      <- 0.8                        # hill slope
 mock_rows <- c("C3","C4","C5","C6")     # 4 mock wells
 ab_rows   <- c("C11")                   # 1 mock+antibody well (for gate)
-tox_rows  <- paste0("D", 3:8)           # toxicity control wells
+tox_rows  <- paste0("D", 1:12)          # toxicity control wells (12 doses)
 
 all_wells <- list()
 
@@ -49,13 +49,12 @@ for (r in 1:2) {
 }
 
 # ── Virus + Compound dose series ──────────────────────────────────────────────
-# Well layout mirrors PLATE_MAP exactly:
-#   column 3=20µM, 4=16µM, 5=12µM, 6=8µM, 7=4µM
-#   row E = replicate 1, row F = replicate 2
+# 12 concentrations × 2 replicates = 24 wells (rows E-F, cols 1-12)
+# Wide range ensures visible plateaus at both ends of the 4PL curve
+doses <- c(0.01, 0.1, 0.5, 1, 2, 4, 8, 12, 16, 20, 30, 50)
 vc_layout <- data.frame(
-  conc = rep(c(20, 16, 12, 8, 4), 2),
-  well = c("E3", "E4", "E5", "E6", "E7",
-           "F3", "F4", "F5", "F6", "F7"),
+  conc = rep(doses, 2),
+  well = c(paste0("E", 1:12), paste0("F", 1:12)),
   stringsAsFactors = FALSE
 )
 for (i in seq_len(nrow(vc_layout))) {
@@ -66,7 +65,7 @@ for (i in seq_len(nrow(vc_layout))) {
 }
 
 # ── Toxicity controls ─────────────────────────────────────────────────────────
-tox_doses <- c(20, 16, 12, 8, 4, 1)
+tox_doses <- doses   # match virus+compound dose series
 for (i in seq_along(tox_rows)) {
   viab <- max(0.60, 1 - 0.01 * tox_doses[i])   # mild toxicity
   n_surv <- round(n_cells * viab)

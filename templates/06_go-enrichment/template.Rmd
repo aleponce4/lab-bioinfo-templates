@@ -188,7 +188,7 @@ for (i in seq_along(bubble_names)) {
 ```
 
 ```{r bubble-carousel-html, echo=FALSE, results='asis'}
-html <- c('<div id="bubble-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+html <- c('<div id="bubble-carousel" class="carousel slide" data-bs-ride="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
 '  <div class="carousel-indicators">')
 for (i in seq_along(bubble_names)) {
   active <- if(i == 1) ' class="active" aria-current="true"' else ''
@@ -274,7 +274,7 @@ for (comp in go_comps) {
 
 ```{r go-carousel-html, echo=FALSE, results='asis'}
 if (length(go_comps) > 1) {
-  html <- c('<div id="go-carousel" class="carousel slide go-carousel" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+  html <- c('<div id="go-carousel" class="carousel slide go-carousel" data-bs-ride="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
   '  <div class="carousel-indicators">')
   for (i in seq_along(go_comps)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''
@@ -336,7 +336,7 @@ for (comp in kegg_comps) {
 
 ```{r kegg-carousel-html, echo=FALSE, results='asis'}
 if (length(kegg_comps) > 1) {
-  html <- c('<div id="kegg-carousel" class="carousel slide go-carousel" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+  html <- c('<div id="kegg-carousel" class="carousel slide go-carousel" data-bs-ride="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
   '  <div class="carousel-indicators">')
   for (i in seq_along(kegg_comps)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''

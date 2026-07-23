@@ -1016,25 +1016,27 @@ for (pathway_name in bubble_names) {
 
 ```{r bubble-carousel-html, echo=FALSE, results='asis'}
 if (length(bubble_names) > 1) {
-  cat('<div id="bubble-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
-  cat('  <div class="carousel-indicators">\n')
+  html <- c('<div id="bubble-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+  '  <div class="carousel-indicators">')
   for (i in seq_along(bubble_names)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''
-    cat(sprintf('    <button type="button" data-bs-target="#bubble-carousel" data-bs-slide-to="%d"%s></button>\n', i-1, active))
+    html <- c(html, sprintf('    <button type="button" data-bs-target="#bubble-carousel" data-bs-slide-to="%d"%s></button>', i-1, active))
   }
-  cat('  </div>\n  <div class="carousel-inner">\n')
+  html <- c(html, '  </div>', '  <div class="carousel-inner">')
   for (i in seq_along(bubble_names)) {
     nm <- bubble_names[i]
     active <- if(i == 1) ' active' else ''
     stub <- file.path("Bubble_Plots", plot_file_stub(paste0("bubble_", nm)))
     img_src <- file.path(OUTPUT_DIR, paste0(stub, "_carousel.png"))
-    cat(sprintf('    <div class="carousel-item%s">\n      <img src="%s" class="d-block w-100" alt="%s" style="background:white;border-radius:4px;">\n    </div>\n',
-      active, img_src, nm))
+    html <- c(html, sprintf('    <div class="carousel-item%s">', active),
+              sprintf('      <img src="%s" class="d-block w-100" alt="%s" style="background:white;border-radius:4px;">', img_src, nm),
+              '    </div>')
   }
-  cat('  </div>\n')
-  cat('  <button class="carousel-control-prev" type="button" data-bs-target="#bubble-carousel" data-bs-slide="prev">\n    <span class="carousel-control-prev-icon" style="background-color:rgba(0,0,0,0.5);border-radius:50%%;padding:18px;"></span>\n  </button>\n')
-  cat('  <button class="carousel-control-next" type="button" data-bs-target="#bubble-carousel" data-bs-slide="next">\n    <span class="carousel-control-next-icon" style="background-color:rgba(0,0,0,0.5);border-radius:50%%;padding:18px;"></span>\n  </button>\n')
-  cat('</div>\n')
+  html <- c(html, '  </div>',
+  '  <button class="carousel-control-prev" type="button" data-bs-target="#bubble-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span></button>',
+  '  <button class="carousel-control-next" type="button" data-bs-target="#bubble-carousel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span></button>',
+  '</div>')
+  knitr::asis_output(paste(html, collapse = "\n"))
 } else if (length(bubble_names) == 1) {
   stub <- file.path("Bubble_Plots", plot_file_stub(paste0("bubble_", bubble_names[1])))
   cat(sprintf('<img src="%s/%s_carousel.png" class="d-block w-100" style="background:white;border-radius:4px;">\n', OUTPUT_DIR, stub))
@@ -1060,25 +1062,27 @@ for (pathway_name in triangle_names) {
 
 ```{r triangle-carousel-html, echo=FALSE, results='asis'}
 if (length(triangle_names) > 1) {
-  cat('<div id="tri-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
-  cat('  <div class="carousel-indicators">\n')
+  html <- c('<div id="tri-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+  '  <div class="carousel-indicators">')
   for (i in seq_along(triangle_names)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''
-    cat(sprintf('    <button type="button" data-bs-target="#tri-carousel" data-bs-slide-to="%d"%s></button>\n', i-1, active))
+    html <- c(html, sprintf('    <button type="button" data-bs-target="#tri-carousel" data-bs-slide-to="%d"%s></button>', i-1, active))
   }
-  cat('  </div>\n  <div class="carousel-inner">\n')
+  html <- c(html, '  </div>', '  <div class="carousel-inner">')
   for (i in seq_along(triangle_names)) {
     nm <- triangle_names[i]
     active <- if(i == 1) ' active' else ''
     stub <- file.path("Triangle", plot_file_stub(paste0("triangle_", nm)))
     img_src <- file.path(OUTPUT_DIR, paste0(stub, "_carousel.png"))
-    cat(sprintf('    <div class="carousel-item%s">\n      <img src="%s" class="d-block w-100" alt="%s" style="background:white;border-radius:4px;">\n    </div>\n',
-      active, img_src, nm))
+    html <- c(html, sprintf('    <div class="carousel-item%s">', active),
+              sprintf('      <img src="%s" class="d-block w-100" alt="%s" style="background:white;border-radius:4px;">', img_src, nm),
+              '    </div>')
   }
-  cat('  </div>\n')
-  cat('  <button class="carousel-control-prev" type="button" data-bs-target="#tri-carousel" data-bs-slide="prev">\n    <span class="carousel-control-prev-icon" style="background-color:rgba(0,0,0,0.5);border-radius:50%%;padding:18px;"></span>\n  </button>\n')
-  cat('  <button class="carousel-control-next" type="button" data-bs-target="#tri-carousel" data-bs-slide="next">\n    <span class="carousel-control-next-icon" style="background-color:rgba(0,0,0,0.5);border-radius:50%%;padding:18px;"></span>\n  </button>\n')
-  cat('</div>\n')
+  html <- c(html, '  </div>',
+  '  <button class="carousel-control-prev" type="button" data-bs-target="#tri-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span></button>',
+  '  <button class="carousel-control-next" type="button" data-bs-target="#tri-carousel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span></button>',
+  '</div>')
+  knitr::asis_output(paste(html, collapse = "\n"))
 } else if (length(triangle_names) == 1) {
   stub <- file.path("Triangle", plot_file_stub(paste0("triangle_", triangle_names[1])))
   cat(sprintf('<img src="%s/%s_carousel.png" class="d-block w-100" style="background:white;border-radius:4px;">\n', OUTPUT_DIR, stub))

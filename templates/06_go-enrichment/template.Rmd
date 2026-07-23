@@ -188,31 +188,26 @@ for (i in seq_along(bubble_names)) {
 ```
 
 ```{r bubble-carousel-html, echo=FALSE, results='asis'}
-cat('<style>
-.carousel-item img { background: white; border-radius: 4px; }
-.carousel-control-prev-icon, .carousel-control-next-icon {
-  background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 18px;
-}
-.carousel-indicators button { background-color: rgba(0,0,0,0.4); }
-</style>\n')
-cat('<div id="bubble-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
-cat('  <div class="carousel-indicators">\n')
+html <- c('<div id="bubble-carousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+'  <div class="carousel-indicators">')
 for (i in seq_along(bubble_names)) {
   active <- if(i == 1) ' class="active" aria-current="true"' else ''
-  cat(sprintf('    <button type="button" data-bs-target="#bubble-carousel" data-bs-slide-to="%d"%s></button>\n', i-1, active))
+  html <- c(html, sprintf('    <button type="button" data-bs-target="#bubble-carousel" data-bs-slide-to="%d"%s></button>', i-1, active))
 }
-cat('  </div>\n')
-cat('  <div class="carousel-inner">\n')
+html <- c(html, '  </div>', '  <div class="carousel-inner">')
 for (i in seq_along(bubble_names)) {
   nm <- bubble_names[i]
   active <- if(i == 1) ' active' else ''
-  cat(sprintf('    <div class="carousel-item%s">\n      <img src="%s/Bubble_Plots/%s.png" class="d-block w-100" alt="%s">\n      <div class="carousel-caption d-none d-md-block"><p style="background:rgba(0,0,0,0.55);display:inline-block;padding:4px 12px;border-radius:4px;">%s</p></div>\n    </div>\n',
-      active, OUTPUT_DIR, nm, nm, nm))
+  html <- c(html, sprintf('    <div class="carousel-item%s">', active),
+            sprintf('      <img src="%s/Bubble_Plots/%s.png" class="d-block w-100" alt="%s">', OUTPUT_DIR, nm, nm),
+            sprintf('      <div class="carousel-caption d-none d-md-block"><p style="background:rgba(0,0,0,0.55);display:inline-block;padding:4px 12px;border-radius:4px;">%s</p></div>', nm),
+            '    </div>')
 }
-cat('  </div>\n')
-cat('  <button class="carousel-control-prev" type="button" data-bs-target="#bubble-carousel" data-bs-slide="prev">\n    <span class="carousel-control-prev-icon" aria-hidden="true"></span>\n  </button>\n')
-cat('  <button class="carousel-control-next" type="button" data-bs-target="#bubble-carousel" data-bs-slide="next">\n    <span class="carousel-control-next-icon" aria-hidden="true"></span>\n  </button>\n')
-cat('</div>\n')
+html <- c(html, '  </div>',
+'  <button class="carousel-control-prev" type="button" data-bs-target="#bubble-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span></button>',
+'  <button class="carousel-control-next" type="button" data-bs-target="#bubble-carousel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span></button>',
+'</div>')
+knitr::asis_output(paste(html, collapse = "\n"))
 ```
 
 # Data Export (Wide Format)
@@ -279,24 +274,26 @@ for (comp in go_comps) {
 
 ```{r go-carousel-html, echo=FALSE, results='asis'}
 if (length(go_comps) > 1) {
-  cat('<style>.go-carousel .carousel-item img { background: white; } .go-carousel .carousel-control-prev-icon, .go-carousel .carousel-control-next-icon { background-color: rgba(0,0,0,0.5); border-radius: 50%; padding: 18px; } .go-carousel .carousel-indicators button { background-color: rgba(0,0,0,0.4); }</style>\n')
-  cat('<div id="go-carousel" class="carousel slide go-carousel" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
-  cat('  <div class="carousel-indicators">\n')
+  html <- c('<div id="go-carousel" class="carousel slide go-carousel" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+  '  <div class="carousel-indicators">')
   for (i in seq_along(go_comps)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''
-    cat(sprintf('    <button type="button" data-bs-target="#go-carousel" data-bs-slide-to="%d"%s></button>\n', i-1, active))
+    html <- c(html, sprintf('    <button type="button" data-bs-target="#go-carousel" data-bs-slide-to="%d"%s></button>', i-1, active))
   }
-  cat('  </div>\n  <div class="carousel-inner">\n')
+  html <- c(html, '  </div>', '  <div class="carousel-inner">')
   for (i in seq_along(go_comps)) {
     comp <- go_comps[i]
     active <- if(i == 1) ' active' else ''
-    cat(sprintf('    <div class="carousel-item%s">\n      <img src="%s/Enrichment/GO_%s.png" class="d-block w-100" alt="%s">\n      <div class="carousel-caption d-none d-md-block"><p style="background:rgba(0,0,0,0.55);display:inline-block;padding:4px 12px;border-radius:4px;">%s</p></div>\n    </div>\n',
-      active, OUTPUT_DIR, comp, comp, comp))
+    html <- c(html, sprintf('    <div class="carousel-item%s">', active),
+              sprintf('      <img src="%s/Enrichment/GO_%s.png" class="d-block w-100" alt="%s">', OUTPUT_DIR, comp, comp),
+              sprintf('      <div class="carousel-caption d-none d-md-block"><p style="background:rgba(0,0,0,0.55);display:inline-block;padding:4px 12px;border-radius:4px;">%s</p></div>', comp),
+              '    </div>')
   }
-  cat('  </div>\n')
-  cat('  <button class="carousel-control-prev" type="button" data-bs-target="#go-carousel" data-bs-slide="prev">\n    <span class="carousel-control-prev-icon" aria-hidden="true"></span>\n  </button>\n')
-  cat('  <button class="carousel-control-next" type="button" data-bs-target="#go-carousel" data-bs-slide="next">\n    <span class="carousel-control-next-icon" aria-hidden="true"></span>\n  </button>\n')
-  cat('</div>\n')
+  html <- c(html, '  </div>',
+  '  <button class="carousel-control-prev" type="button" data-bs-target="#go-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span></button>',
+  '  <button class="carousel-control-next" type="button" data-bs-target="#go-carousel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span></button>',
+  '</div>')
+  knitr::asis_output(paste(html, collapse = "\n"))
 } else if (length(go_comps) == 1) {
   cat(sprintf('<img src="%s/Enrichment/GO_%s.png" class="d-block w-100" alt="GO: %s">\n', OUTPUT_DIR, go_comps[1], go_comps[1]))
 }
@@ -339,23 +336,26 @@ for (comp in kegg_comps) {
 
 ```{r kegg-carousel-html, echo=FALSE, results='asis'}
 if (length(kegg_comps) > 1) {
-  cat('<div id="kegg-carousel" class="carousel slide go-carousel" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">\n')
-  cat('  <div class="carousel-indicators">\n')
+  html <- c('<div id="kegg-carousel" class="carousel slide go-carousel" data-bs-ride="carousel" data-bs-interval="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+  '  <div class="carousel-indicators">')
   for (i in seq_along(kegg_comps)) {
     active <- if(i == 1) ' class="active" aria-current="true"' else ''
-    cat(sprintf('    <button type="button" data-bs-target="#kegg-carousel" data-bs-slide-to="%d"%s></button>\n', i-1, active))
+    html <- c(html, sprintf('    <button type="button" data-bs-target="#kegg-carousel" data-bs-slide-to="%d"%s></button>', i-1, active))
   }
-  cat('  </div>\n  <div class="carousel-inner">\n')
+  html <- c(html, '  </div>', '  <div class="carousel-inner">')
   for (i in seq_along(kegg_comps)) {
     comp <- kegg_comps[i]
     active <- if(i == 1) ' active' else ''
-    cat(sprintf('    <div class="carousel-item%s">\n      <img src="%s/Enrichment/KEGG_%s.png" class="d-block w-100" alt="%s">\n      <div class="carousel-caption d-none d-md-block"><p style="background:rgba(0,0,0,0.55);display:inline-block;padding:4px 12px;border-radius:4px;">%s</p></div>\n    </div>\n',
-      active, OUTPUT_DIR, comp, comp, comp))
+    html <- c(html, sprintf('    <div class="carousel-item%s">', active),
+              sprintf('      <img src="%s/Enrichment/KEGG_%s.png" class="d-block w-100" alt="%s">', OUTPUT_DIR, comp, comp),
+              sprintf('      <div class="carousel-caption d-none d-md-block"><p style="background:rgba(0,0,0,0.55);display:inline-block;padding:4px 12px;border-radius:4px;">%s</p></div>', comp),
+              '    </div>')
   }
-  cat('  </div>\n')
-  cat('  <button class="carousel-control-prev" type="button" data-bs-target="#kegg-carousel" data-bs-slide="prev">\n    <span class="carousel-control-prev-icon" aria-hidden="true"></span>\n  </button>\n')
-  cat('  <button class="carousel-control-next" type="button" data-bs-target="#kegg-carousel" data-bs-slide="next">\n    <span class="carousel-control-next-icon" aria-hidden="true"></span>\n  </button>\n')
-  cat('</div>\n')
+  html <- c(html, '  </div>',
+  '  <button class="carousel-control-prev" type="button" data-bs-target="#kegg-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span></button>',
+  '  <button class="carousel-control-next" type="button" data-bs-target="#kegg-carousel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span></button>',
+  '</div>')
+  knitr::asis_output(paste(html, collapse = "\n"))
 } else if (length(kegg_comps) == 1) {
   cat(sprintf('<img src="%s/Enrichment/KEGG_%s.png" class="d-block w-100" alt="KEGG: %s">\n', OUTPUT_DIR, kegg_comps[1], kegg_comps[1]))
 }

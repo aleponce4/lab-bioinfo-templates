@@ -68,10 +68,6 @@ def generate():
                 for hap, freq in zip(BASE_HAPLOTYPES, freqs):
                     rows.append({
                         "sample_id": sample_id,
-                        "dpi": dpi_val,
-                        "replicate": rep,
-                        "route": route,
-                        "study_code": study_code,
                         "haplotype": hap["name"],
                         "snp_positions": ",".join(str(s) for s in hap["snps"]) if hap["snps"] else "",
                         "frequency": round(freq / total, 4)

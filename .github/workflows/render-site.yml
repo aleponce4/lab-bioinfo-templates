@@ -97,20 +97,27 @@ jobs:
             done
           fi
 
-      # ── 5. Python packages (template 08 — vcf-mutation-analysis) ────────────
+      # ── 5. Python packages ────────────────────────────────────────────────────
       - name: Install Python packages
-        run: pip install jupyter vcfpy pandas scipy seaborn matplotlib scikit-learn
+        run: pip install jupyter vcfpy pandas scipy seaborn matplotlib scikit-learn matplotlib-venn
 
       # ── 6. Synthetic Python data ─────────────────────────────────────────────
       - name: Generate synthetic Python data
+        shell: bash
         run: |
           PAGE="${{ github.event.inputs.page }}"
-          if [[ -n "$PAGE" && "$PAGE" == *"08_vcf"* ]]; then
-            echo "▶ templates/08_vcf-mutation-analysis/data/simulate_data.py"
-            (cd templates/08_vcf-mutation-analysis && python data/simulate_data.py)
-          elif [[ -z "$PAGE" ]]; then
-            echo "▶ templates/08_vcf-mutation-analysis/data/simulate_data.py"
-            (cd templates/08_vcf-mutation-analysis && python data/simulate_data.py)
+          if [[ -n "$PAGE" ]]; then
+            TMPL_DIR=$(dirname "$PAGE")
+            PSCRIPT="$TMPL_DIR/data/simulate_data.py"
+            if [[ -f "$PSCRIPT" ]]; then
+              echo "▶ $PSCRIPT"
+              python "$PSCRIPT"
+            fi
+          else
+            for script in templates/*/data/simulate_data.py; do
+              echo "▶ $script"
+              python "$script"
+            done
           fi
 
       # ── 7. Quarto setup ──────────────────────────────────────────────────────

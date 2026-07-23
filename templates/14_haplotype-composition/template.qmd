@@ -242,7 +242,7 @@ ax.legend(
 sample_meta = sample_order.reset_index(drop=True)
 
 # Build mapping: bar index → (route, dpi)
-bar_info = list(zip(sample_meta["route"], sample_meta["dpi"]))
+bar_info = list(zip(sample_meta["route"].astype(str), sample_meta["dpi"].astype(int)))
 
 # --- Route brackets (top level) ---
 route_groups = {}
@@ -277,14 +277,19 @@ dpi_groups = {}
 for i, (route, dpi) in enumerate(bar_info):
     dpi_groups.setdefault((route, dpi), []).append(i)
 
-for (route, dpi), indices in sorted(dpi_groups.items()):
-    start, end = min(indices), max(indices)
-    x0, x1 = start - 0.4, end + 0.4
-    bracket_y = bracket_y_dpi
-    ax.plot([x0, x0, x1, x1], [bracket_y, bracket_y + tick_height, bracket_y + tick_height, bracket_y],
-            color="grey", linewidth=0.6, clip_on=False)
-    ax.text((x0 + x1) / 2, bracket_y + tick_height + 0.005, str(dpi),
-            ha="center", va="bottom", fontsize=7, color="grey", clip_on=False)
+for route in route_order:
+    for dpi_val in dpi_order:
+        key = (route, dpi_val)
+        if key not in dpi_groups:
+            continue
+        indices = dpi_groups[key]
+        start, end = min(indices), max(indices)
+        x0, x1 = start - 0.4, end + 0.4
+        bracket_y = bracket_y_dpi
+        ax.plot([x0, x0, x1, x1], [bracket_y, bracket_y + tick_height, bracket_y + tick_height, bracket_y],
+                color="grey", linewidth=0.6, clip_on=False)
+        ax.text((x0 + x1) / 2, bracket_y + tick_height + 0.005, str(dpi_val),
+                ha="center", va="bottom", fontsize=7, color="grey", clip_on=False)
 
 # ── Adjust top margin for brackets ───────────────────────────────────────────
 ax.set_ylim(0, bracket_y_route + tick_height + 0.08)

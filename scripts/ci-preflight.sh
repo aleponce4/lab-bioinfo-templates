@@ -4,7 +4,6 @@ set -euo pipefail
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$REPO_ROOT"
 
-readonly PYTHON_TEMPLATE_DIR="templates/08_vcf-mutation-analysis"
 KEEP_GOING=0
 RENDER_ONLY=0
 SELECTED_PAGE=""
@@ -20,6 +19,11 @@ PAGES=(
   "templates/07_rnaseq-deseq2/template.qmd"
   "templates/08_vcf-mutation-analysis/template.qmd"
   "templates/09_wgcna/template.qmd"
+  "templates/10_rnaseq-tf-causal-network/template.qmd"
+  "templates/11_variant-entropy-analysis/template.qmd"
+  "templates/12_coverage-depth-analysis/template.qmd"
+  "templates/13_selection-pressure/template.qmd"
+  "templates/14_haplotype-composition/template.qmd"
 )
 
 EXPECTED_OUTPUTS=(
@@ -33,6 +37,11 @@ EXPECTED_OUTPUTS=(
   "docs/templates/07_rnaseq-deseq2/template.html"
   "docs/templates/08_vcf-mutation-analysis/template.html"
   "docs/templates/09_wgcna/template.html"
+  "docs/templates/10_rnaseq-tf-causal-network/template.html"
+  "docs/templates/11_variant-entropy-analysis/template.html"
+  "docs/templates/12_coverage-depth-analysis/template.html"
+  "docs/templates/13_selection-pressure/template.html"
+  "docs/templates/14_haplotype-composition/template.html"
 )
 
 usage() {
@@ -153,21 +162,22 @@ generate_r_data() {
 }
 
 generate_python_data() {
-  if ! command -v conda >/dev/null 2>&1; then
-    echo "Warning: conda not found; skipping Python synthetic data generation." >&2
-    return
-  fi
+  local script
 
-  if ! conda run -n jonsson-bioinfo python -c "import sys" >/dev/null 2>&1; then
-    echo "Warning: conda environment 'jonsson-bioinfo' is unavailable; skipping Python synthetic data generation." >&2
-    return
-  fi
+  shopt -s nullglob
 
-  echo "==> Generating Python data: $PYTHON_TEMPLATE_DIR/data/simulate_data.py"
-  (
-    cd "$PYTHON_TEMPLATE_DIR"
-    conda run -n jonsson-bioinfo python data/simulate_data.py
-  )
+  for script in templates/*/data/simulate_data.py; do
+    echo "==> Generating Python data: $script"
+    if command -v python3 >/dev/null 2>&1; then
+      python3 "$script"
+    elif command -v python >/dev/null 2>&1; then
+      python "$script"
+    else
+      echo "Warning: python not found; skipping $script" >&2
+    fi
+  done
+
+  shopt -u nullglob
 }
 
 render_pages() {

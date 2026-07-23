@@ -2,7 +2,7 @@
 # One-shot installer for all R packages used across all templates.
 # Run once before using any template: source("install_packages.R")
 
-options(repos = c(CRAN = "https://cloud.r-project.org"))
+# Repos configured by r-lib/actions/setup-r (use-public-rspm: true) or CRAN fallback
 
 # ── CRAN packages ─────────────────────────────────────────────────────────────
 cran_pkgs <- c(
@@ -35,8 +35,7 @@ if (length(to_install)) {
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 
-# Use Posit Public Package Manager for pre-built Bioconductor binaries (CI speed)
-options(BioC_mirror = "https://packagemanager.posit.co/bioconductor")
+# Bioconductor mirror set by r-lib/actions/setup-r or defaults
 
 bioc_pkgs <- c(
   "Biostrings",          # 05_phylo-geographic

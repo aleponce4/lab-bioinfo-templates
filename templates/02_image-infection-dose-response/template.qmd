@@ -1,28 +1,25 @@
 ---
 title: "02 · Image Infection + Dose-Response"
-subtitle: "CQ1 image-based antiviral assay: gating, EC50, CC50, Selectivity Index"
+subtitle: "CQ1 image-based antiviral assay: 2-GMM gating, per-plate normalization, co-primary EC50, and outlier masking"
 description: |
-  Analyzes per-cell fluorescence data from image-based infection assays (e.g., CQ1
-  microscope). Gates singlets by nuclear area/DAPI intensity, determines the infection
-  threshold from a negative control, fits a 4PL dose-response model (EC50), fits a
-  cytotoxicity curve (CC50), and computes the Selectivity Index (SI = CC50/EC50).
-categories: [infection, virology, dose-response, microscopy]
+  Analyzes per-cell fluorescence data from image-based infection assays (e.g., CQ1 microscope).
+  Performs 3-step singlet/cell-cycle QC, per-plate two-anchor normalization (Mock/VO), population 2-component GMM gating, 
+  and side-by-side co-primary 4PL dose-response analysis (% Infection and Normalized Intensity) with Prism-style outlier masking.
+categories: [infection, virology, dose-response, microscopy, gmm, hcs]
 ---
 
 ## Overview
 
 | Item | Details |
 |------|---------|
-| **Input** | Two per-cell CSV files (nucleus channel + virus channel) exported from CQ1 or similar |
-| **Key packages** | `tidyverse`, `drc`, `ggridges`, `scales`, `ragg` |
-| **Statistics** | 4PL dose-response (EC50) · 4PL cytotoxicity (CC50) · Selectivity Index |
-| **Output** | Gating QC · Ridge plot · Bar charts · Dose-response curve · CC50 curve |
+| **Input** | Per-cell CSV files (nucleus channel + virus channel) per plate from CQ1 or similar HCS software |
+| **Key packages** | `tidyverse`, `mclust`, `minpack.lm`, `MASS`, `ggridges`, `scales`, `ragg` |
+| **Statistics** | Population 2-GMM Gating · Per-Plate Normalization · Binomial-Weighted 4PL (EC50) · Outlier Masking · Parametric Bootstrap 95% CIs |
+| **Output** | Gating QC · Ridgeline plots · Formatted tables · % Infection & Intensity Dose-Response Curves |
 | **Download** | [template.Rmd](template.Rmd) |
 
 ::: {.callout-tip}
-**When to use this template:** You have per-cell fluorescence data from a 96-well
-image-based antiviral assay and want to determine the EC50 of a compound against a
-viral infection alongside its cytotoxicity.
+**When to use this template:** You have single-cell or per-well fluorescence data from an image-based antiviral assay across single or multiple plates and want to perform robust 2-GMM gating, per-plate normalization, and co-primary 4PL dose-response analysis.
 :::
 
 ::: {.callout-note}

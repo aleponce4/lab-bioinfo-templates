@@ -38,73 +38,85 @@ output:
 ```{r user-config, message=FALSE, warning=FALSE}
 ## ── USER CONFIGURATION ──────────────────────────────────────────────────────
 #
-# Input files (CQ1 CSV exports per plate, nucleus and virus channels):
-PLATE1_NUCLEUS_FILE <- "data/plate1_nucleus.csv"
-PLATE1_VIRUS_FILE   <- "data/plate1_virus.csv"
+# Input files (CQ1 per-cell CSV exports, one per channel):
+NUCLEUS_FILE <- "data/nucleus.csv"   # DAPI / nuclear channel
+VIRUS_FILE   <- "data/virus.csv"     # Virus / reporter channel
 
-PLATE2_NUCLEUS_FILE <- "data/plate2_nucleus.csv"
-PLATE2_VIRUS_FILE   <- "data/plate2_virus.csv"
-
-PLATE3_NUCLEUS_FILE <- "data/plate3_nucleus.csv"
-PLATE3_VIRUS_FILE   <- "data/plate3_virus.csv"
-
-# Column names in nuclei CSV:
-NUCLEUS_DAPI_COL    <- "(Nucleus) MeanIntensity CH1"   # Nuclear DAPI stain
-NUCLEUS_AREA_COL    <- "(Nucleus) Area"                # Nuclear area (2D)
-VIRUS_INTENSITY_COL <- "(Virus) MeanIntensity CH2"     # NP infection channel
+# Column names in NUCLEUS_FILE for nuclear area & DAPI mean intensity
+NUCLEUS_DAPI_COL    <- "(nucleus) MeanIntensity CH1"
+NUCLEUS_AREA_COL    <- "(nucleus) Area"
+VIRUS_INTENSITY_COL <- "(Virus) MeanIntensity CH2"
 
 # Study labels
-VIRUS_NAME    <- "ANDV"
+VIRUS_NAME    <- "Virus"
 COMPOUND_NAME <- "Compound"
 DOSE_UNIT     <- "\u00b5M"
 
 # Cell gating thresholds
-AREA_MIN        <- 30     # Floor to retain pyknotic cells
-INTENSITY_MIN   <- 300    # Hard DAPI intensity floor
-CIRCULARITY_MIN <- 0.40   # Doublet and fragment cutoff
+AREA_MIN        <- 30     # floor to retain pyknotic nuclei
+AREA_MAX        <- 400    # ceiling to exclude clumps
+INTENSITY_MIN   <- 300    # DAPI intensity floor
+CIRCULARITY_MIN <- 0.40   # doublet / fragment cutoff (if sphericity available)
 
 # Data Exclusions
-DOSES_TO_EXCLUDE <- c(0.75)                      # Dose concentrations to exclude
-WELLS_TO_EXCLUDE <- c("P2_C3", "P2_B4", "P2_C4") # Failing or artifact wells
+DOSES_TO_EXCLUDE <- integer(0)   # e.g., c(0.75)
+WELLS_TO_EXCLUDE <- character(0) # e.g., c("C3", "E4")
 
-# Plate Layout Maps
-PLATE1_MAP <- tibble::tribble(
-  ~WellName,   ~Treatment,            ~Concentration_uM,
-  "P1_B2",  "Virus Only",          0,
-  "P1_B3",  "Virus + Compound",    0.125,
-  "P1_B4",  "Virus + Compound",    0.25,
-  "P1_B5",  "Mock+Ab",             NA,
-  "P1_C2",  "Virus Only",          0,
-  "P1_C3",  "Virus + Compound",    0.125,
-  "P1_C4",  "Virus + Compound",    0.25,
-  "P1_C5",  "Mock+Ab",             NA
+# ── Plate map ─────────────────────────────────────────────────────────────────
+# Edit this tribble to match your actual well layout.
+# Treatment options:
+#   "Mock"             — uninfected, no drug (absolute negative control)
+#   "Mock+Ab"          — uninfected + neutralizing Ab (gate reference)
+#   "Virus Only"       — infected, no drug (positive control for infection)
+#   "Toxicity Control" — drug only, no virus (for CC50)
+#   "Virus + Compound" — infected + drug (experimental)
+#
+PLATE_MAP <- tibble::tribble(
+  ~WellName,  ~Treatment,          ~Concentration_uM,
+  "C3",  "Mock",             NA,
+  "C4",  "Mock",             NA,
+  "C5",  "Mock",             NA,
+  "C6",  "Mock",             NA,
+  "C11", "Mock+Ab",          NA,
+  "C7",  "Virus Only",        0,
+  "C8",  "Virus Only",        0,
+  "D1",  "Toxicity Control",  0.01,
+  "D2",  "Toxicity Control",  0.1,
+  "D3",  "Toxicity Control",  0.5,
+  "D4",  "Toxicity Control",  1,
+  "D5",  "Toxicity Control",  2,
+  "D6",  "Toxicity Control",  4,
+  "D7",  "Toxicity Control",  8,
+  "D8",  "Toxicity Control",  12,
+  "D9",  "Toxicity Control",  16,
+  "D10", "Toxicity Control",  20,
+  "D11", "Toxicity Control",  30,
+  "D12", "Toxicity Control",  50,
+  "E1",  "Virus + Compound",  0.01,
+  "E2",  "Virus + Compound",  0.1,
+  "E3",  "Virus + Compound",  0.5,
+  "E4",  "Virus + Compound",  1,
+  "E5",  "Virus + Compound",  2,
+  "E6",  "Virus + Compound",  4,
+  "E7",  "Virus + Compound",  8,
+  "E8",  "Virus + Compound",  12,
+  "E9",  "Virus + Compound",  16,
+  "E10", "Virus + Compound",  20,
+  "E11", "Virus + Compound",  30,
+  "E12", "Virus + Compound",  50,
+  "F1",  "Virus + Compound",  0.01,
+  "F2",  "Virus + Compound",  0.1,
+  "F3",  "Virus + Compound",  0.5,
+  "F4",  "Virus + Compound",  1,
+  "F5",  "Virus + Compound",  2,
+  "F6",  "Virus + Compound",  4,
+  "F7",  "Virus + Compound",  8,
+  "F8",  "Virus + Compound",  12,
+  "F9",  "Virus + Compound",  16,
+  "F10", "Virus + Compound",  20,
+  "F11", "Virus + Compound",  30,
+  "F12", "Virus + Compound",  50
 )
-
-PLATE2_MAP <- tibble::tribble(
-  ~WellName,   ~Treatment,            ~Concentration_uM,
-  "P2_B2",  "Virus Only",          0,
-  "P2_B3",  "Virus + Compound",    0.5,
-  "P2_B4",  "Virus + Compound",    0.75,
-  "P2_B5",  "Mock+Ab",             NA,
-  "P2_C2",  "Virus Only",          0,
-  "P2_C3",  "Virus + Compound",    0.5,
-  "P2_C4",  "Virus + Compound",    0.75,
-  "P2_C5",  "Mock+Ab",             NA
-)
-
-PLATE3_MAP <- tibble::tribble(
-  ~WellName,   ~Treatment,            ~Concentration_uM,
-  "P3_B2",  "Virus Only",          0,
-  "P3_B3",  "Virus + Compound",    1,
-  "P3_B4",  "Virus + Compound",    2,
-  "P3_B5",  "Mock+Ab",             NA,
-  "P3_C2",  "Virus Only",          0,
-  "P3_C3",  "Virus + Compound",    1,
-  "P3_C4",  "Virus + Compound",    2,
-  "P3_C5",  "Mock+Ab",             NA
-)
-
-PLATE_MAP <- dplyr::bind_rows(PLATE1_MAP, PLATE2_MAP, PLATE3_MAP)
 ## ────────────────────────────────────────────────────────────────────────────
 ```
 
@@ -156,23 +168,38 @@ dir.create("Plots", showWarnings = FALSE)
 # Load & Annotate Data
 
 ```{r load-data, message=FALSE}
-read_plate <- function(nucleus_file, virus_file, plate_prefix) {
+process_plate_files <- function(nucleus_file, virus_file) {
   df_nuclei <- read_csv(nucleus_file, show_col_types = FALSE)
   df_virus  <- read_csv(virus_file,   show_col_types = FALSE)
 
   dapi_col <- names(df_nuclei)[grepl("MeanIntensity.*CH1", names(df_nuclei), ignore.case = TRUE)][1]
-  area_col <- names(df_nuclei)[grepl("\\(Nucleus\\)\\s*(Volume|Area)", names(df_nuclei), ignore.case = TRUE)][1]
-  sphericity_col <- names(df_nuclei)[grepl("Sphericity|Circularity|Compactness", names(df_nuclei), ignore.case = TRUE)][1]
-  virus_col <- names(df_virus)[grepl("MeanIntensity.*CH2", names(df_virus), ignore.case = TRUE)][1]
+  if (is.na(dapi_col)) dapi_col <- NUCLEUS_DAPI_COL
 
-  nuclei_clean <- df_nuclei %>%
-    dplyr::select(
-      WellName, FieldIndex, ObjectNumber,
-      dapi_intensity = all_of(dapi_col),
-      Area           = all_of(area_col),
-      Sphericity     = all_of(sphericity_col)
-    ) %>%
-    dplyr::mutate(integrated_intensity = Area * dapi_intensity)
+  area_col <- names(df_nuclei)[grepl("\\(Nucleus|nucleus\\)\\s*(Volume|Area)", names(df_nuclei), ignore.case = TRUE)][1]
+  if (is.na(area_col)) area_col <- NUCLEUS_AREA_COL
+
+  sphericity_col <- names(df_nuclei)[grepl("Sphericity|Circularity|Compactness", names(df_nuclei), ignore.case = TRUE)][1]
+  
+  virus_col <- names(df_virus)[grepl("MeanIntensity.*CH2", names(df_virus), ignore.case = TRUE)][1]
+  if (is.na(virus_col)) virus_col <- VIRUS_INTENSITY_COL
+
+  if (!is.na(sphericity_col)) {
+    nuclei_clean <- df_nuclei %>%
+      dplyr::select(
+        WellName, FieldIndex, ObjectNumber,
+        dapi_intensity = all_of(dapi_col),
+        Area           = all_of(area_col),
+        Sphericity     = all_of(sphericity_col)
+      )
+  } else {
+    nuclei_clean <- df_nuclei %>%
+      dplyr::select(
+        WellName, FieldIndex, ObjectNumber,
+        dapi_intensity = all_of(dapi_col),
+        Area           = all_of(area_col)
+      ) %>%
+      dplyr::mutate(Sphericity = 1.0)
+  }
 
   virus_clean <- df_virus %>%
     dplyr::select(
@@ -183,25 +210,18 @@ read_plate <- function(nucleus_file, virus_file, plate_prefix) {
   nuclei_clean %>%
     dplyr::left_join(virus_clean, by = c("WellName", "FieldIndex", "ObjectNumber")) %>%
     dplyr::mutate(
-      WellName = paste0(plate_prefix, "_",
-                        str_replace(str_to_upper(WellName),
-                                    "^([A-D])-?0*([1-9][0-9]?).*$", "\\1\\2"))
-    ) %>%
-    tidyr::drop_na(virus_intensity)
+      WellName_std = str_replace(str_to_upper(WellName), "^([A-H])-?0*([1-9][0-9]?).*$", "\\1\\2")
+    )
 }
 
-df_p1 <- read_plate(PLATE1_NUCLEUS_FILE, PLATE1_VIRUS_FILE, "P1")
-df_p2 <- read_plate(PLATE2_NUCLEUS_FILE, PLATE2_VIRUS_FILE, "P2")
-df_p3 <- read_plate(PLATE3_NUCLEUS_FILE, PLATE3_VIRUS_FILE, "P3")
-
-master_df <- dplyr::bind_rows(df_p1, df_p2, df_p3)
+master_df <- process_plate_files(NUCLEUS_FILE, VIRUS_FILE)
 
 master_df_raw_annotated <- master_df %>%
-  dplyr::left_join(PLATE_MAP, by = "WellName") %>%
+  dplyr::left_join(PLATE_MAP, by = c("WellName_std" = "WellName")) %>%
   dplyr::filter(!is.na(Treatment))
 
 master_df_annotated <- master_df_raw_annotated %>%
-  dplyr::filter(!WellName %in% WELLS_TO_EXCLUDE) %>%
+  dplyr::filter(!WellName_std %in% WELLS_TO_EXCLUDE) %>%
   { if (length(DOSES_TO_EXCLUDE) > 0)
       dplyr::filter(., !Concentration_uM %in% DOSES_TO_EXCLUDE)
     else . }
@@ -209,35 +229,22 @@ master_df_annotated <- master_df_raw_annotated %>%
 
 # Cell Gating (QC)
 
-```{r gating-plot, fig.height=4, fig.width=9, warning=FALSE, message=FALSE}
+```{r gating-plot, warning=FALSE, message=FALSE}
 master_df_pre <- master_df_annotated %>%
-  dplyr::filter(Area > AREA_MIN & dapi_intensity > INTENSITY_MIN) %>%
-  dplyr::mutate(Is_Singlet = Sphericity > CIRCULARITY_MIN)
-
-master_df_singlets <- master_df_pre %>% dplyr::filter(Is_Singlet)
-
-vars <- c("Area", "integrated_intensity")
-center <- colMeans(master_df_singlets[vars])
-cov_mat <- cov(master_df_singlets[vars])
-chi_cutoff <- qchisq(0.95, df = 2)
-
-master_df_pre <- master_df_pre %>%
+  dplyr::filter(Area > AREA_MIN & Area < AREA_MAX & dapi_intensity > INTENSITY_MIN) %>%
   dplyr::mutate(
-    dist_cc = if_else(Is_Singlet, 
-                      mahalanobis(cbind(Area, integrated_intensity), center = center, cov = cov_mat), 
-                      NA_real_),
-    Keep_Cell = Is_Singlet & (dist_cc <= chi_cutoff)
+    integrated_intensity = Area * dapi_intensity,
+    Is_Singlet = Sphericity >= CIRCULARITY_MIN
   )
 
-master_df_gated <- master_df_pre %>% dplyr::filter(Keep_Cell)
+master_df_gated <- master_df_pre %>% dplyr::filter(Is_Singlet)
 ```
 
 # Infection Gate: Control-Based Normalization + Population GMM
 
 ```{r infection-gate, warning=FALSE}
 VIRUS_LABEL_VO  <- "Virus Only"
-master_df_gated <- master_df_gated %>%
-  mutate(Plate = stringr::str_extract(WellName, "^P[123]"))
+master_df_gated <- master_df_gated %>% mutate(Plate = "P1")
 
 gmm_threshold <- function(mu, sdv, pi_) {
   o <- order(mu); mu <- mu[o]; sdv <- sdv[o]; pi_ <- pi_[o]
@@ -261,82 +268,80 @@ fit_high_mode <- function(xlog) {
 }
 
 # 1. Compute Anchors (L_p, H_p)
-mock_cells <- master_df_gated %>% filter(Treatment == "Mock+Ab") %>% mutate(xlog = log10(virus_intensity + 1))
-L_p_table  <- mock_cells %>% group_by(Plate, WellName) %>% summarise(well_L = median(xlog, na.rm = TRUE), .groups = "drop") %>%
-  group_by(Plate) %>% summarise(L_p = mean(well_L, na.rm = TRUE), .groups = "drop")
+mock_cells <- master_df_gated %>% filter(Treatment %in% c("Mock", "Mock+Ab")) %>% mutate(xlog = log10(virus_intensity + 1))
+L_p_val    <- if (nrow(mock_cells) > 0) median(mock_cells$xlog, na.rm = TRUE) else 2.0
 
 vo_cells   <- master_df_gated %>% filter(Treatment == VIRUS_LABEL_VO) %>% mutate(xlog = log10(virus_intensity + 1))
-H_p_table  <- vo_cells %>% group_by(Plate, WellName) %>% summarise(well_H = fit_high_mode(xlog), .groups = "drop") %>%
-  group_by(Plate) %>% summarise(H_p = mean(well_H, na.rm = TRUE), .groups = "drop")
-
-anchors <- left_join(L_p_table, H_p_table, by = "Plate")
+H_p_val    <- if (nrow(vo_cells) > 0) fit_high_mode(vo_cells$xlog) else 4.0
 
 # 2. Normalize Cells
 master_df_norm <- master_df_gated %>%
-  mutate(xlog = log10(virus_intensity + 1)) %>%
-  left_join(anchors, by = "Plate") %>%
   mutate(
+    xlog   = log10(virus_intensity + 1),
+    L_p    = L_p_val,
+    H_p    = H_p_val,
     span   = H_p - L_p,
     x_norm = if_else(is.na(span) | span < 1e-6, NA_real_, (xlog - L_p) / span)
   )
 
 # 3. Fit Population 2-GMM Gate
 infected_culture_norm <- master_df_norm %>% filter(Treatment %in% c(VIRUS_LABEL_VO, "Virus + Compound"))
-target_n_gate <- as.integer(round(median(table(infected_culture_norm$WellName))))
+med_val <- suppressWarnings(median(table(infected_culture_norm$WellName_std), na.rm = TRUE))
+target_n_gate <- if (is.finite(med_val) && med_val > 0) as.integer(round(med_val)) else 200L
 
 set.seed(42)
 gate_balanced <- infected_culture_norm %>%
-  group_by(WellName) %>%
-  slice_sample(n = target_n_gate) %>%
+  group_by(WellName_std) %>%
+  filter(row_number() <= target_n_gate) %>%
   ungroup()
 
 x_gate <- gate_balanced$x_norm[is.finite(gate_balanced$x_norm)]
-fit_gate <- Mclust(x_gate, G = 2, modelNames = "V", verbose = FALSE)
+fit_gate <- tryCatch(
+  Mclust(x_gate, G = 2, modelNames = "V", verbose = FALSE),
+  error = function(e) NULL
+)
 
-mu_gate  <- as.numeric(fit_gate$parameters$mean)
-sdv_gate <- sqrt(fit_gate$parameters$variance$sigmasq)
-pi_gate  <- as.numeric(fit_gate$parameters$pro)
-if (length(sdv_gate) == 1L) sdv_gate <- rep(sdv_gate, 2L)
-
-threshold_final <- gmm_threshold(mu_gate, sdv_gate, pi_gate)
+if (!is.null(fit_gate) && !is.null(fit_gate$parameters$mean) && length(fit_gate$parameters$mean) == 2) {
+  mu_gate  <- as.numeric(fit_gate$parameters$mean)
+  sdv_gate <- sqrt(fit_gate$parameters$variance$sigmasq)
+  pi_gate  <- as.numeric(fit_gate$parameters$pro)
+  if (length(sdv_gate) == 1L) sdv_gate <- rep(sdv_gate, 2L)
+  threshold_final <- gmm_threshold(mu_gate, sdv_gate, pi_gate)
+} else {
+  threshold_final <- 0.5
+}
 master_df_final <- master_df_norm
 ```
 
 # Percent Infection per Well
 
 ```{r percent-infection}
-total_counts <- master_df_final %>% dplyr::count(Treatment, Concentration_uM, WellName, name = "total_cell_count")
-positive_counts <- master_df_final %>% filter(x_norm > threshold_final) %>% dplyr::count(Treatment, Concentration_uM, WellName, name = "positive_cell_count")
+total_counts <- master_df_final %>% dplyr::count(Treatment, Concentration_uM, WellName_std, name = "total_cell_count")
+positive_counts <- master_df_final %>% filter(x_norm > threshold_final) %>% dplyr::count(Treatment, Concentration_uM, WellName_std, name = "positive_cell_count")
 
 percent_summary <- total_counts %>%
-  left_join(positive_counts, by = c("Treatment", "Concentration_uM", "WellName")) %>%
+  left_join(positive_counts, by = c("Treatment", "Concentration_uM", "WellName_std")) %>%
   mutate(
     positive_cell_count = replace_na(positive_cell_count, 0),
     percent_positive     = (positive_cell_count / total_cell_count) * 100,
-    Plate = case_when(
-      grepl("^P1_", WellName) ~ "Plate 1",
-      grepl("^P2_", WellName) ~ "Plate 2",
-      grepl("^P3_", WellName) ~ "Plate 3"
-    ),
-    Precision_Flag = if_else(total_cell_count < 500, "Low Precision (n<500)", "Normal")
+    Plate = "Plate 1",
+    Precision_Flag = if_else(total_cell_count < 200, "Low Precision", "Normal")
   )
 
 percent_summary %>%
   mutate(
-    Well_Clean = stringr::str_remove(WellName, "^P[123]_"),
     Dose_Label = case_when(
-      Treatment == "Mock+Ab"    ~ "Mock",
-      Treatment == "Virus Only" ~ "0 µM (Control)",
-      TRUE                      ~ paste0(Concentration_uM, " µM")
+      Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
+      Treatment == "Virus Only"           ~ "0 µM (Control)",
+      TRUE                                ~ paste0(Concentration_uM, " µM")
     ),
     Status_Label = case_when(
       Precision_Flag == "Normal" ~ "Valid",
-      TRUE                        ~ Precision_Flag
+      TRUE                       ~ Precision_Flag
     )
   ) %>%
   dplyr::select(
-    Plate,
-    Well              = Well_Clean,
+    Well              = WellName_std,
     Treatment,
     Dose              = Dose_Label,
     `Total Cells`     = total_cell_count,
@@ -354,32 +359,22 @@ percent_summary %>%
 # Co-Primary Endpoint 1: % Infection Dose-Response (4PL)
 
 ```{r dose-response-model}
-plate_anchors <- percent_summary %>%
-  group_by(Plate) %>%
-  summarise(
-    vo_anchor   = mean(percent_positive[Treatment == "Virus Only"], na.rm = TRUE),
-    mock_anchor = mean(percent_positive[Treatment == "Mock+Ab"], na.rm = TRUE),
-    mock_n      = sum(total_cell_count[Treatment == "Mock+Ab"], na.rm = TRUE),
-    .groups     = "drop"
-  )
-
-global_mock_fallback <- mean(percent_summary$percent_positive[percent_summary$Treatment == "Mock+Ab"], na.rm = TRUE)
-if (is.nan(global_mock_fallback) || is.na(global_mock_fallback)) global_mock_fallback <- 0
+vo_anchor   <- mean(percent_summary$percent_positive[percent_summary$Treatment == "Virus Only"], na.rm = TRUE)
+mock_anchor <- mean(percent_summary$percent_positive[percent_summary$Treatment %in% c("Mock", "Mock+Ab")], na.rm = TRUE)
+if (is.nan(mock_anchor) || is.na(mock_anchor)) mock_anchor <- 0
 
 summary_rel <- percent_summary %>%
-  left_join(plate_anchors, by = "Plate") %>%
   mutate(
-    effective_mock = if_else(!is.na(mock_n) & mock_n >= 200, mock_anchor, global_mock_fallback),
-    percent_infection_rel = 100 * (percent_positive - effective_mock) / (vo_anchor - effective_mock)
+    percent_infection_rel = 100 * (percent_positive - mock_anchor) / (vo_anchor - mock_anchor)
   )
 
 drc_data_rel <- summary_rel %>% filter(Treatment == "Virus + Compound")
-min_pos   <- min(drc_data_rel$Concentration_uM, na.rm = TRUE)
+pos_conc  <- drc_data_rel$Concentration_uM[drc_data_rel$Concentration_uM > 0 & is.finite(drc_data_rel$Concentration_uM)]
+min_pos   <- if (length(pos_conc) > 0) min(pos_conc) else 0.01
 zero_tick <- min_pos / 10
 
-# Binomial-weighted fit dataset (0.5 µM outlier masked from fit)
 fit_data_wide <- summary_rel %>%
-  filter(Treatment == "Virus Only" | (Treatment == "Virus + Compound" & Concentration_uM != 0.5)) %>%
+  filter(Treatment == "Virus Only" | Treatment == "Virus + Compound") %>%
   mutate(
     dose_fit   = ifelse(Treatment == "Virus Only", zero_tick, Concentration_uM),
     prop_raw   = positive_cell_count / total_cell_count,
@@ -387,7 +382,7 @@ fit_data_wide <- summary_rel %>%
     bin_weight = total_cell_count / (prop_clamp * (1 - prop_clamp))
   )
 
-bootstrap_ec50_ci <- function(fit, R = 4000, seed = 42) {
+bootstrap_ec50_ci <- function(fit, R = 2000, seed = 42) {
   if (is.null(fit)) return(c(NA_real_, NA_real_, NA_real_))
   mu <- coef(fit)
   vc <- tryCatch(vcov(fit), error = function(e) NULL)
@@ -402,14 +397,14 @@ bootstrap_ec50_ci <- function(fit, R = 4000, seed = 42) {
 }
 
 fit_rel <- NULL
-for (ec50_try in c(0.125, 0.25, 0.5, 1, 2, 5, 0.05)) {
+for (ec50_try in c(0.5, 1, 2, 5, 8, 10, 0.1)) {
   fit_rel <- tryCatch(
     minpack.lm::nlsLM(
       percent_infection_rel ~ bottom + (top - bottom) / (1 + (dose_fit / ec50) ^ hill),
       data    = fit_data_wide,
-      start   = list(ec50 = ec50_try, hill = 1.6, bottom = 50, top = 100),
+      start   = list(ec50 = ec50_try, hill = 1.0, bottom = 0, top = 100),
       lower   = c(ec50 = 1e-4, hill = 0.05, bottom = -20, top = 80),
-      upper   = c(ec50 = 1e3,  hill = 50, bottom = 95, top = 120),
+      upper   = c(ec50 = 1e3,  hill = 50, bottom = 50, top = 120),
       weights = fit_data_wide$bin_weight,
       control = minpack.lm::nls.lm.control(maxiter = 500)
     ),
@@ -424,7 +419,8 @@ ci_rel <- bootstrap_ec50_ci(fit_rel)
 ## Dose-Response Plot
 
 ```{r dose-response-plot, message=FALSE, warning=FALSE}
-newx <- exp(seq(log(zero_tick), log(max(drc_data_rel$Concentration_uM, na.rm = TRUE)), length.out = 300))
+max_pos <- if (length(pos_conc) > 0) max(pos_conc) else 100
+newx    <- exp(seq(log(zero_tick), log(max_pos), length.out = 300))
 
 pred_df_rel <- tibble(Concentration_uM = numeric(0), y = numeric(0))
 if (!is.null(fit_rel)) {
@@ -509,8 +505,8 @@ ggsave("Plots/compound_dose_response_relative.tiff", p_dr_rel,
 
 ```{r intensity-dose-response, warning=FALSE}
 intensity_well <- master_df_final %>%
-  filter(Treatment %in% c("Mock+Ab", "Virus Only", "Virus + Compound")) %>%
-  group_by(Plate, WellName, Treatment, Concentration_uM) %>%
+  filter(Treatment %in% c("Mock", "Mock+Ab", "Virus Only", "Virus + Compound")) %>%
+  group_by(WellName_std, Treatment, Concentration_uM) %>%
   summarise(
     n_cells     = n(),
     mean_xlog   = mean(xlog, na.rm = TRUE),
@@ -519,34 +515,29 @@ intensity_well <- master_df_final %>%
   ) %>%
   mutate(intensity_norm_mean = 100 * (mean_xlog - L_p) / (H_p - L_p))
 
-int_plate_anchors <- intensity_well %>%
-  group_by(Plate) %>%
-  summarise(
-    vo_i   = mean(intensity_norm_mean[Treatment == "Virus Only"], na.rm = TRUE),
-    mock_i = mean(intensity_norm_mean[Treatment == "Mock+Ab"], na.rm = TRUE),
-    .groups = "drop"
-  )
+vo_i   <- mean(intensity_well$intensity_norm_mean[intensity_well$Treatment == "Virus Only"], na.rm = TRUE)
+mock_i <- mean(intensity_well$intensity_norm_mean[intensity_well$Treatment %in% c("Mock", "Mock+Ab")], na.rm = TRUE)
 
 intensity_rel <- intensity_well %>%
-  left_join(int_plate_anchors, by = "Plate") %>%
   mutate(intensity_rel_mean = 100 * (intensity_norm_mean - mock_i) / (vo_i - mock_i))
 
-min_pos_i   <- min(intensity_rel$Concentration_uM[intensity_rel$Treatment == "Virus + Compound"], na.rm = TRUE)
+pos_conc_i  <- intensity_rel$Concentration_uM[intensity_rel$Concentration_uM > 0 & is.finite(intensity_rel$Concentration_uM)]
+min_pos_i   <- if (length(pos_conc_i) > 0) min(pos_conc_i) else 0.01
 zero_tick_i <- min_pos_i / 10
 
 fit_i <- intensity_rel %>%
-  filter(Treatment == "Virus Only" | (Treatment == "Virus + Compound" & Concentration_uM != 0.5)) %>%
+  filter(Treatment == "Virus Only" | Treatment == "Virus + Compound") %>%
   mutate(dose_fit = ifelse(Treatment == "Virus Only", zero_tick_i, Concentration_uM))
 
 fit_int <- NULL
-for (ec50_try in c(0.125, 0.25, 0.5, 1, 2, 5, 0.05)) {
+for (ec50_try in c(0.5, 1, 2, 5, 8, 10, 0.1)) {
   fit_int <- tryCatch(
     minpack.lm::nlsLM(
       intensity_rel_mean ~ bottom + (top - bottom) / (1 + (dose_fit / ec50) ^ hill),
       data    = fit_i,
-      start   = list(ec50 = ec50_try, hill = 1.6, bottom = 50, top = 100),
+      start   = list(ec50 = ec50_try, hill = 1.0, bottom = 0, top = 100),
       lower   = c(ec50 = 1e-4, hill = 0.05, bottom = -20, top = 80),
-      upper   = c(ec50 = 1e3,  hill = 50, bottom = 95, top = 120),
+      upper   = c(ec50 = 1e3,  hill = 50, bottom = 50, top = 120),
       weights = fit_i$n_cells,
       control = minpack.lm::nls.lm.control(maxiter = 500)
     ),
@@ -591,7 +582,8 @@ pts_i <- intensity_rel %>%
          ymin = pmax(0,   y - se),
          ymax = pmin(105, y + se))
 
-newx_i <- exp(seq(log(zero_tick_i), log(max(intensity_rel$Concentration_uM[intensity_rel$Treatment == "Virus + Compound"], na.rm = TRUE)), length.out = 300))
+max_pos_i <- if (length(pos_conc_i) > 0) max(pos_conc_i) else 100
+newx_i    <- exp(seq(log(zero_tick_i), log(max_pos_i), length.out = 300))
 
 pred_i <- tibble(Concentration_uM = numeric(0), y = numeric(0))
 if (!is.null(fit_int)) {
@@ -663,5 +655,5 @@ Two co-primary endpoints are reported side-by-side:
 2. **Normalized NP intensity** - per-well mean log-intensity, normalized per plate to VO = 100% and Mock = 0%.
 
 ### Caveats & Best Practices
-- **Outlier Masking**: Single-replicate non-monotonic outliers (e.g. 0.5 µM) should be masked from regression fits to prevent Hill slope distortion while keeping data points plotted for transparency.
-- **Confluence Artifacts**: Over-confluent or washed-off wells (e.g. 0.75 µM) must be excluded from analysis (`DOSES_TO_EXCLUDE`, `WELLS_TO_EXCLUDE`).
+- **Outlier Masking**: Single-replicate non-monotonic outliers should be masked from regression fits to prevent Hill slope distortion while keeping data points plotted for transparency.
+- **Confluence Artifacts**: Over-confluent or washed-off wells must be excluded from analysis (`DOSES_TO_EXCLUDE`, `WELLS_TO_EXCLUDE`).

@@ -14,7 +14,7 @@ cran_pkgs <- c(
   "scatterpie", "ggspatial", "pheatmap",
   "gprofiler2", "igraph",
   # Statistics
-  "car", "broom", "rstatix", "emmeans", "coin", "drc", "vegan",
+  "car", "broom", "rstatix", "emmeans", "coin", "drc", "vegan", "mclust", "minpack.lm", "MASS",
   # Spatial / maps
   "sf", "rnaturalearth", "rnaturalearthdata", "gtools", "ape",
   # APIs / export helpers

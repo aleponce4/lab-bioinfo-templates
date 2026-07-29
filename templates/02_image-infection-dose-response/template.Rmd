@@ -450,7 +450,12 @@ pts_sum <- summary_rel %>%
          ymin = pmax(0,   y - se),
          ymax = pmin(100, y + se))
 
-dose_breaks     <- sort(unique(c(zero_tick, drc_data_rel$Concentration_uM)))
+if (length(pos_conc) > 6) {
+  raw_brks <- 10^seq(floor(log10(min_pos)), ceiling(log10(max_pos)))
+  dose_breaks <- sort(unique(c(zero_tick, raw_brks[raw_brks >= min_pos & raw_brks <= max_pos], max_pos)))
+} else {
+  dose_breaks <- sort(unique(c(zero_tick, drc_data_rel$Concentration_uM)))
+}
 dose_labels_vec <- c("0", as.character(dose_breaks[-1]))
 
 p_dr_rel <- ggplot() +
@@ -474,7 +479,7 @@ if (!is.null(fit_rel)) {
 }
 
 p_dr_rel <- p_dr_rel +
-  scale_x_log10(breaks = dose_breaks, labels = dose_labels_vec, minor_breaks = NULL) +
+  scale_x_log10(limits = c(zero_tick * 0.8, max_pos * 1.2), breaks = dose_breaks, labels = dose_labels_vec, minor_breaks = NULL) +
   annotation_logticks(sides = "b", short = unit(1.2, "mm"), mid = unit(1.6, "mm"), long = unit(2.2, "mm")) +
   labs(
     title = paste(COMPOUND_NAME, "relative dose\u2013response"),
@@ -594,7 +599,12 @@ if (!is.null(fit_int)) {
   )
 }
 
-dose_breaks_i <- sort(unique(c(zero_tick_i, intensity_rel$Concentration_uM[intensity_rel$Treatment == "Virus + Compound"])))
+if (length(pos_conc_i) > 6) {
+  raw_brks_i <- 10^seq(floor(log10(min_pos_i)), ceiling(log10(max_pos_i)))
+  dose_breaks_i <- sort(unique(c(zero_tick_i, raw_brks_i[raw_brks_i >= min_pos_i & raw_brks_i <= max_pos_i], max_pos_i)))
+} else {
+  dose_breaks_i <- sort(unique(c(zero_tick_i, intensity_rel$Concentration_uM[intensity_rel$Treatment == "Virus + Compound"])))
+}
 dose_labels_i <- c("0", as.character(dose_breaks_i[-1]))
 
 p_dr_int <- ggplot() +
@@ -621,7 +631,7 @@ if (!is.null(fit_int)) {
 }
 
 p_dr_int <- p_dr_int +
-  scale_x_log10(breaks = dose_breaks_i, labels = dose_labels_i, minor_breaks = NULL) +
+  scale_x_log10(limits = c(zero_tick_i * 0.8, max_pos_i * 1.2), breaks = dose_breaks_i, labels = dose_labels_i, minor_breaks = NULL) +
   annotation_logticks(sides = "b", short = unit(1.2, "mm"), mid = unit(1.6, "mm"), long = unit(2.2, "mm")) +
   labs(
     title = paste(COMPOUND_NAME, "intensity dose\u2013response"),

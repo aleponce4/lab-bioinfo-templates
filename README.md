@@ -1,22 +1,32 @@
 # Jonsson Lab Bioinformatics Templates
 
+![CI](https://github.com/aleponce4/lab-bioinfo-templates/actions/workflows/ci.yml/badge.svg)
+![Render Site](https://github.com/aleponce4/lab-bioinfo-templates/actions/workflows/render-site.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 A centralized collection of reusable analysis templates for virology and genomics research.
 Browse the live gallery at: **https://aleponce4.github.io/lab-bioinfo-templates**
 
-## Templates
+---
 
-| # | Template | Language | Key Analysis |
-|---|----------|----------|-------------|
-| 01 | Plaque Assay + Violin Plots | R | One-way ANOVA, Tukey HSD, log10 titer |
-| 02 | Image Infection + Dose-Response | R | 4PL regression, EC50/CC50 |
-| 03 | Multi-Condition ANOVA | R | Welch ANOVA, Holm correction |
-| 04 | MagPix / Luminex Multiplex | R | Two-way ANOVA, emmeans, FDR |
-| 05 | Phylo-Geographic Analysis | R | Mantel test, scatter pies, maps |
-| 06 | GO Enrichment Analysis | R | clusterProfiler, KEGG/Reactome |
-| 07 | RNA-seq / DESeq2 | R | End-to-end DESeq2, QC diagnostics, heatmaps, bubble/triangle plots |
-| 08 | VCF Mutation Analysis | Python | Entropy, mutation frequency, heatmaps |
-| 09 | WGCNA Co-Expression Analysis | R | Co-expression modules, module-trait correlation, hub genes |
-| 10 | RNA-seq TF/Causal Network | R | TF activity, signed PKN overlap, cached CARNIVAL-style networks |
+## Template Status & Scientific Audit
+
+Detailed scientific method reviews, assumptions, and validation criteria for all templates are maintained in [TEMPLATE_AUDIT.md](TEMPLATE_AUDIT.md).
+
+| # | Template | Language | Key Analysis | Method Reviewed | Example Data | Gallery Status |
+|---|----------|----------|--------------|:---------------:|:------------:|:--------------:|
+| 01 | Plaque Assay + Violin Plots | R | One-way ANOVA, Tukey HSD, log10 titer | Yes | Synthetic | 🟢 Active |
+| 02 | Image Infection + Dose-Response | R | 4PL regression, EC50/CC50 | Yes | Synthetic | 🟢 Active |
+| 03 | Multi-Condition ANOVA | R | Welch ANOVA, Holm correction | Yes | Synthetic | 🟢 Active |
+| 04 | MagPix / Luminex Multiplex | R | Two-way ANOVA, emmeans, FDR | Yes | Synthetic | 🟢 Active |
+| 05 | Phylo-Geographic Analysis | R | Mantel test, scatter pies, maps | Yes | Synthetic | 🟢 Active |
+| 06 | GO Enrichment Analysis | R | clusterProfiler, KEGG/Reactome | Yes | Synthetic | 🟢 Active |
+| 07 | RNA-seq / DESeq2 | R | End-to-end DESeq2, QC diagnostics, heatmaps | Yes | Synthetic | 🟢 Active |
+| 08 | VCF Mutation Analysis | Python | Entropy, mutation frequency, heatmaps | Yes | Synthetic | 🟢 Active |
+| 09 | WGCNA Co-Expression Analysis | R | Co-expression modules, module-trait correlation | Yes | Synthetic | 🟢 Active |
+| 10 | RNA-seq TF/Causal Network | R | TF activity, signed PKN overlap, network graphs | Yes | Synthetic | 🟢 Active |
+
+---
 
 ## Quick Start
 
@@ -26,7 +36,8 @@ Browse the live gallery at: **https://aleponce4.github.io/lab-bioinfo-templates*
 # 1. Install all R packages once
 source("install_packages.R")
 
-# 2. Open a template and edit the USER CONFIGURATION block at the top
+# 2. Start with the USER CONFIGURATION block at the top, then review study design,
+#    assumptions, contrasts, and method-specific limitations before applying to real data.
 # 3. Knit / render
 ```
 
@@ -38,43 +49,47 @@ conda activate jonsson-bioinfo
 jupyter notebook templates/08_vcf-mutation-analysis/template.ipynb
 ```
 
-## How Templates Work
+---
 
-Every template has a clearly marked configuration section at the very top:
+## Usage & Execution Workflow
+
+Every template includes a clearly marked configuration section at the very top:
 
 ```r
 ## ── USER CONFIGURATION ──────────────────────────────────────────────────────
-DATA_FILE   <- "data/your_data.csv"   # <-- change this
+DATA_FILE   <- "data/your_data.csv"   # <-- specify target dataset path
 GROUP_COL   <- "Treatment"
-# ... (all parameters documented inline)
+# ... (parameters documented inline)
 ## ────────────────────────────────────────────────────────────────────────────
 ```
 
-**Only edit the config block.** The analysis code below uses those variables and should
-not need modification for standard use cases.
+Start with the configuration block, then review the study design, assumptions, contrasts, and method-specific limitations before applying the template to real experimental data.
 
-## Synthetic Example Data
+---
 
-Each template ships with a `data/simulate_data.R` (or `.py`) script that generates
-a small, realistic synthetic dataset. These are the datasets used by the Quarto gallery
-site so every template renders a meaningful example plot.
+## Demonstration Data Notice
+
+Each template includes a `data/simulate_data.R` (or `.py`) script that generates a small, deterministic synthetic dataset. These synthetic datasets verify software mechanics, input schema contracts, and figure generation across the Quarto gallery. They serve as structural starting points and require study-specific scientific and statistical review before application to experimental research datasets.
 
 To regenerate example data:
+
 ```r
 source("templates/01_plaque-assay-violin/data/simulate_data.R")
 ```
 
-## Plot Style
+---
 
-All templates preserve the **publication-quality plot style** established in the lab:
+## Plotting & Visualization Defaults
+
+All templates enforce publication-oriented plotting and export defaults that require study-specific review:
+
 - `theme_classic()` or `theme_bw()` base themes
 - Arial font family throughout
 - Okabe-Ito colorblind-safe palettes where applicable
-- TIFF / SVG / PDF output at 300–600 dpi
+- TIFF / SVG / PDF output defaults at 300–600 dpi
 - Consistent axis tick lengths and line widths
 
-Do **not** modify the `theme()` calls unless intentionally changing the style for a
-specific figure.
+---
 
 ## Contributing
 
@@ -84,6 +99,8 @@ specific figure.
 4. Add a row to `index.qmd`'s gallery table
 5. Open a pull request
 
+---
+
 ## License
 
-MIT — free to use and adapt for academic research.
+MIT — free to use and adapt for scientific research.

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Preflight & Data Generators
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install pandas scipy matplotlib seaborn scikit-learn vcfpy
+
+      - name: Run static preflight script
+        run: bash scripts/ci-preflight.sh --render-only
+
+      - name: Test Python synthetic data generators
+        run: |
+          for script in templates/*/data/simulate_data.py; do
+            if [ -f "$script" ]; then
+              echo "Executing $script"
+              python "$script"
+            fi
+          done

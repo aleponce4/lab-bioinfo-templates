@@ -1,0 +1,12 @@
+JAK1	activates	STAT1
+JAK1	activates	IRF1
+STAT1	activates	IRF7
+PERTURBATION	activates	JAK1
+STAT1	activates	IFIT1
+STAT1	activates	ISG15
+STAT1	activates	CXCL10
+IRF1	activates	IFIT1
+IRF1	activates	CXCL10
+IRF7	activates	ISG15
+IRF7	activates	MX1
+IRF7	activates	OAS1

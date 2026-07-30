@@ -1,0 +1,5 @@
+source,target,sign,recurrence,edge_class
+MAPK14,SPI1,1,0.52,CARNIVAL-PKN
+SPI1,ITGAM,1,1,TF-target
+SPI1,LYZ2,1,1,TF-target
+SPI1,S100A9,1,1,TF-target

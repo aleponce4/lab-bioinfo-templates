@@ -1,0 +1,14 @@
+digraph causal_network {
+  graph [rankdir=LR, fontname=Arial];
+  node [fontname=Arial];
+  edge [fontname=Arial];
+  "ITGAM" [label="ITGAM", shape=ellipse, style=filled, fillcolor="#E89E98", color="#424242"];
+  "LYZ2" [label="LYZ2", shape=ellipse, style=filled, fillcolor="#EDAEA9", color="#424242"];
+  "MAPK14" [label="MAPK14", shape=ellipse, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "S100A9" [label="S100A9", shape=ellipse, style=filled, fillcolor="#F0B9B4", color="#424242"];
+  "SPI1" [label="SPI1", shape=box, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "MAPK14" -> "SPI1" [color="#D97706"];
+  "SPI1" -> "ITGAM" [color="#D97706"];
+  "SPI1" -> "LYZ2" [color="#D97706"];
+  "SPI1" -> "S100A9" [color="#D97706"];
+}

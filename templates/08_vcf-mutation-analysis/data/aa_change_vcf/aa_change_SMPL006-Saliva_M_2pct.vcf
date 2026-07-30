@@ -1,0 +1,13 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##INFO=<ID=AA_CHANGE,Number=1,Type=String,Description="Amino acid change">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+Segment	17	.	G	A	40.0	PASS	AA_CHANGE=N/A	GT:AD:DP	0/1:2722,212:2934
+Segment	544	.	T	C	51.4	PASS	AA_CHANGE=Leu245Phe	GT:AD:DP	0/1:618,31:649
+Segment	1533	.	A	T	30.7	PASS	AA_CHANGE=Ser200Pro	GT:AD:DP	0/1:838,41:879
+Segment	2049	.	T	A	52.0	PASS	AA_CHANGE=Leu245Phe	GT:AD:DP	0/1:1750,143:1893
+Segment	3177	.	G	A	58.1	PASS	AA_CHANGE=Arg412Ser	GT:AD:DP	0/1:839,63:902
+Segment	3643	.	A	T	52.4	PASS	AA_CHANGE=N/A	GT:AD:DP	0/1:2458,174:2632

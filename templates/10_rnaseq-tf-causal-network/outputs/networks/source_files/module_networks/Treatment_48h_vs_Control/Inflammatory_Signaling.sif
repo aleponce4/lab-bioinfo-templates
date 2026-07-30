@@ -1,0 +1,8 @@
+IKBKB	activates	NFKB1
+PERTURBATION	activates	IKBKB
+NFKB1	activates	ICAM1
+NFKB1	activates	VCAM1
+NFKB1	activates	CCL2
+NFKB1	activates	PTGS2
+KLF2	inhibits	ICAM1
+KLF2	inhibits	VCAM1

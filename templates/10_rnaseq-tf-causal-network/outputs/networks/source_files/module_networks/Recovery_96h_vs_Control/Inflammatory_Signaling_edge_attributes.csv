@@ -1,0 +1,5 @@
+source,target,sign,recurrence,edge_class
+JAK1,IRF1,1,0.7,CARNIVAL-PKN
+PERTURBATION,JAK1,1,0.8,CARNIVAL-PKN
+IRF1,ICAM1,1,1,TF-target
+KLF2,ICAM1,-1,1,TF-target

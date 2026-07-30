@@ -1,0 +1,74 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='576.00pt' height='360.00pt' viewBox='0 0 576.00 360.00'>
+<g class='svglite'>
+<defs>
+  <style type='text/css'><![CDATA[
+    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {
+      fill: none;
+      stroke: #000000;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-miterlimit: 10.00;
+    }
+    .svglite text {
+      white-space: pre;
+    }
+    .svglite g.glyphgroup path {
+      fill: inherit;
+      stroke: none;
+    }
+  ]]></style>
+</defs>
+<rect width='100%' height='100%' style='stroke: none; fill: none;'/>
+<defs>
+  <clipPath id='cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA='>
+    <rect x='0.00' y='0.00' width='576.00' height='360.00' />
+  </clipPath>
+</defs>
+<g clip-path='url(#cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA=)'>
+</g>
+<defs>
+  <clipPath id='cpMTUzLjUzfDQyMi40N3wwLjAwfDM2MC4wMA=='>
+    <rect x='153.53' y='0.00' width='268.94' height='360.00' />
+  </clipPath>
+</defs>
+<g clip-path='url(#cpMTUzLjUzfDQyMi40N3wwLjAwfDM2MC4wMA==)'>
+<rect x='153.53' y='0.00' width='268.94' height='360.00' style='stroke-width: 0.00; stroke: none;' />
+</g>
+<g clip-path='url(#cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA=)'>
+</g>
+<defs>
+  <clipPath id='cpMTUzLjUzfDQyMi40N3wxNi42MHwzMzcuMDU='>
+    <rect x='153.53' y='16.60' width='268.94' height='320.45' />
+  </clipPath>
+</defs>
+<g clip-path='url(#cpMTUzLjUzfDQyMi40N3wxNi42MHwzMzcuMDU=)'>
+<line x1='331.36' y1='125.15' x2='244.51' y2='228.64' style='stroke-width: 1.49; stroke: #D97706;' />
+<polygon points='246.01,220.13 244.51,228.64 252.63,225.69 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
+<line x1='410.25' y1='31.16' x2='331.36' y2='125.15' style='stroke-width: 1.49; stroke: #D97706;' />
+<polygon points='332.87,116.64 331.36,125.15 339.48,122.20 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
+<line x1='244.51' y1='228.64' x2='165.75' y2='322.48' style='stroke-width: 1.49; stroke: #D97706;' />
+<polygon points='167.26,313.98 165.75,322.48 173.87,319.53 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
+<circle cx='165.75' cy='322.48' r='6.51' style='stroke-width: 1.28; stroke: #424242; fill: #F3C2BD;' />
+<rect x='238.75' y='222.88' width='11.53' height='11.53' style='stroke-width: 1.28; stroke: #006D2C; fill: #E08A1E;' />
+<polygon points='410.25,21.04 419.01,36.22 401.48,36.22 ' style='stroke-width: 1.28; stroke: #424242; fill: #E08A1E;' />
+<circle cx='331.36' cy='125.15' r='6.51' style='stroke-width: 1.28; stroke: #006D2C; fill: #E08A1E;' />
+<text x='165.75' y='316.07' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='34.14px' lengthAdjust='spacingAndGlyphs'>ANGPT2</text>
+<text x='244.51' y='222.22' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='24.19px' lengthAdjust='spacingAndGlyphs'>HIF1A</text>
+<text x='410.25' y='24.74' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='66.03px' lengthAdjust='spacingAndGlyphs'>PERTURBATION</text>
+<text x='331.36' y='118.73' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='30.34px' lengthAdjust='spacingAndGlyphs'>PIK3CA</text>
+</g>
+<g clip-path='url(#cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA=)'>
+<text x='143.63' y='355.30' style='font-size: 11.00px; font-family: "Arial";' textLength='50.19px' lengthAdjust='spacingAndGlyphs'>Node type</text>
+<circle cx='207.94' cy='351.36' r='4.91' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
+<circle cx='255.74' cy='351.36' r='4.91' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
+<polygon points='332.35,343.73 338.96,355.17 325.75,355.17 ' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
+<rect x='403.15' y='347.01' width='8.70' height='8.70' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
+<text x='222.06' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='19.56px' lengthAdjust='spacingAndGlyphs'>gene</text>
+<text x='269.86' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='48.38px' lengthAdjust='spacingAndGlyphs'>intermediate</text>
+<text x='346.47' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='46.91px' lengthAdjust='spacingAndGlyphs'>perturbation</text>
+<text x='421.62' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='10.75px' lengthAdjust='spacingAndGlyphs'>TF</text>
+<text x='288.00' y='14.08' text-anchor='middle' style='font-size: 12.00px; font-weight: bold; font-family: "Arial";' textLength='240.72px' lengthAdjust='spacingAndGlyphs'>Vascular Stress - Recovery 96h vs Control</text>
+</g>
+</g>
+</svg>

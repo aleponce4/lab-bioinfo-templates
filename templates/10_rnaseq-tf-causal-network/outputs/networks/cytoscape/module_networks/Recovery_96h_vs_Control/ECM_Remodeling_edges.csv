@@ -1,0 +1,6 @@
+source,target,sign,recurrence,edge_class
+MAPK1,JUN,1,0.9,CARNIVAL-PKN
+MAPK1,FOS,1,0.75,CARNIVAL-PKN
+PERTURBATION,MAPK1,1,1,CARNIVAL-PKN
+JUN,MMP3,1,1,TF-target
+FOS,MMP3,1,1,TF-target

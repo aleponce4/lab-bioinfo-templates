@@ -1,0 +1,6 @@
+node,node_type,predicted_activity,log2FoldChange,padj,significant,fill_color,border_color
+ITGAM,gene,1,2.7085,3.264e-7,TRUE,#E89E98,#424242
+LYZ2,gene,1,2.2549,8.475e-7,TRUE,#EDAEA9,#424242
+MAPK14,intermediate,1,0.3711,0.8831,FALSE,#E08A1E,#006D2C
+S100A9,gene,1,1.9643,6.128e-5,TRUE,#F0B9B4,#424242
+SPI1,TF,1,-0.4088,0.227,FALSE,#E08A1E,#006D2C

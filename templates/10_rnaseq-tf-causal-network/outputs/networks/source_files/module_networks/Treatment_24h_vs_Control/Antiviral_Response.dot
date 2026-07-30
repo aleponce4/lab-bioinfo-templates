@@ -1,0 +1,27 @@
+digraph causal_network {
+  graph [rankdir=LR, fontname=Arial];
+  node [fontname=Arial];
+  edge [fontname=Arial];
+  "CXCL10" [label="CXCL10", shape=ellipse, style=filled, fillcolor="#F2C0BB", color="#424242"];
+  "IFIT1" [label="IFIT1", shape=ellipse, style=filled, fillcolor="#EAA6A0", color="#424242"];
+  "IRF1" [label="IRF1", shape=box, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "IRF7" [label="IRF7", shape=box, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "ISG15" [label="ISG15", shape=ellipse, style=filled, fillcolor="#E4948E", color="#424242"];
+  "JAK1" [label="JAK1", shape=ellipse, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "MX1" [label="MX1", shape=ellipse, style=filled, fillcolor="#F0B9B4", color="#424242"];
+  "OAS1" [label="OAS1", shape=ellipse, style=filled, fillcolor="#E8A09A", color="#424242"];
+  "PERTURBATION" [label="PERTURBATION", shape=plaintext, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "STAT1" [label="STAT1", shape=box, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "JAK1" -> "STAT1" [color="#D97706"];
+  "JAK1" -> "IRF1" [color="#D97706"];
+  "STAT1" -> "IRF7" [color="#D97706"];
+  "PERTURBATION" -> "JAK1" [color="#D97706"];
+  "STAT1" -> "IFIT1" [color="#D97706"];
+  "STAT1" -> "ISG15" [color="#D97706"];
+  "STAT1" -> "CXCL10" [color="#D97706"];
+  "IRF1" -> "IFIT1" [color="#D97706"];
+  "IRF1" -> "CXCL10" [color="#D97706"];
+  "IRF7" -> "ISG15" [color="#D97706"];
+  "IRF7" -> "MX1" [color="#D97706"];
+  "IRF7" -> "OAS1" [color="#D97706"];
+}

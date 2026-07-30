@@ -1,0 +1,37 @@
+digraph causal_network {
+  graph [rankdir=LR, fontname=Arial];
+  node [fontname=Arial];
+  edge [fontname=Arial];
+  "ETS1" [label="ETS1", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "FOS" [label="FOS", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "HIF1A" [label="HIF1A", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "IKBKB" [label="IKBKB", shape=ellipse, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "IRF1" [label="IRF1", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "IRF7" [label="IRF7", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "JAK1" [label="JAK1", shape=ellipse, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "JUN" [label="JUN", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "KLF2" [label="KLF2", shape=box, style=filled, fillcolor="#1F5EA8", color="#424242"];
+  "MAPK1" [label="MAPK1", shape=ellipse, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "MAPK14" [label="MAPK14", shape=ellipse, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "NFKB1" [label="NFKB1", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "PERTURBATION" [label="PERTURBATION", shape=plaintext, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "PIK3CA" [label="PIK3CA", shape=ellipse, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "RELA" [label="RELA", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "SPI1" [label="SPI1", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "STAT1" [label="STAT1", shape=box, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "IKBKB" -> "NFKB1" [color="#D97706"];
+  "IKBKB" -> "RELA" [color="#D97706"];
+  "JAK1" -> "IRF1" [color="#D97706"];
+  "JAK1" -> "STAT1" [color="#D97706"];
+  "MAPK1" -> "ETS1" [color="#D97706"];
+  "MAPK1" -> "FOS" [color="#D97706"];
+  "MAPK1" -> "JUN" [color="#D97706"];
+  "MAPK14" -> "SPI1" [color="#D97706"];
+  "PERTURBATION" -> "IKBKB" [color="#D97706"];
+  "PERTURBATION" -> "JAK1" [color="#D97706"];
+  "PERTURBATION" -> "MAPK1" [color="#D97706"];
+  "PERTURBATION" -> "PIK3CA" [color="#D97706"];
+  "PIK3CA" -> "HIF1A" [color="#D97706"];
+  "PIK3CA" -> "KLF2" [color="#2563A8"];
+  "STAT1" -> "IRF7" [color="#D97706"];
+}

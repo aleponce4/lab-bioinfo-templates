@@ -1,0 +1,15 @@
+digraph causal_network {
+  graph [rankdir=LR, fontname=Arial];
+  node [fontname=Arial];
+  edge [fontname=Arial];
+  "FOS" [label="FOS", shape=box, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "JUN" [label="JUN", shape=box, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "MAPK1" [label="MAPK1", shape=ellipse, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "MMP3" [label="MMP3", shape=ellipse, style=filled, fillcolor="#E4958F", color="#424242"];
+  "PERTURBATION" [label="PERTURBATION", shape=plaintext, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "MAPK1" -> "JUN" [color="#D97706"];
+  "MAPK1" -> "FOS" [color="#D97706"];
+  "PERTURBATION" -> "MAPK1" [color="#D97706"];
+  "JUN" -> "MMP3" [color="#D97706"];
+  "FOS" -> "MMP3" [color="#D97706"];
+}

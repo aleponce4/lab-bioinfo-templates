@@ -1,0 +1,13 @@
+sample_id,dpi,replicate,route,study_code
+S1,3,1,Intranasal,45
+S2,3,2,Intranasal,45
+S3,3,3,Intranasal,45
+S4,5,1,Intranasal,45
+S5,5,2,Intranasal,45
+S6,5,3,Intranasal,45
+S7,3,1,Subcutaneous,47
+S8,3,2,Subcutaneous,47
+S9,3,3,Subcutaneous,47
+S10,5,1,Subcutaneous,47
+S11,5,2,Subcutaneous,47
+S12,5,3,Subcutaneous,47

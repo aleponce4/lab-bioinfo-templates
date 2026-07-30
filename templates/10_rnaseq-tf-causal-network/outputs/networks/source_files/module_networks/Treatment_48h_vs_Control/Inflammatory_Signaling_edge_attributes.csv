@@ -1,0 +1,9 @@
+source,target,sign,recurrence,edge_class
+IKBKB,NFKB1,1,0.88,CARNIVAL-PKN
+PERTURBATION,IKBKB,1,0.85,CARNIVAL-PKN
+NFKB1,ICAM1,1,1,TF-target
+NFKB1,VCAM1,1,1,TF-target
+NFKB1,CCL2,1,1,TF-target
+NFKB1,PTGS2,1,1,TF-target
+KLF2,ICAM1,-1,1,TF-target
+KLF2,VCAM1,-1,1,TF-target

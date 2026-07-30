@@ -1,0 +1,13 @@
+Threshold,Segment,Metric,Statistic,p-value,Significant
+1%,S,"Nucleotide (per 1,000 bp)",1.5857,0.4526,False
+1%,S,Amino acid (per 100 aa),0.9485,0.6223,False
+1%,M,"Nucleotide (per 1,000 bp)",0.2406,0.8867,False
+1%,M,Amino acid (per 100 aa),0.3942,0.8211,False
+2%,S,"Nucleotide (per 1,000 bp)",0.3483,0.8402,False
+2%,S,Amino acid (per 100 aa),0.1621,0.9222,False
+2%,M,"Nucleotide (per 1,000 bp)",1.6571,0.4367,False
+2%,M,Amino acid (per 100 aa),2.9753,0.2259,False
+5%,S,"Nucleotide (per 1,000 bp)",0.8281,0.661,False
+5%,S,Amino acid (per 100 aa),0.6719,0.7146,False
+5%,M,"Nucleotide (per 1,000 bp)",1.2049,0.5475,False
+5%,M,Amino acid (per 100 aa),0.9969,0.6075,False

@@ -1,0 +1,12 @@
+digraph causal_network {
+  graph [rankdir=LR, fontname=Arial];
+  node [fontname=Arial];
+  edge [fontname=Arial];
+  "ANGPT2" [label="ANGPT2", shape=ellipse, style=filled, fillcolor="#F3C2BD", color="#424242"];
+  "HIF1A" [label="HIF1A", shape=box, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "PERTURBATION" [label="PERTURBATION", shape=plaintext, style=filled, fillcolor="#E08A1E", color="#424242"];
+  "PIK3CA" [label="PIK3CA", shape=ellipse, style=filled, fillcolor="#E08A1E", color="#006D2C"];
+  "PIK3CA" -> "HIF1A" [color="#D97706"];
+  "PERTURBATION" -> "PIK3CA" [color="#D97706"];
+  "HIF1A" -> "ANGPT2" [color="#D97706"];
+}

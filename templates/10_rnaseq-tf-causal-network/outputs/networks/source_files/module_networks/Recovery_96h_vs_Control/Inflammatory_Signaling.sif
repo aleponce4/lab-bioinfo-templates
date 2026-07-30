@@ -1,0 +1,4 @@
+JAK1	activates	IRF1
+PERTURBATION	activates	JAK1
+IRF1	activates	ICAM1
+KLF2	inhibits	ICAM1

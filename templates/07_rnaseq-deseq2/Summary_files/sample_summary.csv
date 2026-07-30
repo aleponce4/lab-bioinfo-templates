@@ -1,0 +1,17 @@
+sample_name,tissue,pair_id,group,sample_id,alternate_id,batch,matched_sample_id,library_size_raw,library_size_filtered
+Brain_Pair_1_Control,Brain,Pair_1,Control,Brain_Pair_1_Control,s01,Batch_1,Brain_Pair_1_Control,121251,121251
+Brain_Pair_1_Treatment,Brain,Pair_1,Treatment,Brain_Pair_1_Treatment,s02,Batch_2,Brain_Pair_1_Treatment,136857,136857
+Brain_Pair_2_Control,Brain,Pair_2,Control,Brain_Pair_2_Control,s03,Batch_1,Brain_Pair_2_Control,123156,123156
+Brain_Pair_2_Treatment,Brain,Pair_2,Treatment,Brain_Pair_2_Treatment,s04,Batch_2,Brain_Pair_2_Treatment,143440,143440
+Brain_Pair_3_Control,Brain,Pair_3,Control,Brain_Pair_3_Control,s05,Batch_1,Brain_Pair_3_Control,106545,106545
+Brain_Pair_3_Treatment,Brain,Pair_3,Treatment,Brain_Pair_3_Treatment,s06,Batch_2,Brain_Pair_3_Treatment,127698,127698
+Brain_Pair_4_Control,Brain,Pair_4,Control,Brain_Pair_4_Control,s07,Batch_1,Brain_Pair_4_Control,127866,127866
+Brain_Pair_4_Treatment,Brain,Pair_4,Treatment,Brain_Pair_4_Treatment,s08,Batch_2,Brain_Pair_4_Treatment,145822,145822
+Lung_Pair_1_Control,Lung,Pair_1,Control,Lung_Pair_1_Control,s09,Batch_1,Lung_Pair_1_Control,131808,131808
+Lung_Pair_1_Treatment,Lung,Pair_1,Treatment,Lung_Pair_1_Treatment,s10,Batch_2,Lung_Pair_1_Treatment,137066,137066
+Lung_Pair_2_Control,Lung,Pair_2,Control,Lung_Pair_2_Control,s11,Batch_1,Lung_Pair_2_Control,125169,125169
+Lung_Pair_2_Treatment,Lung,Pair_2,Treatment,Lung_Pair_2_Treatment,s12,Batch_2,Lung_Pair_2_Treatment,144476,144476
+Lung_Pair_3_Control,Lung,Pair_3,Control,Lung_Pair_3_Control,s13,Batch_1,Lung_Pair_3_Control,111416,111416
+Lung_Pair_3_Treatment,Lung,Pair_3,Treatment,Lung_Pair_3_Treatment,s14,Batch_2,Lung_Pair_3_Treatment,124838,124838
+Lung_Pair_4_Control,Lung,Pair_4,Control,Lung_Pair_4_Control,s15,Batch_1,Lung_Pair_4_Control,117692,117692
+Lung_Pair_4_Treatment,Lung,Pair_4,Treatment,Lung_Pair_4_Treatment,s16,Batch_2,Lung_Pair_4_Treatment,142204,142204

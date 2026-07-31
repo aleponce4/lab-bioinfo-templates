@@ -436,39 +436,74 @@ print(p_gmm_density)
 ggsave("Plots/infection_gate_gmm_density.tiff", p_gmm_density, width = 5.5, height = 3.8, units = "in", dpi = 300)
 ```
 
-# Single-Cell Population Shift Across Doses (Ridgeline Density)
+# Single-Cell Population Shift Across Doses (Ridgeline Plot)
 
-```{r ridgeline-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=5}
-ridge_df <- master_df_final %>%
-  filter(Treatment %in% c("Mock", "Virus Only", "Virus + Compound")) %>%
-  mutate(Condition = case_when(
-    Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
-    Treatment == "Virus Only"           ~ "Virus Only (0 µM)",
-    TRUE                                ~ paste0(Concentration_uM, " ", DOSE_UNIT)
-  ))
+```{r ridgeline-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=5.5}
+treatment_order <- c("Mock+Ab", "Mock", "Virus Only", "Virus + Compound")
 
-dose_order <- c(
-  "Mock", "Virus Only (0 µM)",
-  paste0(sort(unique(master_df_final$Concentration_uM[!is.na(master_df_final$Concentration_uM) & master_df_final$Concentration_uM > 0])), " ", DOSE_UNIT)
+bdgr_levels <- master_df_final %>%
+  filter(Treatment == "Virus + Compound") %>%
+  distinct(Concentration_uM) %>%
+  arrange(Concentration_uM) %>%
+  pull(Concentration_uM)
+
+plot_df <- master_df_final %>%
+  filter(Treatment %in% treatment_order) %>%
+  mutate(
+    group_label = case_when(
+      Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
+      Treatment == "Virus Only"           ~ "Virus Only",
+      TRUE ~ paste0(Concentration_uM, " ", DOSE_UNIT, " ", COMPOUND_NAME)
+    ),
+    group_label = fct_inorder(group_label)
+  ) %>%
+  mutate(
+    fill_key = case_when(
+      Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
+      Treatment == "Virus Only"           ~ "Virus Only",
+      TRUE ~ paste0(COMPOUND_NAME, "_", Concentration_uM)
+    ),
+    fill_key = factor(fill_key)
+  )
+
+bdgr_fill_keys <- paste0(COMPOUND_NAME, "_", bdgr_levels)
+n_bdgr         <- length(bdgr_fill_keys)
+bdgr_cols      <- colorRampPalette(RColorBrewer::brewer.pal(9, "Blues"))(n_bdgr)
+
+fill_values <- c(
+  setNames("grey80", "Mock"),
+  setNames("#D55E00", "Virus Only"),
+  setNames(bdgr_cols, bdgr_fill_keys)
 )
-ridge_df <- ridge_df %>%
-  mutate(Condition = factor(Condition, levels = rev(dose_order)))
 
-p_ridgeline <- ggplot(ridge_df, aes(x = x_norm, y = Condition, fill = Condition)) +
-  ggridges::geom_density_ridges(alpha = 0.7, scale = 1.3, color = "white", linewidth = 0.3) +
-  geom_vline(xintercept = threshold_final, linetype = "dashed", color = "firebrick3", linewidth = 0.7) +
+# Infection threshold back-transformed to raw fluorescence scale
+raw_threshold <- 10^(L_p_val + threshold_final * (H_p_val - L_p_val))
+
+p_ridgeline <- ggplot(plot_df, aes(x = virus_intensity, y = group_label, fill = fill_key)) +
+  geom_density_ridges(alpha = 0.8, scale = 3, rel_min_height = 0.01) +
+  geom_vline(xintercept = raw_threshold, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_x_log10(labels = scales::trans_format("log10", scales::math_format(10^.x)), minor_breaks = NULL) +
+  annotation_logticks(sides = "b", short = unit(1.2, "mm"), mid = unit(1.6, "mm"), long = unit(2.2, "mm")) +
+  scale_fill_manual(values = fill_values, breaks = names(fill_values)) +
   labs(
-    title = "Single-Cell Viral Reporter Shift Across Compound Doses",
-    subtitle = "Dashed line indicates 2-GMM population infection threshold",
-    x = "Normalized Virus Intensity",
-    y = "Treatment / Compound Dose"
+    title = paste("Effect of", COMPOUND_NAME, "on", VIRUS_NAME, "NP signal"),
+    subtitle = "Single-cell fluorescence distributions; dashed line indicates GMM infection gate",
+    x = "NP channel fluorescence (a.u., log10 scale)",
+    y = NULL
   ) +
   theme_bw(base_size = 8) +
-  theme(legend.position = "none", plot.title = element_text(face = "bold"))
+  theme(
+    legend.position   = "none",
+    axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.minor  = element_blank(),
+    plot.title        = element_text(face = "bold", size = 10)
+  ) +
+  coord_cartesian(clip = "off")
 
 print(p_ridgeline)
-ggsave("Plots/single_cell_ridgeline_shift.tiff", p_ridgeline, width = 5.5, height = 4.8, units = "in", dpi = 300)
+ggsave("Plots/compound_ridgeline.tiff", p_ridgeline, width = 5.5, height = 4.5, units = "in", dpi = 300, compression = "lzw", device = ragg::agg_tiff)
 ```
+
 
 # Host Cell Viability & Cytotoxicity (CC50)
 

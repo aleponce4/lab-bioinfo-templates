@@ -1,14 +1,20 @@
 """
-Simulate haplotype composition data for template 13:
+Simulate haplotype composition data for template 14:
   - data/haplotype_frequencies.csv — per-sample haplotype frequencies
   - data/gene_coords.csv          — genome annotation
   - data/manifest.csv             — sample metadata
 """
 
-import csv, random, math, os, itertools
+import csv, random, math, os
 
 SEED = 42
 random.seed(SEED)
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.dirname(SCRIPT_DIR)
+os.chdir(TEMPLATE_DIR)
+DATA_DIR = os.path.join(TEMPLATE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
 
 GENES = {
     "nsp1": (1, 1800), "nsp2": (1801, 4500), "nsp3": (4501, 5700),
@@ -20,7 +26,7 @@ DPI_VALUES = [3, 5]
 ROUTES = ["Intranasal", "Subcutaneous"]
 REPS_PER_DPI_ROUTE = 3
 BASE_HAPLOTYPES = [
-    {"name": "Ref (Wild-type)", "snps": (), "base_freq": 0.55},
+    {"name": "Wild-type",       "snps": (), "base_freq": 0.55},
     {"name": "Hap_Cluster_1",   "snps": (241, 3401, 9102), "base_freq": 0.18},
     {"name": "Hap_Cluster_2",   "snps": (5200, 6780), "base_freq": 0.12},
     {"name": "Hap_Cluster_3",   "snps": (2400, 3401, 10800), "base_freq": 0.08},
@@ -31,7 +37,7 @@ BASE_HAPLOTYPES = [
 
 def generate():
     # Write gene coords
-    with open(os.path.join(os.path.dirname(__file__), "gene_coords.csv"), "w", newline="") as f:
+    with open(os.path.join(DATA_DIR, "gene_coords.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["gene", "start", "end"])
         for name, (s, e) in GENES.items():
@@ -73,16 +79,16 @@ def generate():
                         "frequency": round(freq / total, 4)
                     })
 
-    with open(os.path.join(os.path.dirname(__file__), "haplotype_frequencies.csv"), "w", newline="") as f:
+    with open(os.path.join(DATA_DIR, "haplotype_frequencies.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=rows[0].keys())
         w.writeheader()
         w.writerows(rows)
 
-    with open(os.path.join(os.path.dirname(__file__), "manifest.csv"), "w", newline="") as f:
+    with open(os.path.join(DATA_DIR, "manifest.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=manifest_rows[0].keys())
         w.writeheader()
         w.writerows(manifest_rows)
-    print(f"  Wrote haplotype_frequencies.csv ({len(rows)} rows) and manifest.csv")
+    print(f"  Wrote data/haplotype_frequencies.csv ({len(rows)} rows) and data/manifest.csv")
 
 
 if __name__ == "__main__":

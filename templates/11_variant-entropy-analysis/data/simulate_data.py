@@ -11,8 +11,12 @@ import csv, random, math, os
 SEED = 42
 random.seed(SEED)
 
-DATA_DIR = os.path.join(os.path.dirname(__file__) if "__file__" in dir() else ".", "..")
-os.makedirs(os.path.dirname(os.path.abspath(__file__)), exist_ok=True)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.dirname(SCRIPT_DIR)
+os.chdir(TEMPLATE_DIR)
+DATA_DIR = os.path.join(TEMPLATE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
 
 GENOME_LEN = 11447
 GENES = {

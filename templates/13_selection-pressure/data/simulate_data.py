@@ -9,6 +9,13 @@ import csv, random, math, os
 SEED = 42
 random.seed(SEED)
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.dirname(SCRIPT_DIR)
+os.chdir(TEMPLATE_DIR)
+DATA_DIR = os.path.join(TEMPLATE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+
 GENES = ["nsp1", "nsp2", "nsp3", "nsp4", "capsid", "E3", "E2", "6K", "E1"]
 DPI_VALUES = [1, 3, 5]
 REPLICATES = 3

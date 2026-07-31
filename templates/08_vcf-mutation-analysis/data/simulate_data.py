@@ -17,11 +17,14 @@ import random
 import string
 import math
 
-random.seed(42)
+# Ensure working directory is set to template directory
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.dirname(SCRIPT_DIR)
+os.chdir(TEMPLATE_DIR)
 
-# ── Output directory ──────────────────────────────────────────────────────────
-OUT_DIR = os.path.join(os.path.dirname(__file__), "aa_change_vcf")
+OUT_DIR = os.path.join(TEMPLATE_DIR, "data", "aa_change_vcf")
 os.makedirs(OUT_DIR, exist_ok=True)
+
 
 # ── Configuration mirrors template config ─────────────────────────────────────
 SAMPLE_IDS = ["SMPL001", "SMPL002", "SMPL003",

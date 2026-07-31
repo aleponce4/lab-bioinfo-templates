@@ -1,71 +1,71 @@
 sample_id,haplotype,snp_positions,frequency
-S1,Ref (Wild-type),,0.5466
+S1,Wild-type,,0.5466
 S1,Hap_Cluster_1,"241,3401,9102",0.1781
 S1,Hap_Cluster_2,"5200,6780",0.1199
 S1,Hap_Cluster_3,"2400,3401,10800",0.0898
 S1,Hap_Cluster_4,"150,10100",0.0498
 S1,Hap_Cluster_5,3401,0.0158
-S2,Ref (Wild-type),,0.5645
+S2,Wild-type,,0.5645
 S2,Hap_Cluster_1,"241,3401,9102",0.1689
 S2,Hap_Cluster_2,"5200,6780",0.1135
 S2,Hap_Cluster_3,"2400,3401,10800",0.0796
 S2,Hap_Cluster_4,"150,10100",0.0506
 S2,Hap_Cluster_5,3401,0.023
-S3,Ref (Wild-type),,0.5824
+S3,Wild-type,,0.5824
 S3,Hap_Cluster_1,"241,3401,9102",0.1764
 S3,Hap_Cluster_2,"5200,6780",0.1029
 S3,Hap_Cluster_3,"2400,3401,10800",0.0654
 S3,Hap_Cluster_4,"150,10100",0.05
 S3,Hap_Cluster_5,3401,0.0231
-S4,Ref (Wild-type),,0.558
+S4,Wild-type,,0.558
 S4,Hap_Cluster_1,"241,3401,9102",0.1786
 S4,Hap_Cluster_2,"5200,6780",0.1306
 S4,Hap_Cluster_3,"2400,3401,10800",0.0631
 S4,Hap_Cluster_4,"150,10100",0.0481
 S4,Hap_Cluster_5,3401,0.0216
-S5,Ref (Wild-type),,0.5771
+S5,Wild-type,,0.5771
 S5,Hap_Cluster_1,"241,3401,9102",0.161
 S5,Hap_Cluster_2,"5200,6780",0.1176
 S5,Hap_Cluster_3,"2400,3401,10800",0.077
 S5,Hap_Cluster_4,"150,10100",0.0518
 S5,Hap_Cluster_5,3401,0.0155
-S6,Ref (Wild-type),,0.6301
+S6,Wild-type,,0.6301
 S6,Hap_Cluster_1,"241,3401,9102",0.1468
 S6,Hap_Cluster_2,"5200,6780",0.0769
 S6,Hap_Cluster_3,"2400,3401,10800",0.0768
 S6,Hap_Cluster_4,"150,10100",0.0455
 S6,Hap_Cluster_5,3401,0.0239
-S7,Ref (Wild-type),,0.5909
+S7,Wild-type,,0.5909
 S7,Hap_Cluster_1,"241,3401,9102",0.1437
 S7,Hap_Cluster_2,"5200,6780",0.1321
 S7,Hap_Cluster_3,"2400,3401,10800",0.0664
 S7,Hap_Cluster_4,"150,10100",0.0482
 S7,Hap_Cluster_5,3401,0.0187
-S8,Ref (Wild-type),,0.531
+S8,Wild-type,,0.531
 S8,Hap_Cluster_1,"241,3401,9102",0.1918
 S8,Hap_Cluster_2,"5200,6780",0.1248
 S8,Hap_Cluster_3,"2400,3401,10800",0.0799
 S8,Hap_Cluster_4,"150,10100",0.0521
 S8,Hap_Cluster_5,3401,0.0203
-S9,Ref (Wild-type),,0.5349
+S9,Wild-type,,0.5349
 S9,Hap_Cluster_1,"241,3401,9102",0.1724
 S9,Hap_Cluster_2,"5200,6780",0.1197
 S9,Hap_Cluster_3,"2400,3401,10800",0.0923
 S9,Hap_Cluster_4,"150,10100",0.0517
 S9,Hap_Cluster_5,3401,0.029
-S10,Ref (Wild-type),,0.5132
+S10,Wild-type,,0.5132
 S10,Hap_Cluster_1,"241,3401,9102",0.1599
 S10,Hap_Cluster_2,"5200,6780",0.1424
 S10,Hap_Cluster_3,"2400,3401,10800",0.1033
 S10,Hap_Cluster_4,"150,10100",0.0572
 S10,Hap_Cluster_5,3401,0.0239
-S11,Ref (Wild-type),,0.6148
+S11,Wild-type,,0.6148
 S11,Hap_Cluster_1,"241,3401,9102",0.1634
 S11,Hap_Cluster_2,"5200,6780",0.0869
 S11,Hap_Cluster_3,"2400,3401,10800",0.0678
 S11,Hap_Cluster_4,"150,10100",0.0526
 S11,Hap_Cluster_5,3401,0.0144
-S12,Ref (Wild-type),,0.5398
+S12,Wild-type,,0.5398
 S12,Hap_Cluster_1,"241,3401,9102",0.1825
 S12,Hap_Cluster_2,"5200,6780",0.1116
 S12,Hap_Cluster_3,"2400,3401,10800",0.0866

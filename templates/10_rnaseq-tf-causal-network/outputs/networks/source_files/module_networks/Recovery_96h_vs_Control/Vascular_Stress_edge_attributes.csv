@@ -1,4 +1,1 @@
 source,target,sign,recurrence,edge_class
-PIK3CA,HIF1A,1,0.72,CARNIVAL-PKN
-PERTURBATION,PIK3CA,1,0.65,CARNIVAL-PKN
-HIF1A,ANGPT2,1,1,TF-target

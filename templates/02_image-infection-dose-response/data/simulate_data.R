@@ -5,7 +5,17 @@
 
 set.seed(123)
 
-# ── Parameters ────────────────────────────────────────────────────────────────
+# Ensure working directory is set to template directory
+if (!file.exists("template.qmd")) {
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0) {
+    script_dir <- dirname(normalizePath(sub("^--file=", "", file_arg[1])))
+    setwd(dirname(script_dir))
+  }
+}
+dir.create("data", showWarnings = FALSE, recursive = TRUE)
+
 n_cells   <- 400                        # cells per well
 
 ic50      <- 8                          # true IC50 (µM)

@@ -7,13 +7,24 @@
 
 set.seed(101)
 
+# Ensure working directory is set to template directory
+if (!file.exists("template.qmd")) {
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0) {
+    script_dir <- dirname(normalizePath(sub("^--file=", "", file_arg[1])))
+    setwd(dirname(script_dir))
+  }
+}
+dir.create("data", showWarnings = FALSE, recursive = TRUE)
+
 suppressPackageStartupMessages({
   library(dplyr)
   library(readr)
   library(tibble)
 })
 
-dir.create("data", showWarnings = FALSE, recursive = TRUE)
+
 
 comparisons <- c("Treatment_24h_vs_Control", "Treatment_48h_vs_Control", "Recovery_96h_vs_Control")
 

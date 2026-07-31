@@ -5,7 +5,18 @@
 
 set.seed(42)
 
-out_dir <- "data/"   # script is always run from the template directory
+# Ensure working directory is set to template directory
+if (!file.exists("template.qmd")) {
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0) {
+    script_dir <- dirname(normalizePath(sub("^--file=", "", file_arg[1])))
+    setwd(dirname(script_dir))
+  }
+}
+dir.create("data", showWarnings = FALSE, recursive = TRUE)
+out_dir <- "data/"
+
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 cell_types <- c("CellType_A", "CellType_B", "CellType_C", "CellType_D")

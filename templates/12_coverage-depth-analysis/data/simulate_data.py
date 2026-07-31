@@ -1,5 +1,5 @@
 """
-Simulate genome coverage depth data for template 11:
+Simulate genome coverage depth data for template 12:
   - data/gene_coords.csv     — genome annotation
   - data/coverage.csv        — per-position depth per sample
   - data/manifest.csv        — sample metadata
@@ -10,6 +10,12 @@ import csv, random, math, os
 SEED = 42
 random.seed(SEED)
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.dirname(SCRIPT_DIR)
+os.chdir(TEMPLATE_DIR)
+DATA_DIR = os.path.join(TEMPLATE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
 GENOME_LEN = 11447
 GENES = {
     "nsp1": (1, 1800), "nsp2": (1801, 4500), "nsp3": (4501, 5700),
@@ -18,28 +24,35 @@ GENES = {
 }
 
 DPI_REPS = {1: 3, 3: 3, 5: 3}
-BASE_DEPTH = 8000
+# Empirical base depth scales per timepoint chosen only to exercise the log-scale plot
+DPI_BASE_DEPTH = {1: 100, 3: 50000, 5: 60000}
 AMPLICON_DROPS = [(2000, 2200), (4300, 4450), (7000, 7150)]
 
 
 def generate():
     rows = []
     for dpi_val, n_reps in DPI_REPS.items():
+        base_depth = DPI_BASE_DEPTH[dpi_val]
         for rep in range(1, n_reps + 1):
             sample_id = f"DPI{dpi_val}_R{rep}_Lung"
-            # Simulate genome coverage with amplicon dropout sites and noise
+            # Simulate genome coverage with empirical terminal drop-offs, subgenomic elevation, amplicon dropouts
             for pos in range(1, GENOME_LEN + 1):
-                depth = BASE_DEPTH + random.gauss(0, 800)
+                # 3' structural gene subgenomic mRNA elevation (26S RNA)
+                subgenomic_mult = 1.8 if pos > 7500 else 1.0
+                depth = base_depth * subgenomic_mult * random.lognormvariate(0, 0.25)
+                
                 # Amplicon dropout regions
                 for ds, de in AMPLICON_DROPS:
                     if ds <= pos <= de:
-                        depth *= random.uniform(0.05, 0.40)
-                # 3' bias toward structural genes
-                if pos > 7500:
-                    depth *= random.uniform(0.85, 1.15)
-                else:
-                    depth *= random.uniform(0.70, 1.10)
-                depth = max(20, int(depth))
+                        depth *= random.uniform(0.08, 0.35)
+                        
+                # Terminal drop-offs at genome 5' and 3' ends
+                if pos <= 30:
+                    depth *= (pos / 30.0) ** 1.5
+                elif pos >= 11420:
+                    depth *= ((11447 - pos + 1) / 28.0) ** 1.5
+                    
+                depth = max(0, int(round(depth)))
                 rows.append({
                     "CHROM": "VEEV",
                     "Position": pos,
@@ -49,19 +62,19 @@ def generate():
                     "replicate": rep
                 })
 
-    with open(os.path.join(os.path.dirname(__file__), "coverage.csv"), "w", newline="") as f:
+    with open(os.path.join(DATA_DIR, "coverage.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=rows[0].keys())
         w.writeheader()
         w.writerows(rows)
-    print(f"  Wrote coverage.csv ({len(rows)} rows)")
+    print(f"  Wrote data/coverage.csv ({len(rows)} rows)")
 
-    with open(os.path.join(os.path.dirname(__file__), "gene_coords.csv"), "w", newline="") as f:
+    with open(os.path.join(DATA_DIR, "gene_coords.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["gene", "start", "end"])
         for name, (s, e) in GENES.items():
             w.writerow([name, s, e])
 
-    with open(os.path.join(os.path.dirname(__file__), "manifest.csv"), "w", newline="") as f:
+    with open(os.path.join(DATA_DIR, "manifest.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["sample_id", "dpi", "replicate"])
         for dpi_val, n_reps in DPI_REPS.items():

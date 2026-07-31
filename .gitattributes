@@ -1,0 +1,15 @@
+# GitHub Linguist language detection overrides
+# Exclude auto-generated site libs, froze rendering caches, and web bundles from language stats
+docs/** linguist-vendored
+_freeze/** linguist-vendored
+site_libs/** linguist-vendored
+*.html linguist-vendored
+*.js linguist-vendored
+*.json linguist-vendored
+*.css linguist-vendored
+*.scss linguist-vendored
+
+# Mark Quarto (.qmd), R Markdown (.Rmd), and R (.R) scripts as R
+*.qmd linguist-language=R
+*.Rmd linguist-language=R
+*.R linguist-language=R

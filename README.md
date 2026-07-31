@@ -13,26 +13,25 @@ Browse the live gallery at: **https://aleponce4.github.io/lab-bioinfo-templates*
 Developed and maintained by Alejandro Ponce-Flores for bioinformatics analyses in the Jonsson Laboratory at UTHSC. This public repository contains reusable templates that ship with synthetic example data only; no experimental or study data is included.
 :::
 
-## Template Status & Scientific Audit
+## Available Templates
 
-Detailed scientific method reviews, assumptions, and validation criteria for all templates are maintained in [TEMPLATE_AUDIT.md](TEMPLATE_AUDIT.md).
+| # | Template | Language | Key Analysis | Example Data | Gallery Status |
+|---|----------|----------|--------------|:------------:|:--------------:|
+| 01 | Plaque Assay + Violin Plots | R | One-way ANOVA, Tukey HSD, log10 titer | Synthetic | 🟢 Active |
+| 02 | Image Infection + Dose-Response | R | 4PL regression, EC50/CC50 | Synthetic | 🟢 Active |
+| 03 | Multi-Condition ANOVA | R | Welch ANOVA, Holm correction | Synthetic | 🟢 Active |
+| 04 | MagPix / Luminex Multiplex | R | Two-way ANOVA, emmeans, FDR | Synthetic | 🟢 Active |
+| 05 | Phylo-Geographic Analysis | R | Mantel test, scatter pies, maps | Synthetic | 🟢 Active |
+| 06 | GO Enrichment Analysis | R | clusterProfiler, KEGG/Reactome | Synthetic | 🟢 Active |
+| 07 | RNA-seq / DESeq2 | R | End-to-end DESeq2, QC diagnostics, heatmaps | Synthetic | 🟢 Active |
+| 08 | VCF Mutation Analysis | Python | Entropy, mutation frequency, heatmaps | Synthetic | 🟢 Active |
+| 09 | WGCNA Co-Expression Analysis | R | Co-expression modules, module-trait correlation | Synthetic | 🟢 Active |
+| 10 | RNA-seq TF/Causal Network | R | TF activity, signed PKN overlap, network graphs | Synthetic | 🟢 Active |
+| 11 | Variant Frequency + Shannon Entropy | Python | Intra-host variants, Shannon entropy curves | Synthetic | 🟢 Active |
+| 12 | Coverage Depth Analysis | Python | Per-position depth, gene annotations | Synthetic | 🟢 Active |
+| 13 | Selection Pressure (πN - πS) | Python | Selection pressure, nonsynonymous/synonymous diversity | Synthetic | 🟢 Active |
+| 14 | Haplotype Composition | Python | Haplotype proportions across timepoints | Synthetic | 🟢 Active |
 
-| # | Template | Language | Key Analysis | Method Reviewed | Example Data | Gallery Status |
-|---|----------|----------|--------------|:---------------:|:------------:|:--------------:|
-| 01 | Plaque Assay + Violin Plots | R | One-way ANOVA, Tukey HSD, log10 titer | Yes | Synthetic | 🟢 Active |
-| 02 | Image Infection + Dose-Response | R | 4PL regression, EC50/CC50 | Yes | Synthetic | 🟢 Active |
-| 03 | Multi-Condition ANOVA | R | Welch ANOVA, Holm correction | Yes | Synthetic | 🟢 Active |
-| 04 | MagPix / Luminex Multiplex | R | Two-way ANOVA, emmeans, FDR | Yes | Synthetic | 🟢 Active |
-| 05 | Phylo-Geographic Analysis | R | Mantel test, scatter pies, maps | Yes | Synthetic | 🟢 Active |
-| 06 | GO Enrichment Analysis | R | clusterProfiler, KEGG/Reactome | Yes | Synthetic | 🟢 Active |
-| 07 | RNA-seq / DESeq2 | R | End-to-end DESeq2, QC diagnostics, heatmaps | Yes | Synthetic | 🟢 Active |
-| 08 | VCF Mutation Analysis | Python | Entropy, mutation frequency, heatmaps | Yes | Synthetic | 🟢 Active |
-| 09 | WGCNA Co-Expression Analysis | R | Co-expression modules, module-trait correlation | Yes | Synthetic | 🟢 Active |
-| 10 | RNA-seq TF/Causal Network | R | TF activity, signed PKN overlap, network graphs | Yes | Synthetic | 🟢 Active |
-| 11 | Variant Frequency + Shannon Entropy | Python | Intra-host variants, Shannon entropy curves | Yes | Synthetic | 🟢 Active |
-| 12 | Coverage Depth Analysis | Python | Per-position depth, gene annotations | Yes | Synthetic | 🟢 Active |
-| 13 | Selection Pressure (πN - πS) | Python | Selection pressure, nonsynonymous/synonymous diversity | Yes | Synthetic | 🟢 Active |
-| 14 | Haplotype Composition | Python | Haplotype proportions across timepoints | Yes | Synthetic | 🟢 Active |
 
 ---
 

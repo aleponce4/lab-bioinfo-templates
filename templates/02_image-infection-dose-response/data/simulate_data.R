@@ -1,5 +1,6 @@
 # simulate_data.R
-# Generates synthetic CQ1-style image-based infection data for template 02.
+# Generates synthetic CQ1-style image-based infection data for template 02,
+# using a generic per-cell HCS export schema (Area/Volume, Sphericity, DAPI, Virus CH2).
 # Outputs: data/nucleus.csv  (DAPI channel)   data/virus.csv   (virus channel)
 # Run from template folder: Rscript data/simulate_data.R
 
@@ -24,21 +25,26 @@ tox_rows  <- paste0("D", 1:12)          # toxicity control wells (12 doses)
 
 all_wells <- list()
 
-# ── Helper: generate cell-level data for one well ────────────────────────────
+# ── Helper: generate cell-level data for one well from invented distributions
 make_cells <- function(well, treatment, conc_uM, n_cells,
-                       infected_pct, area_mean = 160, dapi_mean = 3200) {
-  # Include realistic cell size/intensity variation with debris (<30) and aggregates (>400)
-  area   <- pmax(15, rnorm(n_cells, area_mean, 50))
-  dapi   <- pmax(200, rnorm(n_cells, dapi_mean, 750))
+                       infected_pct, area_mean = 250, dapi_mean = 1100) {
+  # Generate realistic nuclear volume (Area) and sphericity with doublets/debris
+  area       <- pmax(15, rnorm(n_cells, area_mean, 110))
+  sphericity <- pmax(0.01, pmin(0.50, rnorm(n_cells, 0.22, 0.08)))
+  dapi       <- pmax(200, rnorm(n_cells, dapi_mean, 350))
+  
+  # Create correlated total DNA intensity (Area * DAPI)
   n_inf  <- round(n_cells * infected_pct)
-  virus_inf <- c(rnorm(n_inf, 4300, 1100), rnorm(n_cells - n_inf, 280, 110))
+  virus_inf <- c(rnorm(n_inf, 4800, 1400), rnorm(n_cells - n_inf, 320, 120))
   virus_inf <- pmax(40, virus_inf)
+  
   data.frame(
     WellName     = well,
     FieldIndex   = 1,
     ObjectNumber = seq_len(n_cells),
     dapi_raw     = dapi,
     area_raw     = area,
+    sphericity   = sphericity,
     virus_raw    = virus_inf,
     treatment    = treatment,
     conc_uM      = conc_uM
@@ -56,13 +62,13 @@ all_wells[["C11"]] <- make_cells("C11", "Mock+Ab", NA, 400, 0.00)
 for (r in 1:2) {
   w <- paste0("C", 7 + r - 1)
   n_c <- round(rnorm(1, 400, 30))
-  vo_pct <- max(0.55, min(0.75, 0.65 + rnorm(1, 0, 0.04)))
+  vo_pct <- max(0.55, min(0.75, 0.65 + rnorm(1, 0, 0.045)))
   all_wells[[w]] <- make_cells(w, "Virus Only", 0, n_c, vo_pct)
 }
 
 # ── Virus + Compound dose series ──────────────────────────────────────────────
 # 12 concentrations × 2 replicates = 24 wells (rows E-F, cols 1-12)
-# Adds realistic well-to-well biological replicate noise (sd = 0.04) and background floor (~0.02)
+# Adds realistic well-to-well biological replicate noise (sd = 0.045) and background floor (~0.02)
 doses <- c(0.01, 0.1, 0.5, 1, 2, 4, 8, 12, 16, 20, 30, 50)
 vc_layout <- data.frame(
   conc = rep(doses, 2),
@@ -90,20 +96,21 @@ for (i in seq_along(tox_rows)) {
 
 df <- do.call(rbind, all_wells)
 
-# Write split nucleus / virus files (mimicking CQ1 export format)
+# Write split nucleus / virus files (matching CQ1 export format in synthetic_dose_response_example)
 nucleus <- data.frame(
-  WellName     = df$WellName,
-  FieldIndex   = df$FieldIndex,
-  ObjectNumber = df$ObjectNumber,
-  `(nucleus) MeanIntensity CH1` = df$dapi_raw,
-  `(nucleus) Area`              = df$area_raw,
+  WellName                       = df$WellName,
+  FieldIndex                     = df$FieldIndex,
+  ObjectNumber                   = df$ObjectNumber,
+  `(nucleus) MeanIntensity CH1`   = df$dapi_raw,
+  `(nucleus) Area`                = df$area_raw,
+  `(nucleus) Sphericity`          = df$sphericity,
   check.names = FALSE
 )
 virus <- data.frame(
-  WellName     = df$WellName,
-  FieldIndex   = df$FieldIndex,
-  ObjectNumber = df$ObjectNumber,
-  `(Virus) MeanIntensity CH2`  = df$virus_raw,
+  WellName                       = df$WellName,
+  FieldIndex                     = df$FieldIndex,
+  ObjectNumber                   = df$ObjectNumber,
+  `(Virus) MeanIntensity CH2`    = df$virus_raw,
   check.names = FALSE
 )
 

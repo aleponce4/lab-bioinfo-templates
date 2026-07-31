@@ -54,9 +54,9 @@ DOSE_UNIT     <- "\u00b5M"
 
 # Cell gating thresholds
 AREA_MIN        <- 30     # floor to retain pyknotic nuclei
-AREA_MAX        <- 400    # ceiling to exclude clumps
+AREA_MAX        <- 450    # ceiling to exclude clumps
 INTENSITY_MIN   <- 300    # DAPI intensity floor
-CIRCULARITY_MIN <- 0.40   # doublet / fragment cutoff (if sphericity available)
+CIRCULARITY_MIN <- 0.08   # Sphericity doublet / fragment cutoff
 
 # Data Exclusions
 DOSES_TO_EXCLUDE <- integer(0)   # e.g., c(0.75)
@@ -178,6 +178,8 @@ process_plate_files <- function(nucleus_file, virus_file) {
   area_col <- names(df_nuclei)[grepl("(Area|Volume)", names(df_nuclei), ignore.case = TRUE)][1]
   if (is.na(area_col)) area_col <- NUCLEUS_AREA_COL
 
+  sphericity_col <- names(df_nuclei)[grepl("Sphericity", names(df_nuclei), ignore.case = TRUE)][1]
+
   virus_col <- names(df_virus)[grepl("MeanIntensity.*CH2", names(df_virus), ignore.case = TRUE)][1]
   if (is.na(virus_col)) virus_col <- VIRUS_INTENSITY_COL
 
@@ -188,10 +190,14 @@ process_plate_files <- function(nucleus_file, virus_file) {
       Area           = all_of(area_col)
     )
 
-  if (!"Sphericity" %in% names(df_nuclei)) {
-    nuclei_clean <- nuclei_clean %>%
-      dplyr::mutate(Sphericity = 1.0)
+  if (!is.na(sphericity_col) && sphericity_col %in% names(df_nuclei)) {
+    nuclei_clean$Sphericity <- df_nuclei[[sphericity_col]]
+  } else {
+    nuclei_clean$Sphericity <- 1.0
   }
+
+  nuclei_clean <- nuclei_clean %>%
+    dplyr::mutate(integrated_intensity = Area * dapi_intensity)
 
   virus_clean <- df_virus %>%
     dplyr::select(
@@ -219,38 +225,117 @@ master_df_annotated <- master_df_raw_annotated %>%
     else . }
 ```
 
-# Cell Gating (QC Scatterplot)
+# Cell Gating (3-Step Cytometric QC Pipeline)
 
-```{r gating-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=4}
+```{r gating-plot, fig.height=4, fig.width=9, warning=FALSE, message=FALSE}
+# --- Step 1: Soft Pre-Gating to Protect Pyknotic Cells -----------------------
 master_df_pre <- master_df_annotated %>%
+  dplyr::filter(Area > AREA_MIN & dapi_intensity > INTENSITY_MIN)
+
+# --- Step 2: Density-Based Sphericity Truncation ----------------------------
+sphericity_cutoff <- CIRCULARITY_MIN
+
+master_df_pre <- master_df_pre %>%
+  dplyr::mutate(Is_Singlet = Sphericity > sphericity_cutoff)
+
+p_doublets <- ggplot(master_df_pre, aes(x = Area, y = Sphericity)) +
+  geom_bin2d(bins = 200) +
+  scale_fill_gradientn(colors = c("navy", "deepskyblue", "green", "yellow", "red"), trans = "log10", name = "Cells") +
+  geom_hline(yintercept = sphericity_cutoff, color = "black", linetype = "dashed", linewidth = 1) +
+  labs(
+    title = "Doublet & Shape Discrimination",
+    subtitle = "Single cells sit above Sphericity cut (dashed line)",
+    x = "Nuclear Volume / Area (pixels²)", y = "Sphericity"
+  ) +
+  theme_bw(base_size = 8) +
+  theme(legend.position = "none")
+
+# --- Step 3: Statistical Cell Cycle Gating ----------------------------------
+master_df_singlets <- master_df_pre %>%
+  dplyr::filter(Is_Singlet)
+
+vars <- c("Area", "integrated_intensity")
+center <- colMeans(master_df_singlets[vars])
+cov_mat <- cov(master_df_singlets[vars])
+
+chi_cutoff <- qchisq(0.95, df = 2)
+
+master_df_pre <- master_df_pre %>%
   dplyr::mutate(
-    Pass_QC = Area >= AREA_MIN & Area <= AREA_MAX & dapi_intensity >= INTENSITY_MIN & Sphericity >= CIRCULARITY_MIN,
-    integrated_intensity = Area * dapi_intensity
+    dist_cc = if_else(Is_Singlet, 
+                      mahalanobis(cbind(Area, integrated_intensity), center = center, cov = cov_mat), 
+                      NA_real_),
+    Keep_Cell = Is_Singlet & (dist_cc <= chi_cutoff)
   )
 
-# Display QC Gating Scatterplot
-p_qc_gating <- ggplot(master_df_pre, aes(x = Area, y = dapi_intensity, color = Pass_QC)) +
-  geom_point(alpha = 0.35, size = 0.9) +
-  geom_vline(xintercept = c(AREA_MIN, AREA_MAX), linetype = "dashed", color = "firebrick", linewidth = 0.6) +
-  geom_hline(yintercept = INTENSITY_MIN, linetype = "dashed", color = "firebrick", linewidth = 0.6) +
-  scale_color_manual(
-    values = c("TRUE" = "#2B5C8F", "FALSE" = "#D95F02"),
-    labels = c("FALSE" = "Excluded Debris / Clump", "TRUE" = "Passed Gating (Singlet)")
-  ) +
+p_cycle <- ggplot(master_df_singlets, aes(x = Area, y = integrated_intensity)) +
+  geom_bin2d(bins = 200) +
+  scale_fill_gradientn(colors = c("navy", "deepskyblue", "green", "yellow", "red"), trans = "log10", name = "Cells") +
+  stat_ellipse(type = "norm", level = 0.95, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_y_continuous(labels = scales::label_scientific()) +
   labs(
-    title = "Single-Cell Quality Control Gating",
-    subtitle = paste0("Limits: Area [", AREA_MIN, "–", AREA_MAX, " px²], DAPI > ", INTENSITY_MIN, " a.u."),
-    x = "Nuclear Area (pixels²)",
-    y = "Mean DAPI Intensity (a.u.)",
-    color = "Cell Status"
+    title = "Cell Cycle & Quality Control",
+    subtitle = "Healthy interphase & mitotic cells contained in 95% DNA Ellipse",
+    x = "Nuclear Volume / Area (pixels²)", y = "Integrated Intensity (Total DNA, a.u.)"
   ) +
-  theme_bw(base_size = 9) +
-  theme(legend.position = "top", plot.title = element_text(face = "bold"))
+  theme_bw(base_size = 8) +
+  theme(legend.position = "right")
 
-print(p_qc_gating)
-ggsave("Plots/qc_gating_scatterplot.tiff", p_qc_gating, width = 5, height = 3.8, units = "in", dpi = 300)
+# Display side-by-side using Patchwork
+qc_plates_plot <- p_doublets + p_cycle
+print(qc_plates_plot)
 
-master_df_gated <- master_df_pre %>% dplyr::filter(Pass_QC)
+ggsave("Plots/nuclear_gating_qc.tiff", qc_plates_plot, width = 9, height = 4, units = "in", dpi = 300, compression = "lzw", device = ragg::agg_tiff)
+
+master_df_gated <- master_df_pre %>% dplyr::filter(Keep_Cell)
+```
+
+```{r apply-gate}
+counts_before <- dplyr::count(master_df_annotated, Treatment, name = "cells_before")
+counts_before %>%
+  left_join(dplyr::count(master_df_gated, Treatment, name = "cells_after"), by = "Treatment") %>%
+  mutate(cells_after       = replace_na(cells_after, 0),
+         percent_remaining = round((cells_after / cells_before) * 100, 1)) %>%
+  knitr::kable(caption = "Automated 3-Step Cytometric Gating Summary")
+```
+
+# Single-Cell NP Intensity Distributions (Violin Plot)
+
+```{r gating-post-violin, fig.height=5, fig.width=8}
+violin_data <- master_df_gated %>%
+  filter(Treatment %in% c("Mock", "Mock+Ab", "Virus Only", "Virus + Compound")) %>%
+  mutate(Condition = case_when(
+    Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
+    Treatment == "Virus Only"           ~ "Virus Only",
+    TRUE                                ~ paste0(Concentration_uM, " ", DOSE_UNIT)
+  ))
+
+bar_levels <- c("Mock", "Virus Only", mixedsort(unique(violin_data$Condition[grepl(DOSE_UNIT, violin_data$Condition)]), decreasing = TRUE))
+violin_data <- violin_data %>% mutate(Condition = factor(Condition, levels = bar_levels))
+
+n_doses  <- sum(grepl(DOSE_UNIT, bar_levels))
+fill_pal <- c(
+  "Mock"       = "grey80",
+  "Virus Only" = "#E41A1C",
+  setNames(colorRampPalette(c("#C6DBEF", "#08306B"))(n_doses),
+           bar_levels[grepl(DOSE_UNIT, bar_levels)])
+)
+
+p_violin <- ggplot(violin_data, aes(x = Condition, y = virus_intensity, fill = Condition)) +
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black", bw = 0.15) +
+  geom_boxplot(width = 0.1, color = "black", fill = "white", outlier.shape = NA, alpha = 0.8) +
+  scale_fill_manual(values = fill_pal, guide = "none") +
+  scale_y_log10(labels = scales::label_scientific()) +
+  labs(
+    title   = "Single-Cell NP Intensity Distributions per Treatment",
+    x       = "Treatment Condition",
+    y       = "NP Intensity (a.u., log10 scale)",
+    caption = "Internal white boxes indicate median and interquartile range (IQR)"
+  ) +
+  theme_bw(base_size = 8) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(p_violin)
 ```
 
 # Infection Gate: Control-Based Normalization + Population GMM
@@ -336,7 +421,7 @@ p_gmm_density <- ggplot(ctrl_dens_df, aes(x = x_norm, fill = Group)) +
   annotate("label", x = threshold_final, y = 1.1,
            label = paste0("GMM Infection Gate = ", round(threshold_final, 3)),
            fill = "firebrick3", color = "white", fontface = "bold", size = 3, label.size = 0) +
-  scale_fill_manual(values = c("Mock (Negative Control)" = "grey60", "Virus Only (Positive Control)" = "#D95F02")) +
+  scale_fill_manual(values = c("Mock (Negative Control)" = "grey60", "Virus Only (Positive Control)" = "#E41A1C")) +
   labs(
     title = "Control-Based GMM Population Infection Gate",
     subtitle = "Normalized virus intensity distribution (0 = Mock median, 1 = Virus Only high mode)",
@@ -421,7 +506,7 @@ p_toxicity <- ggplot(viab_summary, aes(x = factor(Dose_Val), y = mean_cells, fil
   geom_errorbar(aes(ymin = pmax(0, mean_cells - se_cells), ymax = mean_cells + se_cells), width = 0.25, linewidth = 0.5) +
   scale_fill_manual(values = c(
     "Mock"             = "grey70",
-    "Virus Only"       = "#D95F02",
+    "Virus Only"       = "#E41A1C",
     "Virus + Compound" = "#2B5C8F",
     "Toxicity Control" = "#7570B3"
   )) +

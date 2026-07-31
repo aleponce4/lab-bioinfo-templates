@@ -8,9 +8,21 @@
 # 2. demo_metadata.csv / demo_metadata.xlsx
 # 3. demo_gene_se.rds / demo_transcript_se.rds
 
-if (dir.exists("templates/07_rnaseq-deseq2")) setwd("templates/07_rnaseq-deseq2")
+# Ensure working directory is set to template directory
+if (!file.exists("template.qmd")) {
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", cmd_args, value = TRUE)
+  if (length(file_arg) > 0) {
+    script_dir <- dirname(normalizePath(sub("^--file=", "", file_arg[1])))
+    setwd(dirname(script_dir))
+  } else if (dir.exists("templates/07_rnaseq-deseq2")) {
+    setwd("templates/07_rnaseq-deseq2")
+  }
+}
+dir.create("data", showWarnings = FALSE, recursive = TRUE)
 
 set.seed(42)
+
 
 suppressPackageStartupMessages({
   library(dplyr)

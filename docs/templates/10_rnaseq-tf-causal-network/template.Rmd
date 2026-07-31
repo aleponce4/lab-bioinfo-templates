@@ -223,7 +223,15 @@ tf_activity <- deg_all %>%
   arrange(Comparison, desc(abs(activity_z)))
 
 write_csv(tf_activity, file.path(paths$tables, "tf_activity_scores.csv"))
-tf_activity %>% group_by(Comparison) %>% slice_max(abs(activity_z), n = 5) %>% ungroup()
+tf_activity %>%
+  group_by(Comparison) %>%
+  slice_max(abs(activity_z), n = 5) %>%
+  ungroup() %>%
+  knitr::kable(
+    caption   = "Top 5 Inferred Transcription Factors per Comparison",
+    col.names = c("Comparison", "TF", "Activity Score", "Target Count", "Normalized z-score", "Predicted State"),
+    digits    = 3
+  )
 ```
 
 # Signed OmniPath-Style PKN And TF Overlap
@@ -448,8 +456,13 @@ module_deg_summary <- deg_all %>%
   filter(significant) %>%
   transmute(module, gene = Gene, Comparison, log2FoldChange, padj, direction = ifelse(log2FoldChange > 0, "up", "down")) %>%
   arrange(module, gene, Comparison)
-write_csv(module_deg_summary, file.path(paths$tables, "module_significant_deg_summary.csv"))
-module_deg_summary
+module_deg_summary %>%
+  head(15) %>%
+  knitr::kable(
+    caption   = "Significant Module DEGs (First 15 Rows)",
+    col.names = c("Module", "Gene Symbol", "Comparison", "Log2 Fold Change", "FDR adj. p", "Direction"),
+    digits    = 4
+  )
 ```
 
 ```{r session-info, include=FALSE}

@@ -149,7 +149,12 @@ qc_censor <- dat_long %>%
   ) %>%
   arrange(desc(cens_pct))
 
-print(qc_censor, n = Inf)
+qc_censor %>%
+  knitr::kable(
+    caption   = "Censoring Rate per Analyte (Values Below Limit of Detection)",
+    col.names = c("Analyte", "Total Samples", "Censored Count", "Censored %"),
+    digits    = 1
+  )
 ```
 
 > **Guidance:** Analytes with >50% censoring warrant Tobit regression as a sensitivity
@@ -220,7 +225,13 @@ res_lm <- dat_long %>%
   ) %>%
   arrange(Analyte, effect)
 
-print(res_lm, n = Inf)
+res_lm %>%
+  head(20) %>%
+  knitr::kable(
+    caption     = "Two-Way ANOVA Model Summary (First 20 Effects)",
+    col.names   = c("Analyte", "Term", "Estimate", "Std Error", "Statistic", "Raw p", "Effect", "FDR adj. p", "Fold Change"),
+    digits      = 4
+  )
 readr::write_csv(res_lm, file.path(OUTPUT_DIR, "model_LM_results.csv"))
 ```
 
@@ -269,7 +280,13 @@ emm_contrasts <- dat_long %>%
   mutate(p_adj = p.adjust(p, method = "BH")) %>%
   arrange(contrast, p_adj)
 
-print(emm_contrasts, n = Inf)
+emm_contrasts %>%
+  head(20) %>%
+  knitr::kable(
+    caption     = "emmeans Post-Hoc Contrasts & Fold Changes (First 20 Comparisons)",
+    col.names   = c("Analyte", "Contrast", "Log10 Est.", "SE", "df", "t ratio", "Raw p", "Fold Change", "Lower FC", "Upper FC", "FDR adj. p"),
+    digits      = 4
+  )
 readr::write_csv(emm_contrasts, file.path(OUTPUT_DIR, "emmeans_contrasts_foldchanges.csv"))
 ```
 

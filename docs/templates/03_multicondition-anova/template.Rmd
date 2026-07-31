@@ -1,22 +1,36 @@
 ---
 title: "Multi-Condition ANOVA — Welch's Test with Planned Contrasts"
+author: "Alejandro Ponce-Flores"
+date: "`r Sys.Date()`"
 output:
   html_document:
     toc: true
     toc_float: true
     code_folding: hide
-  pdf_document:
-    toc: true
 ---
 
-```{r message=FALSE, warning=FALSE}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width  = 7,
+  fig.height = 4.5,
+  dpi        = 300,
+  fig.align  = "center",
+  message    = FALSE,
+  warning    = FALSE
+)
+```
+
+::: {.callout-note}
+**Analytical Purpose:** Performs multi-condition Welch's One-Way ANOVA with planned contrasts (reference group vs. all experimental conditions) and Holm-Bonferroni FWER correction. Designed for viral titres and NGS read count comparisons where heteroscedasticity is common.
+:::
+
+```{r user-config, message=FALSE, warning=FALSE}
 ## ── USER CONFIGURATION ──────────────────────────────────────────────────────
 #
 # CONDITION_FILES: Named character vector of CSV files to load.
 #   Names become the "condition" label in all outputs.
 #   Each CSV must be wide-format: one column per cell type / sample group,
 #   with replicate runs stored as "CellType.1", "CellType.2" … suffix columns.
-#   (This is the format produced by many plate-reader and CQ1 exports.)
 #
 CONDITION_FILES <- c(
   "Condition_A" = "data/Condition_A.csv",
@@ -42,23 +56,16 @@ ALPHA <- 0.05
 ## ────────────────────────────────────────────────────────────────────────────
 ```
 
-```{r message=FALSE, warning=FALSE}
-# ── 0. Libraries ──────────────────────────────────────────────────────────────
+```{r libraries, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(car)
 library(broom)
+library(knitr)
 ```
 
 # Load Data
 
-```{r}
-# ── 1. Read and tidy all condition files ──────────────────────────────────────
-#
-# clean_one() expects a wide CSV where:
-#   • Each column = a cell-type / treatment group
-#   • Replicate columns follow the "<name>.1", "<name>.2" … convention
-#   • Missing values (NA) are silently dropped
-
+```{r load-data}
 clean_one <- function(path, condition_label) {
   read_csv(path, show_col_types = FALSE) %>%
     select(-matches("^Unnamed")) %>%                       # drop blank index cols
@@ -84,13 +91,19 @@ clean_one <- function(path, condition_label) {
 
 all_data <- imap_dfr(CONDITION_FILES, ~ clean_one(.x, .y))
 
-all_data
+all_data %>%
+  head(15) %>%
+  knitr::kable(
+    caption     = "Preview of Processed Condition Data (First 15 Rows)",
+    col.names   = c("Condition", "Cell Type", "Replicate", "Raw Value", "Log10 Value"),
+    digits      = 3,
+    format.args = list(big.mark = ",")
+  )
 ```
 
 # Assumption Checks
 
-```{r}
-# ── 2. Shapiro-Wilk, Bartlett, and Levene tests per condition ─────────────────
+```{r diagnostics}
 diagnostics <- all_data %>%
   group_by(condition) %>%
   summarise(
@@ -104,7 +117,12 @@ diagnostics <- all_data %>%
     .groups = "drop"
   )
 
-diagnostics
+diagnostics %>%
+  knitr::kable(
+    caption     = "Normality (Shapiro-Wilk) and Homogeneity of Variance (Bartlett & Levene) Diagnostics",
+    col.names   = c("Condition", "Shapiro (Raw) p", "Shapiro (Log10) p", "Bartlett (Log10) p", "Levene (Log10) p"),
+    digits      = 4
+  )
 ```
 
 ## Interpretation Guide
@@ -122,31 +140,33 @@ diagnostics
 
 # Focal Condition Analysis
 
-```{r}
-# ── 3. Subset focal condition ─────────────────────────────────────────────────
+```{r welch-anova}
 focal <- all_data %>%
   filter(condition == FOCAL_CONDITION, !is.na(log_value)) %>%
   mutate(cell_type = factor(cell_type))
 
-# ── 4. Welch one-way ANOVA ────────────────────────────────────────────────────
 welch_anova <- oneway.test(log_value ~ cell_type,
                            data      = focal,
                            var.equal = FALSE)
 
-cat(sprintf(
-  "Welch one-way ANOVA — %s\n  F(%.1f, %.1f) = %.3f,  p = %.4f\n",
-  FOCAL_CONDITION,
-  welch_anova$parameter["num df"],
-  welch_anova$parameter["denom df"],
-  welch_anova$statistic,
-  welch_anova$p.value
-))
+welch_tbl <- tibble(
+  Condition      = FOCAL_CONDITION,
+  `F Statistic`  = unname(welch_anova$statistic),
+  `Num df`       = unname(welch_anova$parameter["num df"]),
+  `Denom df`     = unname(welch_anova$parameter["denom df"]),
+  `p-value`      = unname(welch_anova$p.value)
+)
+
+welch_tbl %>%
+  knitr::kable(
+    caption = paste("Welch's One-Way ANOVA Test Result —", FOCAL_CONDITION),
+    digits  = 4
+  )
 ```
 
 # Planned Contrasts: Reference Group vs All Others
 
-```{r}
-# ── 5. Welch t-tests: REFERENCE_GROUP vs every other cell type ────────────────
+```{r contrasts}
 other_groups <- levels(focal$cell_type)[levels(focal$cell_type) != REFERENCE_GROUP]
 
 contrasts <- map_df(other_groups, function(grp) {
@@ -156,30 +176,74 @@ contrasts <- map_df(other_groups, function(grp) {
     var.equal = FALSE
   )
   tibble(
-    comparison  = paste(REFERENCE_GROUP, "vs", grp),
-    log_diff    = unname(t_out$estimate[1] - t_out$estimate[2]),
+    Comparison  = paste(REFERENCE_GROUP, "vs", grp),
+    Log_Diff    = unname(t_out$estimate[1] - t_out$estimate[2]),
     p_raw       = t_out$p.value
   )
 }) %>%
   mutate(
     p_adj       = p.adjust(p_raw, method = "holm"),
-    fold_change = round(10^(-log_diff), 1),
-    significant = p_adj < ALPHA
+    fold_change = round(10^(-Log_Diff), 2),
+    significant = ifelse(p_adj < ALPHA, "Yes", "No")
   ) %>%
   arrange(p_adj)
 
-contrasts
+contrasts %>%
+  knitr::kable(
+    caption     = paste0("Planned Contrasts vs Reference Group (", REFERENCE_GROUP, ") with Holm-Bonferroni FWER Correction"),
+    col.names   = c("Comparison", "Log10 Diff", "Raw p-value", "Holm Adj. p", "Fold Change", "Significant"),
+    digits      = 4
+  )
 ```
 
-## Summary
+# Visualization
 
-```{r}
+```{r summary-plot, fig.width=6.5, fig.height=4.5}
+focal_summary <- focal %>%
+  group_by(cell_type) %>%
+  summarise(
+    mean_val = mean(value, na.rm = TRUE),
+    sd_val   = sd(value, na.rm = TRUE),
+    n        = n(),
+    se_val   = sd_val / sqrt(n),
+    .groups  = "drop"
+  )
+
+p_focal <- ggplot(focal_summary, aes(x = cell_type, y = mean_val, fill = cell_type)) +
+  geom_col(width = 0.65, color = "black", linewidth = 0.5, alpha = 0.85) +
+  geom_errorbar(aes(ymin = pmax(0, mean_val - se_val), ymax = mean_val + se_val),
+                width = 0.2, linewidth = 0.6) +
+  geom_jitter(data = focal, aes(x = cell_type, y = value),
+              width = 0.15, size = 2, alpha = 0.7, color = "grey20", inherit.aes = FALSE) +
+  scale_fill_brewer(palette = "Set2", guide = "none") +
+  labs(
+    title    = paste("Cell Type Comparison —", FOCAL_CONDITION),
+    subtitle = paste("Reference:", REFERENCE_GROUP, "| Error bars represent Mean ± 1 SE"),
+    x        = "Cell Type / Treatment Group",
+    y        = ifelse(LOG_TRANSFORM, "Titer / Expression (linear scale)", "Response Value")
+  ) +
+  theme_bw(base_size = 11) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 12),
+    plot.subtitle    = element_text(size = 10, color = "grey30"),
+    axis.title       = element_text(face = "bold"),
+    axis.text.x      = element_text(angle = 25, hjust = 1),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+print(p_focal)
+```
+
+## Summary Note
+
+```{r summary-note}
 cat(sprintf(
-  "\nFocal condition: %s\nReference group: %s\nSignificant contrasts (Holm-adjusted p < %.2f): %d / %d\n",
+  "Focal condition: %s\nReference group: %s\nSignificant contrasts (Holm-adjusted p < %.2f): %d / %d\n",
   FOCAL_CONDITION,
   REFERENCE_GROUP,
   ALPHA,
-  sum(contrasts$significant),
+  sum(contrasts$significant == "Yes"),
   nrow(contrasts)
 ))
 ```

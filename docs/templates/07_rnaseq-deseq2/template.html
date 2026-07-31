@@ -1044,7 +1044,7 @@ Note
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Genes before filtering:"</span>, <span class="fu">nrow</span>(gene_counts), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Genes before filtering: 724 </code></pre>
+<pre><code>Genes before filtering: 3536 </code></pre>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
@@ -1103,7 +1103,7 @@ Note
 <pre><code># A tibble: 1 × 5
   genes_before genes_after genes_removed count_filter_min count_filter_min_sam…¹
          &lt;int&gt;       &lt;int&gt;         &lt;int&gt;            &lt;dbl&gt;                  &lt;dbl&gt;
-1          724         724             0               10                      2
+1         3536        3536             0               10                      2
 # ℹ abbreviated name: ¹​count_filter_min_samples</code></pre>
 </div>
 </div>
@@ -1234,8 +1234,8 @@ Note
 <pre><code># A tibble: 2 × 4
   model_id n_samples n_genes design          
   &lt;chr&gt;        &lt;int&gt;   &lt;int&gt; &lt;chr&gt;           
-1 Brain            8     724 ~pair_id + group
-2 Lung             8     724 ~pair_id + group</code></pre>
+1 Brain            8    3536 ~pair_id + group
+2 Lung             8    3536 ~pair_id + group</code></pre>
 </div>
 </div>
 </section>
@@ -1301,8 +1301,8 @@ Note
 # Groups:   comparison_label [2]
   comparison_label              Down    NS    Up
   &lt;chr&gt;                        &lt;int&gt; &lt;int&gt; &lt;int&gt;
-1 Brain | Treatment vs Control     5   711     8
-2 Lung | Treatment vs Control     10   696    18</code></pre>
+1 Brain | Treatment vs Control   309  2876   351
+2 Lung | Treatment vs Control    312  2861   363</code></pre>
 </div>
 </div>
 </section>

@@ -1,5 +1,5 @@
 ---
-title: "09 · Variant Frequency + Shannon Entropy"
+title: "11 · Variant Frequency + Shannon Entropy"
 subtitle: "Intra-host variant frequency scatter, Shannon entropy curves, and caller-overlap Venn diagrams"
 description: |
   LoFreq and iVar variant calls across days post-infection (DPI). Variant frequency

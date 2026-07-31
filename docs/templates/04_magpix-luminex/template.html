@@ -595,20 +595,75 @@ Note
 <span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
 <span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(cens_pct))</span>
 <span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(qc_censor, <span class="at">n =</span> <span class="cn">Inf</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>qc_censor <span class="sc">%&gt;%</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption   =</span> <span class="st">"Censoring Rate per Analyte (Values Below Limit of Detection)"</span>,</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">"Analyte"</span>, <span class="st">"Total Samples"</span>, <span class="st">"Censored Count"</span>, <span class="st">"Censored %"</span>),</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">digits    =</span> <span class="dv">1</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 8 × 4
-  Analyte       n cens_n cens_pct
-  &lt;chr&gt;     &lt;int&gt;  &lt;int&gt;    &lt;dbl&gt;
-1 CCL2         20      0        0
-2 CCL5         20      0        0
-3 CXCL10       20      0        0
-4 IFN-gamma    20      0        0
-5 IL-10        20      0        0
-6 IL-1beta     20      0        0
-7 IL-6         20      0        0
-8 TNF-alpha    20      0        0</code></pre>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Censoring Rate per Analyte (Values Below Limit of Detection)</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Analyte</th>
+<th style="text-align: right;">Total Samples</th>
+<th style="text-align: right;">Censored Count</th>
+<th style="text-align: right;">Censored %</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">CCL2</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCL5</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CXCL10</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IFN-gamma</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IL-10</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IL-1beta</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IL-6</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">TNF-alpha</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <blockquote class="blockquote">
@@ -620,33 +675,33 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>fences <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Analyte) <span class="sc">%&gt;%</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">q1    =</span> <span class="fu">quantile</span>(log10_value, <span class="fl">0.25</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">q3    =</span> <span class="fu">quantile</span>(log10_value, <span class="fl">0.75</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">iqr   =</span> <span class="fu">IQR</span>(log10_value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">lower =</span> q1 <span class="sc">-</span> <span class="dv">3</span> <span class="sc">*</span> iqr,</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">upper =</span> q3 <span class="sc">+</span> <span class="dv">3</span> <span class="sc">*</span> iqr,</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>dat_long <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(fences, <span class="at">by =</span> <span class="st">"Analyte"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">Outlier =</span> <span class="fu">if_else</span>(</span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>      <span class="sc">!</span><span class="fu">is.na</span>(log10_value) <span class="sc">&amp;</span> (log10_value <span class="sc">&lt;</span> lower <span class="sc">|</span> log10_value <span class="sc">&gt;</span> upper),</span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>      <span class="st">"Yes"</span>, <span class="st">"No"</span></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>q1, <span class="sc">-</span>q3, <span class="sc">-</span>iqr, <span class="sc">-</span>lower, <span class="sc">-</span>upper)</span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>dat_long <span class="sc">%&gt;%</span></span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Outlier <span class="sc">==</span> <span class="st">"Yes"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(Location, Sample, Factor1, Factor2, Analyte, raw_value, log10_value) <span class="sc">%&gt;%</span></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(Analyte, <span class="at">name =</span> <span class="st">"outlier_n"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(outlier_n)) <span class="sc">%&gt;%</span></span>
-<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="at">n =</span> <span class="cn">Inf</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>fences <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Analyte) <span class="sc">%&gt;%</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">q1    =</span> <span class="fu">quantile</span>(log10_value, <span class="fl">0.25</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">q3    =</span> <span class="fu">quantile</span>(log10_value, <span class="fl">0.75</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">iqr   =</span> <span class="fu">IQR</span>(log10_value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">lower =</span> q1 <span class="sc">-</span> <span class="dv">3</span> <span class="sc">*</span> iqr,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">upper =</span> q3 <span class="sc">+</span> <span class="dv">3</span> <span class="sc">*</span> iqr,</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">"drop"</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>dat_long <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(fences, <span class="at">by =</span> <span class="st">"Analyte"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">Outlier =</span> <span class="fu">if_else</span>(</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>      <span class="sc">!</span><span class="fu">is.na</span>(log10_value) <span class="sc">&amp;</span> (log10_value <span class="sc">&lt;</span> lower <span class="sc">|</span> log10_value <span class="sc">&gt;</span> upper),</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>      <span class="st">"Yes"</span>, <span class="st">"No"</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>q1, <span class="sc">-</span>q3, <span class="sc">-</span>iqr, <span class="sc">-</span>lower, <span class="sc">-</span>upper)</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>dat_long <span class="sc">%&gt;%</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Outlier <span class="sc">==</span> <span class="st">"Yes"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(Location, Sample, Factor1, Factor2, Analyte, raw_value, log10_value) <span class="sc">%&gt;%</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(Analyte, <span class="at">name =</span> <span class="st">"outlier_n"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(outlier_n)) <span class="sc">%&gt;%</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="at">n =</span> <span class="cn">Inf</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 0 × 2
@@ -660,79 +715,298 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>effect_map <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"(Intercept)"</span> <span class="ot">=</span> <span class="st">"Intercept"</span>,</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(</span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(FACTOR1_LEVELS[<span class="dv">2</span>], <span class="st">" vs "</span>, FACTOR1_LEVELS[<span class="dv">1</span>]),</span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(<span class="st">"Factor1"</span>, FACTOR1_LEVELS[<span class="dv">2</span>])</span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(</span>
-<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(FACTOR2_LEVELS[<span class="dv">2</span>], <span class="st">" vs "</span>, FACTOR2_LEVELS[<span class="dv">1</span>]),</span>
-<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(<span class="st">"Factor2"</span>, FACTOR2_LEVELS[<span class="dv">2</span>])</span>
-<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(</span>
-<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Interaction"</span>,</span>
-<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(<span class="st">"Factor1"</span>, FACTOR1_LEVELS[<span class="dv">2</span>], <span class="st">":Factor2"</span>, FACTOR2_LEVELS[<span class="dv">2</span>])</span>
-<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>res_lm <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
-<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Analyte) <span class="sc">%&gt;%</span></span>
-<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_modify</span>(<span class="sc">~</span> {</span>
-<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    m <span class="ot">&lt;-</span> <span class="fu">lm</span>(log10_value <span class="sc">~</span> Factor1 <span class="sc">*</span> Factor2, <span class="at">data =</span> .x)</span>
-<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    broom<span class="sc">::</span><span class="fu">tidy</span>(m)</span>
-<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>  }) <span class="sc">%&gt;%</span></span>
-<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">effect      =</span> <span class="fu">coalesce</span>(<span class="fu">unname</span>(effect_map[term]), term),</span>
-<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">adj.p       =</span> <span class="fu">p.adjust</span>(p.value, <span class="at">method =</span> <span class="st">"BH"</span>),</span>
-<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">fold_change =</span> <span class="fu">if_else</span>(effect <span class="sc">==</span> <span class="st">"Intercept"</span>, <span class="cn">NA_real_</span>, <span class="dv">10</span><span class="sc">^</span>estimate)</span>
-<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(Analyte, effect)</span>
-<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(res_lm, <span class="at">n =</span> <span class="cn">Inf</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>effect_map <span class="ot">&lt;-</span> <span class="fu">c</span>(</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"(Intercept)"</span> <span class="ot">=</span> <span class="st">"Intercept"</span>,</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(FACTOR1_LEVELS[<span class="dv">2</span>], <span class="st">" vs "</span>, FACTOR1_LEVELS[<span class="dv">1</span>]),</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(<span class="st">"Factor1"</span>, FACTOR1_LEVELS[<span class="dv">2</span>])</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(FACTOR2_LEVELS[<span class="dv">2</span>], <span class="st">" vs "</span>, FACTOR2_LEVELS[<span class="dv">1</span>]),</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(<span class="st">"Factor2"</span>, FACTOR2_LEVELS[<span class="dv">2</span>])</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">setNames</span>(</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Interaction"</span>,</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">paste0</span>(<span class="st">"Factor1"</span>, FACTOR1_LEVELS[<span class="dv">2</span>], <span class="st">":Factor2"</span>, FACTOR2_LEVELS[<span class="dv">2</span>])</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>res_lm <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Analyte) <span class="sc">%&gt;%</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_modify</span>(<span class="sc">~</span> {</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    m <span class="ot">&lt;-</span> <span class="fu">lm</span>(log10_value <span class="sc">~</span> Factor1 <span class="sc">*</span> Factor2, <span class="at">data =</span> .x)</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    broom<span class="sc">::</span><span class="fu">tidy</span>(m)</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>  }) <span class="sc">%&gt;%</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">effect      =</span> <span class="fu">coalesce</span>(<span class="fu">unname</span>(effect_map[term]), term),</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">adj.p       =</span> <span class="fu">p.adjust</span>(p.value, <span class="at">method =</span> <span class="st">"BH"</span>),</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">fold_change =</span> <span class="fu">if_else</span>(effect <span class="sc">==</span> <span class="st">"Intercept"</span>, <span class="cn">NA_real_</span>, <span class="dv">10</span><span class="sc">^</span>estimate)</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(Analyte, effect)</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>res_lm <span class="sc">%&gt;%</span></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">head</span>(<span class="dv">20</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption     =</span> <span class="st">"Two-Way ANOVA Model Summary (First 20 Effects)"</span>,</span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>    <span class="at">col.names   =</span> <span class="fu">c</span>(<span class="st">"Analyte"</span>, <span class="st">"Term"</span>, <span class="st">"Estimate"</span>, <span class="st">"Std Error"</span>, <span class="st">"Statistic"</span>, <span class="st">"Raw p"</span>, <span class="st">"Effect"</span>, <span class="st">"FDR adj. p"</span>, <span class="st">"Fold Change"</span>),</span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">digits      =</span> <span class="dv">4</span></span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 32 × 9
-   Analyte   term          estimate std.error statistic  p.value effect    adj.p
-   &lt;chr&gt;     &lt;chr&gt;            &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt; &lt;chr&gt;     &lt;dbl&gt;
- 1 CCL2      Factor1Disea…  0.667      0.168     3.98   1.07e- 3 Disea… 2.15e- 3
- 2 CCL2      Factor2Drug    0.261      0.168     1.56   1.39e- 1 Drug … 1.86e- 1
- 3 CCL2      Factor1Disea… -0.196      0.237    -0.825  4.21e- 1 Inter… 4.63e- 1
- 4 CCL2      (Intercept)    2.34       0.119    19.7    1.17e-12 Inter… 1.25e-11
- 5 CCL5      Factor1Disea…  0.552      0.122     4.53   3.44e- 4 Disea… 7.34e- 4
- 6 CCL5      Factor2Drug    0.217      0.122     1.78   9.41e- 2 Drug … 1.37e- 1
- 7 CCL5      Factor1Disea… -0.391      0.172    -2.27   3.77e- 2 Inter… 5.74e- 2
- 8 CCL5      (Intercept)    2.11       0.0862   24.5    4.11e-14 Inter… 1.08e-12
- 9 CXCL10    Factor1Disea…  1.70       0.126    13.5    3.70e-10 Disea… 1.97e- 9
-10 CXCL10    Factor2Drug   -0.0911     0.126    -0.722  4.81e- 1 Drug … 4.96e- 1
-11 CXCL10    Factor1Disea… -0.446      0.179    -2.50   2.37e- 2 Inter… 3.79e- 2
-12 CXCL10    (Intercept)    2.12       0.0893   23.7    6.74e-14 Inter… 1.08e-12
-13 IFN-gamma Factor1Disea…  2.00       0.158    12.7    9.22e-10 Disea… 4.11e- 9
-14 IFN-gamma Factor2Drug    0.191      0.158     1.21   2.45e- 1 Drug … 3.01e- 1
-15 IFN-gamma Factor1Disea… -0.670      0.223    -3.00   8.47e- 3 Inter… 1.51e- 2
-16 IFN-gamma (Intercept)    0.983      0.112     8.80   1.57e- 7 Inter… 5.04e- 7
-17 IL-10     Factor1Disea…  1.04       0.159     6.55   6.64e- 6 Disea… 1.52e- 5
-18 IL-10     Factor2Drug    0.248      0.159     1.56   1.39e- 1 Drug … 1.86e- 1
-19 IL-10     Factor1Disea… -0.688      0.225    -3.06   7.52e- 3 Inter… 1.41e- 2
-20 IL-10     (Intercept)    1.42       0.113    12.6    1.03e- 9 Inter… 4.11e- 9
-21 IL-1beta  Factor1Disea…  0.981      0.111     8.82   1.53e- 7 Disea… 5.04e- 7
-22 IL-1beta  Factor2Drug    0.00537    0.111     0.0483 9.62e- 1 Drug … 9.62e- 1
-23 IL-1beta  Factor1Disea… -0.446      0.157    -2.83   1.20e- 2 Inter… 2.01e- 2
-24 IL-1beta  (Intercept)    1.51       0.0786   19.2    1.73e-12 Inter… 1.39e-11
-25 IL-6      Factor1Disea…  1.56       0.185     8.43   2.81e- 7 Disea… 7.50e- 7
-26 IL-6      Factor2Drug   -0.148      0.185    -0.802  4.34e- 1 Drug … 4.63e- 1
-27 IL-6      Factor1Disea… -0.280      0.262    -1.07   3.01e- 1 Inter… 3.52e- 1
-28 IL-6      (Intercept)    1.94       0.131    14.8    9.14e-11 Inter… 5.85e-10
-29 TNF-alpha Factor1Disea…  1.69       0.194     8.74   1.74e- 7 Disea… 5.06e- 7
-30 TNF-alpha Factor2Drug    0.204      0.194     1.05   3.08e- 1 Drug … 3.52e- 1
-31 TNF-alpha Factor1Disea… -0.359      0.274    -1.31   2.09e- 1 Inter… 2.68e- 1
-32 TNF-alpha (Intercept)    1.14       0.137     8.30   3.44e- 7 Inter… 8.48e- 7
-# ℹ 1 more variable: fold_change &lt;dbl&gt;</code></pre>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Two-Way ANOVA Model Summary (First 20 Effects)</caption>
+<colgroup>
+<col style="width: 8%">
+<col style="width: 24%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 6%">
+<col style="width: 14%">
+<col style="width: 9%">
+<col style="width: 10%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Analyte</th>
+<th style="text-align: left;">Term</th>
+<th style="text-align: right;">Estimate</th>
+<th style="text-align: right;">Std Error</th>
+<th style="text-align: right;">Statistic</th>
+<th style="text-align: right;">Raw p</th>
+<th style="text-align: left;">Effect</th>
+<th style="text-align: right;">FDR adj. p</th>
+<th style="text-align: right;">Fold Change</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">CCL2</td>
+<td style="text-align: left;">Factor1Disease</td>
+<td style="text-align: right;">0.6674</td>
+<td style="text-align: right;">0.1677</td>
+<td style="text-align: right;">3.9808</td>
+<td style="text-align: right;">0.0011</td>
+<td style="text-align: left;">Disease vs PBS</td>
+<td style="text-align: right;">0.0021</td>
+<td style="text-align: right;">4.6499</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCL2</td>
+<td style="text-align: left;">Factor2Drug</td>
+<td style="text-align: right;">0.2609</td>
+<td style="text-align: right;">0.1677</td>
+<td style="text-align: right;">1.5558</td>
+<td style="text-align: right;">0.1393</td>
+<td style="text-align: left;">Drug vs Vehicle</td>
+<td style="text-align: right;">0.1859</td>
+<td style="text-align: right;">1.8233</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CCL2</td>
+<td style="text-align: left;">Factor1Disease:Factor2Drug</td>
+<td style="text-align: right;">-0.1957</td>
+<td style="text-align: right;">0.2371</td>
+<td style="text-align: right;">-0.8254</td>
+<td style="text-align: right;">0.4213</td>
+<td style="text-align: left;">Interaction</td>
+<td style="text-align: right;">0.4632</td>
+<td style="text-align: right;">0.6372</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCL2</td>
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">2.3406</td>
+<td style="text-align: right;">0.1186</td>
+<td style="text-align: right;">19.7420</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Intercept</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CCL5</td>
+<td style="text-align: left;">Factor1Disease</td>
+<td style="text-align: right;">0.5517</td>
+<td style="text-align: right;">0.1219</td>
+<td style="text-align: right;">4.5264</td>
+<td style="text-align: right;">0.0003</td>
+<td style="text-align: left;">Disease vs PBS</td>
+<td style="text-align: right;">0.0007</td>
+<td style="text-align: right;">3.5624</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCL5</td>
+<td style="text-align: left;">Factor2Drug</td>
+<td style="text-align: right;">0.2169</td>
+<td style="text-align: right;">0.1219</td>
+<td style="text-align: right;">1.7797</td>
+<td style="text-align: right;">0.0941</td>
+<td style="text-align: left;">Drug vs Vehicle</td>
+<td style="text-align: right;">0.1369</td>
+<td style="text-align: right;">1.6479</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CCL5</td>
+<td style="text-align: left;">Factor1Disease:Factor2Drug</td>
+<td style="text-align: right;">-0.3907</td>
+<td style="text-align: right;">0.1724</td>
+<td style="text-align: right;">-2.2663</td>
+<td style="text-align: right;">0.0377</td>
+<td style="text-align: left;">Interaction</td>
+<td style="text-align: right;">0.0574</td>
+<td style="text-align: right;">0.4068</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCL5</td>
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">2.1115</td>
+<td style="text-align: right;">0.0862</td>
+<td style="text-align: right;">24.4979</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Intercept</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CXCL10</td>
+<td style="text-align: left;">Factor1Disease</td>
+<td style="text-align: right;">1.7038</td>
+<td style="text-align: right;">0.1263</td>
+<td style="text-align: right;">13.4924</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Disease vs PBS</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">50.5611</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CXCL10</td>
+<td style="text-align: left;">Factor2Drug</td>
+<td style="text-align: right;">-0.0911</td>
+<td style="text-align: right;">0.1263</td>
+<td style="text-align: right;">-0.7217</td>
+<td style="text-align: right;">0.4809</td>
+<td style="text-align: left;">Drug vs Vehicle</td>
+<td style="text-align: right;">0.4964</td>
+<td style="text-align: right;">0.8107</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CXCL10</td>
+<td style="text-align: left;">Factor1Disease:Factor2Drug</td>
+<td style="text-align: right;">-0.4465</td>
+<td style="text-align: right;">0.1786</td>
+<td style="text-align: right;">-2.5001</td>
+<td style="text-align: right;">0.0237</td>
+<td style="text-align: left;">Interaction</td>
+<td style="text-align: right;">0.0379</td>
+<td style="text-align: right;">0.3577</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CXCL10</td>
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">2.1191</td>
+<td style="text-align: right;">0.0893</td>
+<td style="text-align: right;">23.7319</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Intercept</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IFN-gamma</td>
+<td style="text-align: left;">Factor1Disease</td>
+<td style="text-align: right;">2.0030</td>
+<td style="text-align: right;">0.1580</td>
+<td style="text-align: right;">12.6805</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Disease vs PBS</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">100.7026</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IFN-gamma</td>
+<td style="text-align: left;">Factor2Drug</td>
+<td style="text-align: right;">0.1908</td>
+<td style="text-align: right;">0.1580</td>
+<td style="text-align: right;">1.2082</td>
+<td style="text-align: right;">0.2445</td>
+<td style="text-align: left;">Drug vs Vehicle</td>
+<td style="text-align: right;">0.3010</td>
+<td style="text-align: right;">1.5518</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IFN-gamma</td>
+<td style="text-align: left;">Factor1Disease:Factor2Drug</td>
+<td style="text-align: right;">-0.6703</td>
+<td style="text-align: right;">0.2234</td>
+<td style="text-align: right;">-3.0004</td>
+<td style="text-align: right;">0.0085</td>
+<td style="text-align: left;">Interaction</td>
+<td style="text-align: right;">0.0151</td>
+<td style="text-align: right;">0.2137</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IFN-gamma</td>
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">0.9830</td>
+<td style="text-align: right;">0.1117</td>
+<td style="text-align: right;">8.8008</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Intercept</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IL-10</td>
+<td style="text-align: left;">Factor1Disease</td>
+<td style="text-align: right;">1.0434</td>
+<td style="text-align: right;">0.1592</td>
+<td style="text-align: right;">6.5536</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Disease vs PBS</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">11.0518</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IL-10</td>
+<td style="text-align: left;">Factor2Drug</td>
+<td style="text-align: right;">0.2476</td>
+<td style="text-align: right;">0.1592</td>
+<td style="text-align: right;">1.5552</td>
+<td style="text-align: right;">0.1395</td>
+<td style="text-align: left;">Drug vs Vehicle</td>
+<td style="text-align: right;">0.1859</td>
+<td style="text-align: right;">1.7685</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IL-10</td>
+<td style="text-align: left;">Factor1Disease:Factor2Drug</td>
+<td style="text-align: right;">-0.6885</td>
+<td style="text-align: right;">0.2252</td>
+<td style="text-align: right;">-3.0577</td>
+<td style="text-align: right;">0.0075</td>
+<td style="text-align: left;">Interaction</td>
+<td style="text-align: right;">0.0141</td>
+<td style="text-align: right;">0.2049</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IL-10</td>
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">1.4171</td>
+<td style="text-align: right;">0.1126</td>
+<td style="text-align: right;">12.5874</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Intercept</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">NA</td>
+</tr>
+</tbody>
+</table>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>readr<span class="sc">::</span><span class="fu">write_csv</span>(res_lm, <span class="fu">file.path</span>(OUTPUT_DIR, <span class="st">"model_LM_results.csv"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>readr<span class="sc">::</span><span class="fu">write_csv</span>(res_lm, <span class="fu">file.path</span>(OUTPUT_DIR, <span class="st">"model_LM_results.csv"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -741,99 +1015,354 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>group_levels <span class="ot">&lt;-</span> <span class="fu">levels</span>(dat_long<span class="sc">$</span>Group)</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>emm_contrasts <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Analyte) <span class="sc">%&gt;%</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_modify</span>(<span class="sc">~</span> {</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    m   <span class="ot">&lt;-</span> <span class="fu">lm</span>(log10_value <span class="sc">~</span> Factor1 <span class="sc">*</span> Factor2, <span class="at">data =</span> .x)</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    emm <span class="ot">&lt;-</span> <span class="fu">emmeans</span>(m, <span class="sc">~</span> Factor1 <span class="sc">*</span> Factor2)</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    drug_effects    <span class="ot">&lt;-</span> <span class="fu">contrast</span>(emm, <span class="at">method =</span> <span class="st">"revpairwise"</span>, <span class="at">by =</span> <span class="st">"Factor1"</span>, <span class="at">infer =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    disease_effects <span class="ot">&lt;-</span> <span class="fu">contrast</span>(emm, <span class="at">method =</span> <span class="st">"revpairwise"</span>, <span class="at">by =</span> <span class="st">"Factor2"</span>, <span class="at">infer =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    interaction_eff <span class="ot">&lt;-</span> <span class="fu">contrast</span>(emm, <span class="at">interaction =</span> <span class="fu">c</span>(<span class="st">"revpairwise"</span>, <span class="st">"revpairwise"</span>), <span class="at">infer =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    s <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
-<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>      <span class="fu">as.data.frame</span>(drug_effects),</span>
-<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>      <span class="fu">as.data.frame</span>(disease_effects),</span>
-<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>      <span class="fu">as.data.frame</span>(interaction_eff)</span>
-<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>    s_tidy <span class="ot">&lt;-</span> s <span class="sc">%&gt;%</span></span>
-<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(</span>
-<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>        <span class="at">unique_contrast =</span> <span class="fu">case_when</span>(</span>
-<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>          <span class="sc">!</span><span class="fu">is.na</span>(Factor1) <span class="sc">~</span> <span class="fu">paste</span>(contrast, Factor1, <span class="at">sep =</span> <span class="st">", "</span>),</span>
-<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>          <span class="sc">!</span><span class="fu">is.na</span>(Factor2) <span class="sc">~</span> <span class="fu">paste</span>(contrast, Factor2, <span class="at">sep =</span> <span class="st">", "</span>),</span>
-<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>          <span class="cn">TRUE</span>            <span class="sc">~</span> contrast</span>
-<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>        )</span>
-<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>      )</span>
-<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(</span>
-<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>      <span class="at">contrast       =</span> s_tidy<span class="sc">$</span>unique_contrast,</span>
-<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>      <span class="at">estimate_log10 =</span> s_tidy<span class="sc">$</span>estimate,</span>
-<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>      <span class="at">SE             =</span> s_tidy<span class="sc">$</span>SE,</span>
-<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>      <span class="at">df             =</span> s_tidy<span class="sc">$</span>df,</span>
-<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>      <span class="at">t              =</span> s_tidy<span class="sc">$</span>t.ratio,</span>
-<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>      <span class="at">p              =</span> s_tidy<span class="sc">$</span>p.value,</span>
-<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>      <span class="at">fold_change    =</span> <span class="dv">10</span><span class="sc">^</span>s_tidy<span class="sc">$</span>estimate,</span>
-<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>      <span class="at">lower_FC       =</span> <span class="dv">10</span><span class="sc">^</span>s_tidy<span class="sc">$</span>lower.CL,</span>
-<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>      <span class="at">upper_FC       =</span> <span class="dv">10</span><span class="sc">^</span>s_tidy<span class="sc">$</span>upper.CL</span>
-<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>  }) <span class="sc">%&gt;%</span></span>
-<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">p_adj =</span> <span class="fu">p.adjust</span>(p, <span class="at">method =</span> <span class="st">"BH"</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(contrast, p_adj)</span>
-<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(emm_contrasts, <span class="at">n =</span> <span class="cn">Inf</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>group_levels <span class="ot">&lt;-</span> <span class="fu">levels</span>(dat_long<span class="sc">$</span>Group)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>emm_contrasts <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Analyte) <span class="sc">%&gt;%</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_modify</span>(<span class="sc">~</span> {</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    m   <span class="ot">&lt;-</span> <span class="fu">lm</span>(log10_value <span class="sc">~</span> Factor1 <span class="sc">*</span> Factor2, <span class="at">data =</span> .x)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    emm <span class="ot">&lt;-</span> <span class="fu">emmeans</span>(m, <span class="sc">~</span> Factor1 <span class="sc">*</span> Factor2)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    drug_effects    <span class="ot">&lt;-</span> <span class="fu">contrast</span>(emm, <span class="at">method =</span> <span class="st">"revpairwise"</span>, <span class="at">by =</span> <span class="st">"Factor1"</span>, <span class="at">infer =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    disease_effects <span class="ot">&lt;-</span> <span class="fu">contrast</span>(emm, <span class="at">method =</span> <span class="st">"revpairwise"</span>, <span class="at">by =</span> <span class="st">"Factor2"</span>, <span class="at">infer =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    interaction_eff <span class="ot">&lt;-</span> <span class="fu">contrast</span>(emm, <span class="at">interaction =</span> <span class="fu">c</span>(<span class="st">"revpairwise"</span>, <span class="st">"revpairwise"</span>), <span class="at">infer =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    s <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>      <span class="fu">as.data.frame</span>(drug_effects),</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>      <span class="fu">as.data.frame</span>(disease_effects),</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>      <span class="fu">as.data.frame</span>(interaction_eff)</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>    s_tidy <span class="ot">&lt;-</span> s <span class="sc">%&gt;%</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>        <span class="at">unique_contrast =</span> <span class="fu">case_when</span>(</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>          <span class="sc">!</span><span class="fu">is.na</span>(Factor1) <span class="sc">~</span> <span class="fu">paste</span>(contrast, Factor1, <span class="at">sep =</span> <span class="st">", "</span>),</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>          <span class="sc">!</span><span class="fu">is.na</span>(Factor2) <span class="sc">~</span> <span class="fu">paste</span>(contrast, Factor2, <span class="at">sep =</span> <span class="st">", "</span>),</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>          <span class="cn">TRUE</span>            <span class="sc">~</span> contrast</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tibble</span>(</span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>      <span class="at">contrast       =</span> s_tidy<span class="sc">$</span>unique_contrast,</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>      <span class="at">estimate_log10 =</span> s_tidy<span class="sc">$</span>estimate,</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>      <span class="at">SE             =</span> s_tidy<span class="sc">$</span>SE,</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>      <span class="at">df             =</span> s_tidy<span class="sc">$</span>df,</span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>      <span class="at">t              =</span> s_tidy<span class="sc">$</span>t.ratio,</span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>      <span class="at">p              =</span> s_tidy<span class="sc">$</span>p.value,</span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>      <span class="at">fold_change    =</span> <span class="dv">10</span><span class="sc">^</span>s_tidy<span class="sc">$</span>estimate,</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>      <span class="at">lower_FC       =</span> <span class="dv">10</span><span class="sc">^</span>s_tidy<span class="sc">$</span>lower.CL,</span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>      <span class="at">upper_FC       =</span> <span class="dv">10</span><span class="sc">^</span>s_tidy<span class="sc">$</span>upper.CL</span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>  }) <span class="sc">%&gt;%</span></span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">p_adj =</span> <span class="fu">p.adjust</span>(p, <span class="at">method =</span> <span class="st">"BH"</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(contrast, p_adj)</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>emm_contrasts <span class="sc">%&gt;%</span></span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">head</span>(<span class="dv">20</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption     =</span> <span class="st">"emmeans Post-Hoc Contrasts &amp; Fold Changes (First 20 Comparisons)"</span>,</span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">col.names   =</span> <span class="fu">c</span>(<span class="st">"Analyte"</span>, <span class="st">"Contrast"</span>, <span class="st">"Log10 Est."</span>, <span class="st">"SE"</span>, <span class="st">"df"</span>, <span class="st">"t ratio"</span>, <span class="st">"Raw p"</span>, <span class="st">"Fold Change"</span>, <span class="st">"Lower FC"</span>, <span class="st">"Upper FC"</span>, <span class="st">"FDR adj. p"</span>),</span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">digits      =</span> <span class="dv">4</span></span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 40 × 11
-   Analyte   contrast    estimate_log10    SE    df       t        p fold_change
-   &lt;chr&gt;     &lt;chr&gt;                &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;    &lt;dbl&gt;       &lt;dbl&gt;
- 1 CXCL10    Disease - …        1.26    0.126    16  9.96   2.92e- 8      18.1  
- 2 IFN-gamma Disease - …        1.33    0.158    16  8.44   2.76e- 7      21.5  
- 3 IL-6      Disease - …        1.28    0.185    16  6.91   3.48e- 6      19.1  
- 4 TNF-alpha Disease - …        1.33    0.194    16  6.88   3.67e- 6      21.6  
- 5 IL-1beta  Disease - …        0.535   0.111    16  4.81   1.91e- 4       3.43 
- 6 CCL2      Disease - …        0.472   0.168    16  2.81   1.25e- 2       2.96 
- 7 IL-10     Disease - …        0.355   0.159    16  2.23   4.05e- 2       2.26 
- 8 CCL5      Disease - …        0.161   0.122    16  1.32   2.05e- 1       1.45 
- 9 CXCL10    Disease - …        1.70    0.126    16 13.5    3.70e-10      50.6  
-10 IFN-gamma Disease - …        2.00    0.158    16 12.7    9.22e-10     101.   
-11 IL-1beta  Disease - …        0.981   0.111    16  8.82   1.53e- 7       9.57 
-12 TNF-alpha Disease - …        1.69    0.194    16  8.74   1.74e- 7      49.4  
-13 IL-6      Disease - …        1.56    0.185    16  8.43   2.81e- 7      36.3  
-14 IL-10     Disease - …        1.04    0.159    16  6.55   6.64e- 6      11.1  
-15 CCL5      Disease - …        0.552   0.122    16  4.53   3.44e- 4       3.56 
-16 CCL2      Disease - …        0.667   0.168    16  3.98   1.07e- 3       4.65 
-17 CXCL10    Drug - Veh…       -0.538   0.126    16 -4.26   6.02e- 4       0.290
-18 IL-1beta  Drug - Veh…       -0.440   0.111    16 -3.96   1.12e- 3       0.363
-19 IFN-gamma Drug - Veh…       -0.479   0.158    16 -3.04   7.88e- 3       0.332
-20 IL-10     Drug - Veh…       -0.441   0.159    16 -2.77   1.37e- 2       0.362
-21 IL-6      Drug - Veh…       -0.428   0.185    16 -2.31   3.43e- 2       0.373
-22 CCL5      Drug - Veh…       -0.174   0.122    16 -1.43   1.73e- 1       0.670
-23 TNF-alpha Drug - Veh…       -0.155   0.194    16 -0.798  4.37e- 1       0.700
-24 CCL2      Drug - Veh…        0.0652  0.168    16  0.389  7.03e- 1       1.16 
-25 CCL5      Drug - Veh…        0.217   0.122    16  1.78   9.41e- 2       1.65 
-26 CCL2      Drug - Veh…        0.261   0.168    16  1.56   1.39e- 1       1.82 
-27 IL-10     Drug - Veh…        0.248   0.159    16  1.56   1.39e- 1       1.77 
-28 IFN-gamma Drug - Veh…        0.191   0.158    16  1.21   2.45e- 1       1.55 
-29 TNF-alpha Drug - Veh…        0.204   0.194    16  1.05   3.08e- 1       1.60 
-30 IL-6      Drug - Veh…       -0.148   0.185    16 -0.802  4.34e- 1       0.710
-31 CXCL10    Drug - Veh…       -0.0911  0.126    16 -0.722  4.81e- 1       0.811
-32 IL-1beta  Drug - Veh…        0.00537 0.111    16  0.0483 9.62e- 1       1.01 
-33 IL-10     &lt;NA&gt;              -0.688   0.225    16 -3.06   7.52e- 3       0.205
-34 IFN-gamma &lt;NA&gt;              -0.670   0.223    16 -3.00   8.47e- 3       0.214
-35 IL-1beta  &lt;NA&gt;              -0.446   0.157    16 -2.83   1.20e- 2       0.358
-36 CXCL10    &lt;NA&gt;              -0.446   0.179    16 -2.50   2.37e- 2       0.358
-37 CCL5      &lt;NA&gt;              -0.391   0.172    16 -2.27   3.77e- 2       0.407
-38 TNF-alpha &lt;NA&gt;              -0.359   0.274    16 -1.31   2.09e- 1       0.438
-39 IL-6      &lt;NA&gt;              -0.280   0.262    16 -1.07   3.01e- 1       0.525
-40 CCL2      &lt;NA&gt;              -0.196   0.237    16 -0.825  4.21e- 1       0.637
-# ℹ 3 more variables: lower_FC &lt;dbl&gt;, upper_FC &lt;dbl&gt;, p_adj &lt;dbl&gt;</code></pre>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>emmeans Post-Hoc Contrasts &amp; Fold Changes (First 20 Comparisons)</caption>
+<colgroup>
+<col style="width: 9%">
+<col style="width: 21%">
+<col style="width: 9%">
+<col style="width: 6%">
+<col style="width: 2%">
+<col style="width: 7%">
+<col style="width: 6%">
+<col style="width: 10%">
+<col style="width: 8%">
+<col style="width: 8%">
+<col style="width: 9%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Analyte</th>
+<th style="text-align: left;">Contrast</th>
+<th style="text-align: right;">Log10 Est.</th>
+<th style="text-align: right;">SE</th>
+<th style="text-align: right;">df</th>
+<th style="text-align: right;">t ratio</th>
+<th style="text-align: right;">Raw p</th>
+<th style="text-align: right;">Fold Change</th>
+<th style="text-align: right;">Lower FC</th>
+<th style="text-align: right;">Upper FC</th>
+<th style="text-align: right;">FDR adj. p</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">CXCL10</td>
+<td style="text-align: left;">Disease - PBS, Drug</td>
+<td style="text-align: right;">1.2573</td>
+<td style="text-align: right;">0.1263</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">9.9568</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">18.0857</td>
+<td style="text-align: right;">9.7642</td>
+<td style="text-align: right;">33.4994</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IFN-gamma</td>
+<td style="text-align: left;">Disease - PBS, Drug</td>
+<td style="text-align: right;">1.3328</td>
+<td style="text-align: right;">0.1580</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">8.4373</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">21.5167</td>
+<td style="text-align: right;">9.9520</td>
+<td style="text-align: right;">46.5202</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IL-6</td>
+<td style="text-align: left;">Disease - PBS, Drug</td>
+<td style="text-align: right;">1.2799</td>
+<td style="text-align: right;">0.1851</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">6.9149</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">19.0501</td>
+<td style="text-align: right;">7.7182</td>
+<td style="text-align: right;">47.0194</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">TNF-alpha</td>
+<td style="text-align: left;">Disease - PBS, Drug</td>
+<td style="text-align: right;">1.3348</td>
+<td style="text-align: right;">0.1939</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">6.8850</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">21.6189</td>
+<td style="text-align: right;">8.3914</td>
+<td style="text-align: right;">55.6973</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IL-1beta</td>
+<td style="text-align: left;">Disease - PBS, Drug</td>
+<td style="text-align: right;">0.5351</td>
+<td style="text-align: right;">0.1112</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">4.8126</td>
+<td style="text-align: right;">0.0002</td>
+<td style="text-align: right;">3.4285</td>
+<td style="text-align: right;">1.9925</td>
+<td style="text-align: right;">5.8995</td>
+<td style="text-align: right;">0.0007</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCL2</td>
+<td style="text-align: left;">Disease - PBS, Drug</td>
+<td style="text-align: right;">0.4717</td>
+<td style="text-align: right;">0.1677</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">2.8136</td>
+<td style="text-align: right;">0.0125</td>
+<td style="text-align: right;">2.9630</td>
+<td style="text-align: right;">1.3071</td>
+<td style="text-align: right;">6.7170</td>
+<td style="text-align: right;">0.0250</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IL-10</td>
+<td style="text-align: left;">Disease - PBS, Drug</td>
+<td style="text-align: right;">0.3549</td>
+<td style="text-align: right;">0.1592</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">2.2293</td>
+<td style="text-align: right;">0.0405</td>
+<td style="text-align: right;">2.2643</td>
+<td style="text-align: right;">1.0409</td>
+<td style="text-align: right;">4.9256</td>
+<td style="text-align: right;">0.0648</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCL5</td>
+<td style="text-align: left;">Disease - PBS, Drug</td>
+<td style="text-align: right;">0.1611</td>
+<td style="text-align: right;">0.1219</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1.3214</td>
+<td style="text-align: right;">0.2049</td>
+<td style="text-align: right;">1.4490</td>
+<td style="text-align: right;">0.7992</td>
+<td style="text-align: right;">2.6271</td>
+<td style="text-align: right;">0.2697</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CXCL10</td>
+<td style="text-align: left;">Disease - PBS, Vehicle</td>
+<td style="text-align: right;">1.7038</td>
+<td style="text-align: right;">0.1263</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">13.4924</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">50.5611</td>
+<td style="text-align: right;">27.2970</td>
+<td style="text-align: right;">93.6521</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IFN-gamma</td>
+<td style="text-align: left;">Disease - PBS, Vehicle</td>
+<td style="text-align: right;">2.0030</td>
+<td style="text-align: right;">0.1580</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">12.6805</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">100.7026</td>
+<td style="text-align: right;">46.5773</td>
+<td style="text-align: right;">217.7243</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IL-1beta</td>
+<td style="text-align: left;">Disease - PBS, Vehicle</td>
+<td style="text-align: right;">0.9809</td>
+<td style="text-align: right;">0.1112</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">8.8216</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">9.5688</td>
+<td style="text-align: right;">5.5610</td>
+<td style="text-align: right;">16.4652</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">TNF-alpha</td>
+<td style="text-align: left;">Disease - PBS, Vehicle</td>
+<td style="text-align: right;">1.6938</td>
+<td style="text-align: right;">0.1939</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">8.7363</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">49.4033</td>
+<td style="text-align: right;">19.1759</td>
+<td style="text-align: right;">127.2787</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IL-6</td>
+<td style="text-align: left;">Disease - PBS, Vehicle</td>
+<td style="text-align: right;">1.5596</td>
+<td style="text-align: right;">0.1851</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">8.4258</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">36.2718</td>
+<td style="text-align: right;">14.6956</td>
+<td style="text-align: right;">89.5262</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IL-10</td>
+<td style="text-align: left;">Disease - PBS, Vehicle</td>
+<td style="text-align: right;">1.0434</td>
+<td style="text-align: right;">0.1592</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">6.5536</td>
+<td style="text-align: right;">0.0000</td>
+<td style="text-align: right;">11.0518</td>
+<td style="text-align: right;">5.0805</td>
+<td style="text-align: right;">24.0413</td>
+<td style="text-align: right;">0.0000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CCL5</td>
+<td style="text-align: left;">Disease - PBS, Vehicle</td>
+<td style="text-align: right;">0.5517</td>
+<td style="text-align: right;">0.1219</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">4.5264</td>
+<td style="text-align: right;">0.0003</td>
+<td style="text-align: right;">3.5624</td>
+<td style="text-align: right;">1.9649</td>
+<td style="text-align: right;">6.4586</td>
+<td style="text-align: right;">0.0011</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CCL2</td>
+<td style="text-align: left;">Disease - PBS, Vehicle</td>
+<td style="text-align: right;">0.6674</td>
+<td style="text-align: right;">0.1677</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">3.9808</td>
+<td style="text-align: right;">0.0011</td>
+<td style="text-align: right;">4.6499</td>
+<td style="text-align: right;">2.0512</td>
+<td style="text-align: right;">10.5410</td>
+<td style="text-align: right;">0.0030</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CXCL10</td>
+<td style="text-align: left;">Drug - Vehicle, Disease</td>
+<td style="text-align: right;">-0.5376</td>
+<td style="text-align: right;">0.1263</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">-4.2574</td>
+<td style="text-align: right;">0.0006</td>
+<td style="text-align: right;">0.2900</td>
+<td style="text-align: right;">0.1566</td>
+<td style="text-align: right;">0.5371</td>
+<td style="text-align: right;">0.0019</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IL-1beta</td>
+<td style="text-align: left;">Drug - Vehicle, Disease</td>
+<td style="text-align: right;">-0.4404</td>
+<td style="text-align: right;">0.1112</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">-3.9606</td>
+<td style="text-align: right;">0.0011</td>
+<td style="text-align: right;">0.3628</td>
+<td style="text-align: right;">0.2108</td>
+<td style="text-align: right;">0.6242</td>
+<td style="text-align: right;">0.0030</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">IFN-gamma</td>
+<td style="text-align: left;">Drug - Vehicle, Disease</td>
+<td style="text-align: right;">-0.4794</td>
+<td style="text-align: right;">0.1580</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">-3.0350</td>
+<td style="text-align: right;">0.0079</td>
+<td style="text-align: right;">0.3316</td>
+<td style="text-align: right;">0.1534</td>
+<td style="text-align: right;">0.7169</td>
+<td style="text-align: right;">0.0185</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">IL-10</td>
+<td style="text-align: left;">Drug - Vehicle, Disease</td>
+<td style="text-align: right;">-0.4409</td>
+<td style="text-align: right;">0.1592</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">-2.7691</td>
+<td style="text-align: right;">0.0137</td>
+<td style="text-align: right;">0.3623</td>
+<td style="text-align: right;">0.1666</td>
+<td style="text-align: right;">0.7882</td>
+<td style="text-align: right;">0.0261</td>
+</tr>
+</tbody>
+</table>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>readr<span class="sc">::</span><span class="fu">write_csv</span>(emm_contrasts, <span class="fu">file.path</span>(OUTPUT_DIR, <span class="st">"emmeans_contrasts_foldchanges.csv"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>readr<span class="sc">::</span><span class="fu">write_csv</span>(emm_contrasts, <span class="fu">file.path</span>(OUTPUT_DIR, <span class="st">"emmeans_contrasts_foldchanges.csv"</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 </section>
@@ -844,60 +1373,60 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>heatmap_data <span class="ot">&lt;-</span> emm_contrasts <span class="sc">%&gt;%</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(contrast)) <span class="sc">%&gt;%</span></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">log2_FC      =</span> <span class="fu">log2</span>(fold_change),</span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">log2_FC_plot =</span> <span class="fu">if_else</span>(p_adj <span class="sc">&lt;</span> <span class="fl">0.05</span>, log2_FC, <span class="dv">0</span>),</span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">Analyte      =</span> <span class="fu">factor</span>(Analyte, <span class="at">levels =</span> <span class="fu">sort</span>(<span class="fu">unique</span>(Analyte))),</span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">contrast_disp =</span> <span class="fu">factor</span>(contrast,</span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>                           <span class="at">levels =</span> CONTRAST_ORDER,</span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>                           <span class="at">labels =</span> CONTRAST_LABELS)</span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(contrast_disp))</span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>lim <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(heatmap_data<span class="sc">$</span>log2_FC_plot), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>lim <span class="ot">&lt;-</span> <span class="fu">max</span>(lim, <span class="dv">1</span>)</span>
-<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>p_heat <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(heatmap_data,</span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>                 <span class="fu">aes</span>(<span class="at">x =</span> contrast_disp, <span class="at">y =</span> Analyte, <span class="at">fill =</span> log2_FC_plot)) <span class="sc">+</span></span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_tile</span>(<span class="at">color =</span> <span class="st">"grey85"</span>, <span class="at">linewidth =</span> <span class="fl">0.2</span>) <span class="sc">+</span></span>
-<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_gradient2</span>(</span>
-<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">low      =</span> <span class="st">"#3B4CC0"</span>,</span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">mid      =</span> <span class="st">"white"</span>,</span>
-<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">high     =</span> <span class="st">"#D55E00"</span>,</span>
-<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">midpoint =</span> <span class="dv">0</span>,</span>
-<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">limits   =</span> <span class="fu">c</span>(<span class="sc">-</span>lim, lim),</span>
-<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">breaks   =</span> <span class="fu">pretty_breaks</span>(<span class="at">n =</span> <span class="dv">5</span>),</span>
-<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">labels   =</span> <span class="fu">label_number</span>(<span class="at">accuracy =</span> <span class="fl">0.1</span>)</span>
-<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_discrete</span>(<span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.01</span>, <span class="fl">0.05</span>))) <span class="sc">+</span></span>
-<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">x       =</span> <span class="cn">NULL</span>,</span>
-<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">y       =</span> <span class="cn">NULL</span>,</span>
-<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill    =</span> <span class="st">"Log\u2082 Fold Change"</span>,</span>
-<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">title   =</span> <span class="st">"Analyte-wise Effects of Treatments"</span>,</span>
-<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Non-significant tiles masked to 0 (FDR &lt; 0.05)"</span></span>
-<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">13</span>, <span class="at">base_family =</span> <span class="st">"sans"</span>) <span class="sc">+</span></span>
-<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
-<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.position  =</span> <span class="st">"right"</span>,</span>
-<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.direction =</span> <span class="st">"vertical"</span>,</span>
-<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.title     =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">11</span>),</span>
-<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.key.width =</span> <span class="fu">unit</span>(<span class="dv">12</span>, <span class="st">"pt"</span>),</span>
-<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.x      =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">30</span>, <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
-<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.y      =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">11</span>, <span class="at">lineheight =</span> <span class="fl">1.3</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
-<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.ticks       =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.line        =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title       =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">14</span>, <span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">margin =</span> <span class="fu">margin</span>(<span class="at">b =</span> <span class="dv">6</span>)),</span>
-<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.major =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>()</span>
-<span id="cb15-49"><a href="#cb15-49" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb15-50"><a href="#cb15-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-51"><a href="#cb15-51" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="fu">file.path</span>(OUTPUT_DIR, <span class="st">"Heatmaps"</span>, <span class="st">"heatmap.tiff"</span>),</span>
-<span id="cb15-52"><a href="#cb15-52" aria-hidden="true" tabindex="-1"></a>       <span class="at">plot =</span> p_heat, <span class="at">width =</span> <span class="dv">6</span>, <span class="at">height =</span> <span class="dv">4</span>, <span class="at">dpi =</span> <span class="dv">600</span>,</span>
-<span id="cb15-53"><a href="#cb15-53" aria-hidden="true" tabindex="-1"></a>       <span class="at">device =</span> <span class="st">"tiff"</span>, <span class="at">compression =</span> <span class="st">"lzw"</span>)</span>
-<span id="cb15-54"><a href="#cb15-54" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_heat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>heatmap_data <span class="ot">&lt;-</span> emm_contrasts <span class="sc">%&gt;%</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(contrast)) <span class="sc">%&gt;%</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">log2_FC      =</span> <span class="fu">log2</span>(fold_change),</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">log2_FC_plot =</span> <span class="fu">if_else</span>(p_adj <span class="sc">&lt;</span> <span class="fl">0.05</span>, log2_FC, <span class="dv">0</span>),</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">Analyte      =</span> <span class="fu">factor</span>(Analyte, <span class="at">levels =</span> <span class="fu">sort</span>(<span class="fu">unique</span>(Analyte))),</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">contrast_disp =</span> <span class="fu">factor</span>(contrast,</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>                           <span class="at">levels =</span> CONTRAST_ORDER,</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>                           <span class="at">labels =</span> CONTRAST_LABELS)</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(contrast_disp))</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>lim <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">abs</span>(heatmap_data<span class="sc">$</span>log2_FC_plot), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>lim <span class="ot">&lt;-</span> <span class="fu">max</span>(lim, <span class="dv">1</span>)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>p_heat <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(heatmap_data,</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>                 <span class="fu">aes</span>(<span class="at">x =</span> contrast_disp, <span class="at">y =</span> Analyte, <span class="at">fill =</span> log2_FC_plot)) <span class="sc">+</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_tile</span>(<span class="at">color =</span> <span class="st">"grey85"</span>, <span class="at">linewidth =</span> <span class="fl">0.2</span>) <span class="sc">+</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_gradient2</span>(</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">low      =</span> <span class="st">"#3B4CC0"</span>,</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">mid      =</span> <span class="st">"white"</span>,</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">high     =</span> <span class="st">"#D55E00"</span>,</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">midpoint =</span> <span class="dv">0</span>,</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">limits   =</span> <span class="fu">c</span>(<span class="sc">-</span>lim, lim),</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">breaks   =</span> <span class="fu">pretty_breaks</span>(<span class="at">n =</span> <span class="dv">5</span>),</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">labels   =</span> <span class="fu">label_number</span>(<span class="at">accuracy =</span> <span class="fl">0.1</span>)</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_discrete</span>(<span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.01</span>, <span class="fl">0.05</span>))) <span class="sc">+</span></span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">x       =</span> <span class="cn">NULL</span>,</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">y       =</span> <span class="cn">NULL</span>,</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">fill    =</span> <span class="st">"Log\u2082 Fold Change"</span>,</span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">title   =</span> <span class="st">"Analyte-wise Effects of Treatments"</span>,</span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">"Non-significant tiles masked to 0 (FDR &lt; 0.05)"</span></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">13</span>, <span class="at">base_family =</span> <span class="st">"sans"</span>) <span class="sc">+</span></span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.position  =</span> <span class="st">"right"</span>,</span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.direction =</span> <span class="st">"vertical"</span>,</span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.title     =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">11</span>),</span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>    <span class="at">legend.key.width =</span> <span class="fu">unit</span>(<span class="dv">12</span>, <span class="st">"pt"</span>),</span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.x      =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">30</span>, <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.y      =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">11</span>, <span class="at">lineheight =</span> <span class="fl">1.3</span>, <span class="at">face =</span> <span class="st">"bold"</span>),</span>
+<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.ticks       =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.line        =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title       =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">14</span>, <span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">margin =</span> <span class="fu">margin</span>(<span class="at">b =</span> <span class="dv">6</span>)),</span>
+<span id="cb12-47"><a href="#cb12-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.major =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb12-48"><a href="#cb12-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb12-49"><a href="#cb12-49" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb12-50"><a href="#cb12-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-51"><a href="#cb12-51" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="fu">file.path</span>(OUTPUT_DIR, <span class="st">"Heatmaps"</span>, <span class="st">"heatmap.tiff"</span>),</span>
+<span id="cb12-52"><a href="#cb12-52" aria-hidden="true" tabindex="-1"></a>       <span class="at">plot =</span> p_heat, <span class="at">width =</span> <span class="dv">6</span>, <span class="at">height =</span> <span class="dv">4</span>, <span class="at">dpi =</span> <span class="dv">600</span>,</span>
+<span id="cb12-53"><a href="#cb12-53" aria-hidden="true" tabindex="-1"></a>       <span class="at">device =</span> <span class="st">"tiff"</span>, <span class="at">compression =</span> <span class="st">"lzw"</span>)</span>
+<span id="cb12-54"><a href="#cb12-54" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_heat)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -914,104 +1443,104 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Shared helper: compute emmeans contrasts for one analyte ──────────────────</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>get_pval_df <span class="ot">&lt;-</span> <span class="cf">function</span>(pdat) {</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  m   <span class="ot">&lt;-</span> <span class="fu">lm</span>(log10_value <span class="sc">~</span> Group, <span class="at">data =</span> pdat)</span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  emm <span class="ot">&lt;-</span> <span class="fu">emmeans</span>(m, <span class="sc">~</span> Group)</span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  ctr <span class="ot">&lt;-</span> <span class="fu">contrast</span>(emm, <span class="at">method =</span> <span class="st">"trt.vs.ctrl"</span>, <span class="at">ref =</span> BASELINE_GROUP, <span class="at">adjust =</span> <span class="st">"BH"</span>)</span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  ctr_ci <span class="ot">&lt;-</span> <span class="fu">confint</span>(ctr, <span class="at">adjust =</span> <span class="st">"BH"</span>) <span class="sc">%&gt;%</span> <span class="fu">as.data.frame</span>()</span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  other_groups <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">levels</span>(pdat<span class="sc">$</span>Group), BASELINE_GROUP)</span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  ctr_df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(ctr) <span class="sc">%&gt;%</span></span>
-<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(contrast, estimate, p.value) <span class="sc">%&gt;%</span></span>
-<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">left_join</span>(ctr_ci <span class="sc">%&gt;%</span> <span class="fu">select</span>(contrast, lower.CL, upper.CL), <span class="at">by =</span> <span class="st">"contrast"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
-<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>      <span class="at">group2 =</span> other_groups,</span>
-<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>      <span class="at">FC     =</span> <span class="dv">10</span><span class="sc">^</span>estimate, <span class="at">LCL =</span> <span class="dv">10</span><span class="sc">^</span>lower.CL, <span class="at">UCL =</span> <span class="dv">10</span><span class="sc">^</span>upper.CL,</span>
-<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>      <span class="at">q      =</span> p.value,</span>
-<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>      <span class="at">label  =</span> <span class="fu">case_when</span>(q <span class="sc">&lt;=</span> <span class="fl">0.001</span> <span class="sc">~</span> <span class="st">"***"</span>, q <span class="sc">&lt;=</span> <span class="fl">0.01</span> <span class="sc">~</span> <span class="st">"**"</span>,</span>
-<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>                         q <span class="sc">&lt;=</span> <span class="fl">0.05</span> <span class="sc">~</span> <span class="st">"*"</span>, <span class="cn">TRUE</span> <span class="sc">~</span> <span class="st">"ns"</span>)</span>
-<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>  ymax   <span class="ot">&lt;-</span> <span class="fu">max</span>(pdat<span class="sc">$</span>log10_value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>  spread <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fl">0.1</span>, <span class="fu">diff</span>(<span class="fu">range</span>(pdat<span class="sc">$</span>log10_value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)))</span>
-<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>  step   <span class="ot">&lt;-</span> <span class="fu">seq_along</span>(other_groups) <span class="sc">*</span> <span class="fl">0.1</span> <span class="sc">-</span> <span class="fl">0.04</span></span>
-<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>  pvdf <span class="ot">&lt;-</span> ctr_df <span class="sc">%&gt;%</span></span>
-<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">transmute</span>(</span>
-<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>      <span class="at">group1     =</span> BASELINE_GROUP,</span>
-<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>      <span class="at">group2     =</span> group2,</span>
-<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>      <span class="at">label      =</span> label,</span>
-<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>      <span class="at">y.position =</span> ymax <span class="sc">+</span> spread <span class="sc">*</span> step</span>
-<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>  pvdf</span>
-<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a>analytes_order <span class="ot">&lt;-</span> <span class="fu">sort</span>(<span class="fu">unique</span>(dat_long<span class="sc">$</span>Analyte))</span>
-<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>all_stats <span class="ot">&lt;-</span> <span class="fu">lapply</span>(analytes_order, <span class="cf">function</span>(an) {</span>
-<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a>  pdat <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
-<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(Analyte <span class="sc">==</span> an, <span class="sc">!</span><span class="fu">is.na</span>(log10_value)) <span class="sc">%&gt;%</span></span>
-<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Group =</span> <span class="fu">factor</span>(Group, <span class="at">levels =</span> <span class="fu">names</span>(OKABE_ITO)))</span>
-<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">nrow</span>(pdat) <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="cn">NULL</span>)</span>
-<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a>  pvdf <span class="ot">&lt;-</span> <span class="fu">get_pval_df</span>(pdat)</span>
-<span id="cb16-43"><a href="#cb16-43" aria-hidden="true" tabindex="-1"></a>  pvdf<span class="sc">$</span>Analyte <span class="ot">&lt;-</span> an</span>
-<span id="cb16-44"><a href="#cb16-44" aria-hidden="true" tabindex="-1"></a>  pvdf</span>
-<span id="cb16-45"><a href="#cb16-45" aria-hidden="true" tabindex="-1"></a>})</span>
-<span id="cb16-46"><a href="#cb16-46" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(all_stats) <span class="ot">&lt;-</span> analytes_order</span>
-<span id="cb16-47"><a href="#cb16-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-48"><a href="#cb16-48" aria-hidden="true" tabindex="-1"></a>make_faceted_plot <span class="ot">&lt;-</span> <span class="cf">function</span>(plot_dat, <span class="at">plot_type =</span> <span class="fu">c</span>(<span class="st">"dot"</span>, <span class="st">"bar"</span>, <span class="st">"violin"</span>, <span class="st">"box"</span>)) {</span>
-<span id="cb16-49"><a href="#cb16-49" aria-hidden="true" tabindex="-1"></a>  plot_type <span class="ot">&lt;-</span> <span class="fu">match.arg</span>(plot_type)</span>
-<span id="cb16-50"><a href="#cb16-50" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb16-51"><a href="#cb16-51" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(plot_dat, <span class="fu">aes</span>(<span class="at">x =</span> Group, <span class="at">y =</span> log10_value)) <span class="sc">+</span></span>
-<span id="cb16-52"><a href="#cb16-52" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_color_manual</span>(<span class="at">values =</span> OKABE_ITO) <span class="sc">+</span></span>
-<span id="cb16-53"><a href="#cb16-53" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> OKABE_ITO) <span class="sc">+</span></span>
-<span id="cb16-54"><a href="#cb16-54" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_y_continuous</span>(<span class="at">breaks =</span> <span class="fu">pretty_breaks</span>(<span class="dv">5</span>), <span class="at">labels =</span> <span class="fu">math_format</span>(<span class="dv">10</span><span class="sc">^</span>.x)) <span class="sc">+</span></span>
-<span id="cb16-55"><a href="#cb16-55" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"log\u2081\u2080 concentration (pg/mL)"</span>, <span class="at">x =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
-<span id="cb16-56"><a href="#cb16-56" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">11</span>, <span class="at">base_family =</span> <span class="st">"sans"</span>) <span class="sc">+</span></span>
-<span id="cb16-57"><a href="#cb16-57" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
-<span id="cb16-58"><a href="#cb16-58" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.position =</span> <span class="st">"none"</span>,</span>
-<span id="cb16-59"><a href="#cb16-59" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.line       =</span> <span class="fu">element_line</span>(<span class="at">linewidth =</span> <span class="fl">0.6</span>),</span>
-<span id="cb16-60"><a href="#cb16-60" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.ticks      =</span> <span class="fu">element_line</span>(<span class="at">linewidth =</span> <span class="fl">0.6</span>),</span>
-<span id="cb16-61"><a href="#cb16-61" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">30</span>, <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">size =</span> <span class="dv">9</span>),</span>
-<span id="cb16-62"><a href="#cb16-62" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.major =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb16-63"><a href="#cb16-63" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb16-64"><a href="#cb16-64" aria-hidden="true" tabindex="-1"></a>      <span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">10</span>),</span>
-<span id="cb16-65"><a href="#cb16-65" aria-hidden="true" tabindex="-1"></a>      <span class="at">strip.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> <span class="st">"grey95"</span>, <span class="at">color =</span> <span class="st">"grey70"</span>)</span>
-<span id="cb16-66"><a href="#cb16-66" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb16-67"><a href="#cb16-67" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb16-68"><a href="#cb16-68" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (plot_type <span class="sc">==</span> <span class="st">"dot"</span>) {</span>
-<span id="cb16-69"><a href="#cb16-69" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p <span class="sc">+</span></span>
-<span id="cb16-70"><a href="#cb16-70" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_quasirandom</span>(<span class="fu">aes</span>(<span class="at">color =</span> Group), <span class="at">width =</span> <span class="fl">0.15</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>, <span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
-<span id="cb16-71"><a href="#cb16-71" aria-hidden="true" tabindex="-1"></a>      <span class="fu">stat_summary</span>(<span class="at">fun.data =</span> mean_cl_normal, <span class="at">geom =</span> <span class="st">"errorbar"</span>, <span class="at">width =</span> <span class="fl">0.18</span>, <span class="at">size =</span> <span class="fl">0.4</span>)</span>
-<span id="cb16-72"><a href="#cb16-72" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (plot_type <span class="sc">==</span> <span class="st">"bar"</span>) {</span>
-<span id="cb16-73"><a href="#cb16-73" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p <span class="sc">+</span></span>
-<span id="cb16-74"><a href="#cb16-74" aria-hidden="true" tabindex="-1"></a>      <span class="fu">stat_summary</span>(<span class="fu">aes</span>(<span class="at">fill =</span> Group), <span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"col"</span>,</span>
-<span id="cb16-75"><a href="#cb16-75" aria-hidden="true" tabindex="-1"></a>                   <span class="at">width =</span> <span class="fl">0.6</span>, <span class="at">alpha =</span> <span class="fl">0.45</span>, <span class="at">color =</span> <span class="cn">NA</span>) <span class="sc">+</span></span>
-<span id="cb16-76"><a href="#cb16-76" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_quasirandom</span>(<span class="fu">aes</span>(<span class="at">color =</span> Group), <span class="at">width =</span> <span class="fl">0.15</span>, <span class="at">size =</span> <span class="fl">1.5</span>, <span class="at">alpha =</span> <span class="fl">0.9</span>) <span class="sc">+</span></span>
-<span id="cb16-77"><a href="#cb16-77" aria-hidden="true" tabindex="-1"></a>      <span class="fu">stat_summary</span>(<span class="at">fun.data =</span> mean_cl_normal, <span class="at">geom =</span> <span class="st">"errorbar"</span>,</span>
-<span id="cb16-78"><a href="#cb16-78" aria-hidden="true" tabindex="-1"></a>                   <span class="at">width =</span> <span class="fl">0.18</span>, <span class="at">linewidth =</span> <span class="fl">0.5</span>)</span>
-<span id="cb16-79"><a href="#cb16-79" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (plot_type <span class="sc">==</span> <span class="st">"violin"</span>) {</span>
-<span id="cb16-80"><a href="#cb16-80" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p <span class="sc">+</span></span>
-<span id="cb16-81"><a href="#cb16-81" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_violin</span>(<span class="fu">aes</span>(<span class="at">fill =</span> Group, <span class="at">color =</span> Group),</span>
-<span id="cb16-82"><a href="#cb16-82" aria-hidden="true" tabindex="-1"></a>                  <span class="at">width =</span> <span class="fl">0.8</span>, <span class="at">alpha =</span> <span class="fl">0.15</span>, <span class="at">trim =</span> <span class="cn">FALSE</span>, <span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
-<span id="cb16-83"><a href="#cb16-83" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_quasirandom</span>(<span class="fu">aes</span>(<span class="at">color =</span> Group), <span class="at">width =</span> <span class="fl">0.15</span>, <span class="at">size =</span> <span class="fl">1.5</span>, <span class="at">alpha =</span> <span class="fl">0.9</span>)</span>
-<span id="cb16-84"><a href="#cb16-84" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (plot_type <span class="sc">==</span> <span class="st">"box"</span>) {</span>
-<span id="cb16-85"><a href="#cb16-85" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p <span class="sc">+</span></span>
-<span id="cb16-86"><a href="#cb16-86" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_boxplot</span>(<span class="fu">aes</span>(<span class="at">fill =</span> Group, <span class="at">color =</span> Group),</span>
-<span id="cb16-87"><a href="#cb16-87" aria-hidden="true" tabindex="-1"></a>                   <span class="at">width =</span> <span class="fl">0.6</span>, <span class="at">alpha =</span> <span class="fl">0.15</span>, <span class="at">outlier.shape =</span> <span class="cn">NA</span>, <span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
-<span id="cb16-88"><a href="#cb16-88" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_quasirandom</span>(<span class="fu">aes</span>(<span class="at">color =</span> Group), <span class="at">width =</span> <span class="fl">0.15</span>, <span class="at">size =</span> <span class="fl">1.5</span>, <span class="at">alpha =</span> <span class="fl">0.9</span>)</span>
-<span id="cb16-89"><a href="#cb16-89" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb16-90"><a href="#cb16-90" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb16-91"><a href="#cb16-91" aria-hidden="true" tabindex="-1"></a>  p <span class="sc">+</span> <span class="fu">facet_wrap</span>(<span class="sc">~</span>Analyte, <span class="at">scales =</span> <span class="st">"free_y"</span>, <span class="at">ncol =</span> <span class="dv">4</span>)</span>
-<span id="cb16-92"><a href="#cb16-92" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb16-93"><a href="#cb16-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-94"><a href="#cb16-94" aria-hidden="true" tabindex="-1"></a>write_plot <span class="ot">&lt;-</span> <span class="cf">function</span>(p, name) {</span>
-<span id="cb16-95"><a href="#cb16-95" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggsave</span>(<span class="fu">file.path</span>(OUTPUT_DIR, name),</span>
-<span id="cb16-96"><a href="#cb16-96" aria-hidden="true" tabindex="-1"></a>         <span class="at">plot =</span> p, <span class="at">width =</span> <span class="dv">14</span>, <span class="at">height =</span> <span class="dv">8</span>, <span class="at">dpi =</span> <span class="dv">600</span>,</span>
-<span id="cb16-97"><a href="#cb16-97" aria-hidden="true" tabindex="-1"></a>         <span class="at">device =</span> <span class="st">"tiff"</span>, <span class="at">compression =</span> <span class="st">"lzw"</span>)</span>
-<span id="cb16-98"><a href="#cb16-98" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Shared helper: compute emmeans contrasts for one analyte ──────────────────</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>get_pval_df <span class="ot">&lt;-</span> <span class="cf">function</span>(pdat) {</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  m   <span class="ot">&lt;-</span> <span class="fu">lm</span>(log10_value <span class="sc">~</span> Group, <span class="at">data =</span> pdat)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  emm <span class="ot">&lt;-</span> <span class="fu">emmeans</span>(m, <span class="sc">~</span> Group)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  ctr <span class="ot">&lt;-</span> <span class="fu">contrast</span>(emm, <span class="at">method =</span> <span class="st">"trt.vs.ctrl"</span>, <span class="at">ref =</span> BASELINE_GROUP, <span class="at">adjust =</span> <span class="st">"BH"</span>)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  ctr_ci <span class="ot">&lt;-</span> <span class="fu">confint</span>(ctr, <span class="at">adjust =</span> <span class="st">"BH"</span>) <span class="sc">%&gt;%</span> <span class="fu">as.data.frame</span>()</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  other_groups <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(<span class="fu">levels</span>(pdat<span class="sc">$</span>Group), BASELINE_GROUP)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  ctr_df <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(ctr) <span class="sc">%&gt;%</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(contrast, estimate, p.value) <span class="sc">%&gt;%</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">left_join</span>(ctr_ci <span class="sc">%&gt;%</span> <span class="fu">select</span>(contrast, lower.CL, upper.CL), <span class="at">by =</span> <span class="st">"contrast"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>      <span class="at">group2 =</span> other_groups,</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>      <span class="at">FC     =</span> <span class="dv">10</span><span class="sc">^</span>estimate, <span class="at">LCL =</span> <span class="dv">10</span><span class="sc">^</span>lower.CL, <span class="at">UCL =</span> <span class="dv">10</span><span class="sc">^</span>upper.CL,</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>      <span class="at">q      =</span> p.value,</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>      <span class="at">label  =</span> <span class="fu">case_when</span>(q <span class="sc">&lt;=</span> <span class="fl">0.001</span> <span class="sc">~</span> <span class="st">"***"</span>, q <span class="sc">&lt;=</span> <span class="fl">0.01</span> <span class="sc">~</span> <span class="st">"**"</span>,</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>                         q <span class="sc">&lt;=</span> <span class="fl">0.05</span> <span class="sc">~</span> <span class="st">"*"</span>, <span class="cn">TRUE</span> <span class="sc">~</span> <span class="st">"ns"</span>)</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>  ymax   <span class="ot">&lt;-</span> <span class="fu">max</span>(pdat<span class="sc">$</span>log10_value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>  spread <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fl">0.1</span>, <span class="fu">diff</span>(<span class="fu">range</span>(pdat<span class="sc">$</span>log10_value, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)))</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>  step   <span class="ot">&lt;-</span> <span class="fu">seq_along</span>(other_groups) <span class="sc">*</span> <span class="fl">0.1</span> <span class="sc">-</span> <span class="fl">0.04</span></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>  pvdf <span class="ot">&lt;-</span> ctr_df <span class="sc">%&gt;%</span></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">transmute</span>(</span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>      <span class="at">group1     =</span> BASELINE_GROUP,</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>      <span class="at">group2     =</span> group2,</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>      <span class="at">label      =</span> label,</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>      <span class="at">y.position =</span> ymax <span class="sc">+</span> spread <span class="sc">*</span> step</span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>  pvdf</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>analytes_order <span class="ot">&lt;-</span> <span class="fu">sort</span>(<span class="fu">unique</span>(dat_long<span class="sc">$</span>Analyte))</span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>all_stats <span class="ot">&lt;-</span> <span class="fu">lapply</span>(analytes_order, <span class="cf">function</span>(an) {</span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>  pdat <span class="ot">&lt;-</span> dat_long <span class="sc">%&gt;%</span></span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(Analyte <span class="sc">==</span> an, <span class="sc">!</span><span class="fu">is.na</span>(log10_value)) <span class="sc">%&gt;%</span></span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">Group =</span> <span class="fu">factor</span>(Group, <span class="at">levels =</span> <span class="fu">names</span>(OKABE_ITO)))</span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">nrow</span>(pdat) <span class="sc">==</span> <span class="dv">0</span>) <span class="fu">return</span>(<span class="cn">NULL</span>)</span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>  pvdf <span class="ot">&lt;-</span> <span class="fu">get_pval_df</span>(pdat)</span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a>  pvdf<span class="sc">$</span>Analyte <span class="ot">&lt;-</span> an</span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a>  pvdf</span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a>})</span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(all_stats) <span class="ot">&lt;-</span> analytes_order</span>
+<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a>make_faceted_plot <span class="ot">&lt;-</span> <span class="cf">function</span>(plot_dat, <span class="at">plot_type =</span> <span class="fu">c</span>(<span class="st">"dot"</span>, <span class="st">"bar"</span>, <span class="st">"violin"</span>, <span class="st">"box"</span>)) {</span>
+<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a>  plot_type <span class="ot">&lt;-</span> <span class="fu">match.arg</span>(plot_type)</span>
+<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(plot_dat, <span class="fu">aes</span>(<span class="at">x =</span> Group, <span class="at">y =</span> log10_value)) <span class="sc">+</span></span>
+<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_color_manual</span>(<span class="at">values =</span> OKABE_ITO) <span class="sc">+</span></span>
+<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> OKABE_ITO) <span class="sc">+</span></span>
+<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_y_continuous</span>(<span class="at">breaks =</span> <span class="fu">pretty_breaks</span>(<span class="dv">5</span>), <span class="at">labels =</span> <span class="fu">math_format</span>(<span class="dv">10</span><span class="sc">^</span>.x)) <span class="sc">+</span></span>
+<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">y =</span> <span class="st">"log\u2081\u2080 concentration (pg/mL)"</span>, <span class="at">x =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">11</span>, <span class="at">base_family =</span> <span class="st">"sans"</span>) <span class="sc">+</span></span>
+<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme</span>(</span>
+<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a>      <span class="at">legend.position =</span> <span class="st">"none"</span>,</span>
+<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.line       =</span> <span class="fu">element_line</span>(<span class="at">linewidth =</span> <span class="fl">0.6</span>),</span>
+<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.ticks      =</span> <span class="fu">element_line</span>(<span class="at">linewidth =</span> <span class="fl">0.6</span>),</span>
+<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a>      <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">30</span>, <span class="at">hjust =</span> <span class="dv">1</span>, <span class="at">size =</span> <span class="dv">9</span>),</span>
+<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.major =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a>      <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a>      <span class="at">strip.text =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">10</span>),</span>
+<span id="cb13-65"><a href="#cb13-65" aria-hidden="true" tabindex="-1"></a>      <span class="at">strip.background =</span> <span class="fu">element_rect</span>(<span class="at">fill =</span> <span class="st">"grey95"</span>, <span class="at">color =</span> <span class="st">"grey70"</span>)</span>
+<span id="cb13-66"><a href="#cb13-66" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb13-67"><a href="#cb13-67" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-68"><a href="#cb13-68" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (plot_type <span class="sc">==</span> <span class="st">"dot"</span>) {</span>
+<span id="cb13-69"><a href="#cb13-69" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p <span class="sc">+</span></span>
+<span id="cb13-70"><a href="#cb13-70" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_quasirandom</span>(<span class="fu">aes</span>(<span class="at">color =</span> Group), <span class="at">width =</span> <span class="fl">0.15</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>, <span class="at">size =</span> <span class="fl">1.5</span>) <span class="sc">+</span></span>
+<span id="cb13-71"><a href="#cb13-71" aria-hidden="true" tabindex="-1"></a>      <span class="fu">stat_summary</span>(<span class="at">fun.data =</span> mean_cl_normal, <span class="at">geom =</span> <span class="st">"errorbar"</span>, <span class="at">width =</span> <span class="fl">0.18</span>, <span class="at">size =</span> <span class="fl">0.4</span>)</span>
+<span id="cb13-72"><a href="#cb13-72" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (plot_type <span class="sc">==</span> <span class="st">"bar"</span>) {</span>
+<span id="cb13-73"><a href="#cb13-73" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p <span class="sc">+</span></span>
+<span id="cb13-74"><a href="#cb13-74" aria-hidden="true" tabindex="-1"></a>      <span class="fu">stat_summary</span>(<span class="fu">aes</span>(<span class="at">fill =</span> Group), <span class="at">fun =</span> mean, <span class="at">geom =</span> <span class="st">"col"</span>,</span>
+<span id="cb13-75"><a href="#cb13-75" aria-hidden="true" tabindex="-1"></a>                   <span class="at">width =</span> <span class="fl">0.6</span>, <span class="at">alpha =</span> <span class="fl">0.45</span>, <span class="at">color =</span> <span class="cn">NA</span>) <span class="sc">+</span></span>
+<span id="cb13-76"><a href="#cb13-76" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_quasirandom</span>(<span class="fu">aes</span>(<span class="at">color =</span> Group), <span class="at">width =</span> <span class="fl">0.15</span>, <span class="at">size =</span> <span class="fl">1.5</span>, <span class="at">alpha =</span> <span class="fl">0.9</span>) <span class="sc">+</span></span>
+<span id="cb13-77"><a href="#cb13-77" aria-hidden="true" tabindex="-1"></a>      <span class="fu">stat_summary</span>(<span class="at">fun.data =</span> mean_cl_normal, <span class="at">geom =</span> <span class="st">"errorbar"</span>,</span>
+<span id="cb13-78"><a href="#cb13-78" aria-hidden="true" tabindex="-1"></a>                   <span class="at">width =</span> <span class="fl">0.18</span>, <span class="at">linewidth =</span> <span class="fl">0.5</span>)</span>
+<span id="cb13-79"><a href="#cb13-79" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (plot_type <span class="sc">==</span> <span class="st">"violin"</span>) {</span>
+<span id="cb13-80"><a href="#cb13-80" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p <span class="sc">+</span></span>
+<span id="cb13-81"><a href="#cb13-81" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_violin</span>(<span class="fu">aes</span>(<span class="at">fill =</span> Group, <span class="at">color =</span> Group),</span>
+<span id="cb13-82"><a href="#cb13-82" aria-hidden="true" tabindex="-1"></a>                  <span class="at">width =</span> <span class="fl">0.8</span>, <span class="at">alpha =</span> <span class="fl">0.15</span>, <span class="at">trim =</span> <span class="cn">FALSE</span>, <span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb13-83"><a href="#cb13-83" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_quasirandom</span>(<span class="fu">aes</span>(<span class="at">color =</span> Group), <span class="at">width =</span> <span class="fl">0.15</span>, <span class="at">size =</span> <span class="fl">1.5</span>, <span class="at">alpha =</span> <span class="fl">0.9</span>)</span>
+<span id="cb13-84"><a href="#cb13-84" aria-hidden="true" tabindex="-1"></a>  } <span class="cf">else</span> <span class="cf">if</span> (plot_type <span class="sc">==</span> <span class="st">"box"</span>) {</span>
+<span id="cb13-85"><a href="#cb13-85" aria-hidden="true" tabindex="-1"></a>    p <span class="ot">&lt;-</span> p <span class="sc">+</span></span>
+<span id="cb13-86"><a href="#cb13-86" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_boxplot</span>(<span class="fu">aes</span>(<span class="at">fill =</span> Group, <span class="at">color =</span> Group),</span>
+<span id="cb13-87"><a href="#cb13-87" aria-hidden="true" tabindex="-1"></a>                   <span class="at">width =</span> <span class="fl">0.6</span>, <span class="at">alpha =</span> <span class="fl">0.15</span>, <span class="at">outlier.shape =</span> <span class="cn">NA</span>, <span class="at">linewidth =</span> <span class="fl">0.6</span>) <span class="sc">+</span></span>
+<span id="cb13-88"><a href="#cb13-88" aria-hidden="true" tabindex="-1"></a>      <span class="fu">geom_quasirandom</span>(<span class="fu">aes</span>(<span class="at">color =</span> Group), <span class="at">width =</span> <span class="fl">0.15</span>, <span class="at">size =</span> <span class="fl">1.5</span>, <span class="at">alpha =</span> <span class="fl">0.9</span>)</span>
+<span id="cb13-89"><a href="#cb13-89" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb13-90"><a href="#cb13-90" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-91"><a href="#cb13-91" aria-hidden="true" tabindex="-1"></a>  p <span class="sc">+</span> <span class="fu">facet_wrap</span>(<span class="sc">~</span>Analyte, <span class="at">scales =</span> <span class="st">"free_y"</span>, <span class="at">ncol =</span> <span class="dv">4</span>)</span>
+<span id="cb13-92"><a href="#cb13-92" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-93"><a href="#cb13-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-94"><a href="#cb13-94" aria-hidden="true" tabindex="-1"></a>write_plot <span class="ot">&lt;-</span> <span class="cf">function</span>(p, name) {</span>
+<span id="cb13-95"><a href="#cb13-95" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggsave</span>(<span class="fu">file.path</span>(OUTPUT_DIR, name),</span>
+<span id="cb13-96"><a href="#cb13-96" aria-hidden="true" tabindex="-1"></a>         <span class="at">plot =</span> p, <span class="at">width =</span> <span class="dv">14</span>, <span class="at">height =</span> <span class="dv">8</span>, <span class="at">dpi =</span> <span class="dv">600</span>,</span>
+<span id="cb13-97"><a href="#cb13-97" aria-hidden="true" tabindex="-1"></a>         <span class="at">device =</span> <span class="st">"tiff"</span>, <span class="at">compression =</span> <span class="st">"lzw"</span>)</span>
+<span id="cb13-98"><a href="#cb13-98" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 </div>
 <section id="dot-plots" class="level2">
@@ -1019,9 +1548,9 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>p_dot <span class="ot">&lt;-</span> <span class="fu">make_faceted_plot</span>(dat_long, <span class="st">"dot"</span>)</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write_plot</span>(p_dot, <span class="st">"Heatmaps/gallery_dotplots.tiff"</span>)</span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_dot)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>p_dot <span class="ot">&lt;-</span> <span class="fu">make_faceted_plot</span>(dat_long, <span class="st">"dot"</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write_plot</span>(p_dot, <span class="st">"Heatmaps/gallery_dotplots.tiff"</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_dot)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -1037,9 +1566,9 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>p_bar <span class="ot">&lt;-</span> <span class="fu">make_faceted_plot</span>(dat_long, <span class="st">"bar"</span>)</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write_plot</span>(p_bar, <span class="st">"Heatmaps/gallery_barplots.tiff"</span>)</span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_bar)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>p_bar <span class="ot">&lt;-</span> <span class="fu">make_faceted_plot</span>(dat_long, <span class="st">"bar"</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write_plot</span>(p_bar, <span class="st">"Heatmaps/gallery_barplots.tiff"</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_bar)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -1055,9 +1584,9 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>p_viol <span class="ot">&lt;-</span> <span class="fu">make_faceted_plot</span>(dat_long, <span class="st">"violin"</span>)</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write_plot</span>(p_viol, <span class="st">"Heatmaps/gallery_violinplots.tiff"</span>)</span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_viol)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>p_viol <span class="ot">&lt;-</span> <span class="fu">make_faceted_plot</span>(dat_long, <span class="st">"violin"</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write_plot</span>(p_viol, <span class="st">"Heatmaps/gallery_violinplots.tiff"</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_viol)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -1073,9 +1602,9 @@ Note
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>p_box <span class="ot">&lt;-</span> <span class="fu">make_faceted_plot</span>(dat_long, <span class="st">"box"</span>)</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write_plot</span>(p_box, <span class="st">"Heatmaps/gallery_boxplots.tiff"</span>)</span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_box)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>p_box <span class="ot">&lt;-</span> <span class="fu">make_faceted_plot</span>(dat_long, <span class="st">"box"</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write_plot</span>(p_box, <span class="st">"Heatmaps/gallery_boxplots.tiff"</span>)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_box)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div>
@@ -1544,43 +2073,43 @@ Note
     }
   });
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "04 · MagPix / Luminex Multiplex"</span></span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "2×2 factorial cytokine analysis with FDR correction and four plot types"</span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> |</span></span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co">  Analyzes multiplex immunoassay (MagPix/Luminex) data from a 2×2 factorial</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="co">  design (e.g., disease × treatment). Handles censored values (&lt; LoD) via</span></span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="co">  LoD/√2 substitution, flags outliers (3×IQR), fits per-analyte two-way ANOVA,</span></span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="co">  computes emmeans contrasts with BH-FDR, and produces a heatmap plus four</span></span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="co">  per-analyte plot types (dot, bar, violin, box).</span></span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [immunology, luminex, ANOVA, multiplex]</span></span>
-<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="fu">## Overview</span></span>
-<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Details <span class="pp">|</span></span>
-<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|---------|</span></span>
-<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Input** <span class="pp">|</span> Single wide-format CSV (rows = samples, columns = analytes + metadata) <span class="pp">|</span></span>
-<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Key packages** <span class="pp">|</span> <span class="in">`tidyverse`</span>, <span class="in">`emmeans`</span>, <span class="in">`ggbeeswarm`</span>, <span class="in">`ggpubr`</span>, <span class="in">`scales`</span> <span class="pp">|</span></span>
-<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Statistics** <span class="pp">|</span> Two-way ANOVA per analyte · emmeans contrasts · BH/FDR <span class="pp">|</span></span>
-<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Output** <span class="pp">|</span> QC tables · ANOVA results CSV · Contrasts CSV · Heatmap · 4 plot types per analyte <span class="pp">|</span></span>
-<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Download** <span class="pp">|</span> <span class="co">[</span><span class="ot">template.Rmd</span><span class="co">](template.Rmd)</span> <span class="pp">|</span></span>
-<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb21-24"><a href="#cb21-24" aria-hidden="true" tabindex="-1"></a>**When to use this template:** You have a MagPix/Luminex panel run on a 2×2 factorial</span>
-<span id="cb21-25"><a href="#cb21-25" aria-hidden="true" tabindex="-1"></a>experiment (e.g., disease status × treatment). Adapt <span class="in">`FACTOR1_LEVELS`</span> and</span>
-<span id="cb21-26"><a href="#cb21-26" aria-hidden="true" tabindex="-1"></a><span class="in">`FACTOR2_LEVELS`</span> to your own factor names.</span>
-<span id="cb21-27"><a href="#cb21-27" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb21-28"><a href="#cb21-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-29"><a href="#cb21-29" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb21-30"><a href="#cb21-30" aria-hidden="true" tabindex="-1"></a>**Okabe-Ito palette** is used throughout — colorblind-safe for all four groups.</span>
-<span id="cb21-31"><a href="#cb21-31" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb21-32"><a href="#cb21-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-33"><a href="#cb21-33" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Back to Gallery</span><span class="co">](../../index.html)</span>{.btn .btn-outline-secondary}</span>
-<span id="cb21-34"><a href="#cb21-34" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Open Template File</span><span class="co">](template.Rmd)</span>{.btn .btn-primary}</span>
-<span id="cb21-35"><a href="#cb21-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a><span class="in">```{r child="template.Rmd"}</span></span>
-<span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "04 · MagPix / Luminex Multiplex"</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "2×2 factorial cytokine analysis with FDR correction and four plot types"</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> |</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co">  Analyzes multiplex immunoassay (MagPix/Luminex) data from a 2×2 factorial</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="co">  design (e.g., disease × treatment). Handles censored values (&lt; LoD) via</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co">  LoD/√2 substitution, flags outliers (3×IQR), fits per-analyte two-way ANOVA,</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="co">  computes emmeans contrasts with BH-FDR, and produces a heatmap plus four</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="co">  per-analyte plot types (dot, bar, violin, box).</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [immunology, luminex, ANOVA, multiplex]</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="fu">## Overview</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Details <span class="pp">|</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|---------|</span></span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Input** <span class="pp">|</span> Single wide-format CSV (rows = samples, columns = analytes + metadata) <span class="pp">|</span></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Key packages** <span class="pp">|</span> <span class="in">`tidyverse`</span>, <span class="in">`emmeans`</span>, <span class="in">`ggbeeswarm`</span>, <span class="in">`ggpubr`</span>, <span class="in">`scales`</span> <span class="pp">|</span></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Statistics** <span class="pp">|</span> Two-way ANOVA per analyte · emmeans contrasts · BH/FDR <span class="pp">|</span></span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Output** <span class="pp">|</span> QC tables · ANOVA results CSV · Contrasts CSV · Heatmap · 4 plot types per analyte <span class="pp">|</span></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Download** <span class="pp">|</span> <span class="co">[</span><span class="ot">template.Rmd</span><span class="co">](template.Rmd)</span> <span class="pp">|</span></span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>**When to use this template:** You have a MagPix/Luminex panel run on a 2×2 factorial</span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>experiment (e.g., disease status × treatment). Adapt <span class="in">`FACTOR1_LEVELS`</span> and</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a><span class="in">`FACTOR2_LEVELS`</span> to your own factor names.</span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a>**Okabe-Ito palette** is used throughout — colorblind-safe for all four groups.</span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Back to Gallery</span><span class="co">](../../index.html)</span>{.btn .btn-outline-secondary}</span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Open Template File</span><span class="co">](template.Rmd)</span>{.btn .btn-primary}</span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a><span class="in">```{r child="template.Rmd"}</span></span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

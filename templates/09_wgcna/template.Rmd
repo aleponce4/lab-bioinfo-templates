@@ -328,10 +328,12 @@ module_df <- module_df %>%
   dplyr::arrange(desc(abs(virusCor))) %>%
   dplyr::mutate(Module = gsub("^ME", "", Module))
 
-cat("Trait-correlated modules (|r| ≥", R_CUT, "& FDR <", P_CUT, "):",
-    nrow(module_df), "\n")
-print(module_df[, c("Module", "geneCount", "virusCor", "virusP",
-                    "infectionCor", "infectionP")], row.names = FALSE)
+module_df[, c("Module", "geneCount", "virusCor", "virusP", "infectionCor", "infectionP")] %>%
+  knitr::kable(
+    caption   = paste("Trait-Correlated Modules (|r| >=", R_CUT, "& FDR <", P_CUT, ")"),
+    col.names = c("Module Color", "Gene Count", "Viral r", "Viral FDR", "Infection r", "Infection FDR"),
+    digits    = 3
+  )
 ```
 
 ## Module–Virus Correlation Barplot
@@ -505,9 +507,12 @@ dir.create("WGCNA_data/hubs", showWarnings = FALSE, recursive = TRUE)
 write.csv(hub_tbl,     "WGCNA_data/hubs/hub_genes_filtered_modules.csv",  row.names = FALSE)
 write.csv(hub_summary, "WGCNA_data/hubs/hub_summary_by_module.csv",        row.names = FALSE)
 
-cat("Hub analysis complete. Top hub genes per module:\n")
-print(module_df[, c("Module", "geneCount", "topGene", "maxHubness", "virusCor")],
-      row.names = FALSE)
+module_df[, c("Module", "geneCount", "topGene", "maxHubness", "virusCor")] %>%
+  knitr::kable(
+    caption   = "Top Hub Genes per Trait-Correlated Module",
+    col.names = c("Module Color", "Gene Count", "Top Hub Gene", "Max Hubness Score", "Viral Load Correlation (r)"),
+    digits    = 3
+  )
 ```
 
 ## Enrichment Analysis (gprofiler2)

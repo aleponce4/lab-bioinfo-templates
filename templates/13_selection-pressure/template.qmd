@@ -1,5 +1,5 @@
 ---
-title: "12 · Selection Pressure (πN-πS)"
+title: "13 · Selection Pressure (πN - πS)"
 subtitle: "Per-gene selection pressure bar plots with FDR significance"
 description: |
   Computes per-gene mean Δ(πN−πS) pooled across all DPI timepoints, maps

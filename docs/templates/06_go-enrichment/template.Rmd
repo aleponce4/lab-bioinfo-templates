@@ -108,9 +108,22 @@ deg_all <- deg_all %>%
     significant = !is.na(padj) & padj < FDR_THRESHOLD & abs(log2FoldChange) >= LFC_THRESHOLD
   )
 
-cat("Total genes:", n_distinct(deg_all$Gene), "\n")
-cat("Comparisons:", paste(levels(deg_all$Comparison), collapse = ", "), "\n")
-cat("Significant DEGs (any comparison):", sum(deg_all$significant, na.rm = TRUE), "\n")
+deg_summary <- deg_all %>%
+  group_by(Comparison) %>%
+  summarise(
+    `Total Genes`   = n_distinct(Gene),
+    `Significant DEGs` = sum(significant, na.rm = TRUE),
+    `Upregulated`   = sum(significant & log2FoldChange >= LFC_THRESHOLD, na.rm = TRUE),
+    `Downregulated` = sum(significant & log2FoldChange <= -LFC_THRESHOLD, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+deg_summary %>%
+  knitr::kable(
+    caption   = "Differential Expression Summary per Comparison (|Log2FC| >= 1.5 & FDR < 0.05)",
+    col.names = c("Comparison", "Total Genes", "Significant DEGs", "Upregulated", "Downregulated"),
+    format.args = list(big.mark = ",")
+  )
 ```
 
 # Bubble Plots (Gene Set Visualization)

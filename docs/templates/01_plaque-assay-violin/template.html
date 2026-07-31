@@ -726,33 +726,107 @@ Tip
 <div class="cell" data-layout-align="center">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>df_clean <span class="sc">%&gt;%</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>shapiro_res <span class="ot">&lt;-</span> df_clean <span class="sc">%&gt;%</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(ShortGroup) <span class="sc">%&gt;%</span></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="fu">sd</span>(logTiter, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">shapiro_test</span>(logTiter)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">shapiro_test</span>(logTiter)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>shapiro_res <span class="sc">%&gt;%</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="at">Group =</span> ShortGroup, <span class="st">`</span><span class="at">Statistic (W)</span><span class="st">`</span> <span class="ot">=</span> statistic, <span class="st">`</span><span class="at">p-value</span><span class="st">`</span> <span class="ot">=</span> p) <span class="sc">%&gt;%</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">caption =</span> <span class="st">"Shapiro-Wilk Normality Test by Group"</span>, <span class="at">digits =</span> <span class="dv">4</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 8 × 4
-  ShortGroup          variable statistic      p
-  &lt;fct&gt;               &lt;chr&gt;        &lt;dbl&gt;  &lt;dbl&gt;
-1 Mock + Compound A   logTiter     0.936 0.448 
-2 Mock + Compound B   logTiter     0.951 0.654 
-3 Vehicle             logTiter     0.847 0.0341
-4 Drug X              logTiter     0.949 0.618 
-5 Compound A          logTiter     0.976 0.961 
-6 Compound A + Drug X logTiter     0.958 0.750 
-7 Compound B          logTiter     0.894 0.135 
-8 Compound B + Drug X logTiter     0.894 0.135 </code></pre>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Shapiro-Wilk Normality Test by Group</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Group</th>
+<th style="text-align: right;">Statistic (W)</th>
+<th style="text-align: right;">p-value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Mock + Compound A</td>
+<td style="text-align: right;">0.9360</td>
+<td style="text-align: right;">0.4483</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Mock + Compound B</td>
+<td style="text-align: right;">0.9512</td>
+<td style="text-align: right;">0.6541</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Vehicle</td>
+<td style="text-align: right;">0.8474</td>
+<td style="text-align: right;">0.0341</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Drug X</td>
+<td style="text-align: right;">0.9487</td>
+<td style="text-align: right;">0.6182</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Compound A</td>
+<td style="text-align: right;">0.9758</td>
+<td style="text-align: right;">0.9612</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Compound A + Drug X</td>
+<td style="text-align: right;">0.9577</td>
+<td style="text-align: right;">0.7501</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Compound B</td>
+<td style="text-align: right;">0.8945</td>
+<td style="text-align: right;">0.1346</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Compound B + Drug X</td>
+<td style="text-align: right;">0.8945</td>
+<td style="text-align: right;">0.1345</td>
+</tr>
+</tbody>
+</table>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">leveneTest</span>(logTiter <span class="sc">~</span> ShortGroup, <span class="at">data =</span> df_clean)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>lev_res <span class="ot">&lt;-</span> <span class="fu">leveneTest</span>(logTiter <span class="sc">~</span> ShortGroup, <span class="at">data =</span> df_clean)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>lev_df  <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Source</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(<span class="st">"Group"</span>, <span class="st">"Residuals"</span>),</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Df</span><span class="st">`</span>     <span class="ot">=</span> lev_res<span class="sc">$</span>Df,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">F value</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(lev_res<span class="sc">$</span><span class="st">`</span><span class="at">F value</span><span class="st">`</span>[<span class="dv">1</span>], <span class="cn">NA</span>),</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">`</span><span class="at">Pr(&gt;F)</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">c</span>(lev_res<span class="sc">$</span><span class="st">`</span><span class="at">Pr(&gt;F)</span><span class="st">`</span>[<span class="dv">1</span>], <span class="cn">NA</span>),</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">check.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(lev_df, <span class="at">caption =</span> <span class="st">"Levene's Test for Homogeneity of Variance"</span>, <span class="at">digits =</span> <span class="dv">4</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<div class="cell-output cell-output-stdout">
-<pre><code>Levene's Test for Homogeneity of Variance (center = median)
-      Df F value Pr(&gt;F)
-group  7  0.3328  0.937
-      88               </code></pre>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Levene’s Test for Homogeneity of Variance</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Source</th>
+<th style="text-align: right;">Df</th>
+<th style="text-align: right;">F value</th>
+<th style="text-align: right;">Pr(&gt;F)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Group</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">0.3328</td>
+<td style="text-align: right;">0.937</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Residuals</td>
+<td style="text-align: right;">88</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: right;">NA</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 </section>
@@ -761,33 +835,33 @@ group  7  0.3328  0.937
 <div class="cell" data-layout-align="center">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>fit_full <span class="ot">&lt;-</span> <span class="fu">aov</span>(logTiter <span class="sc">~</span> ShortGroup, <span class="at">data =</span> df_clean)</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">tidy</span>(fit_full) <span class="sc">%&gt;%</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"ANOVA: log\u2081\u2080(Titer) by Group"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(statistic, p.value), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">term =</span> <span class="st">"Source"</span>, <span class="at">df =</span> <span class="st">"df"</span>, <span class="at">sumsq =</span> <span class="st">"Sum Sq"</span>,</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">meansq =</span> <span class="st">"Mean Sq"</span>, <span class="at">statistic =</span> <span class="st">"F value"</span>, <span class="at">p.value =</span> <span class="st">"Pr(&gt;F)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>fit_full <span class="ot">&lt;-</span> <span class="fu">aov</span>(logTiter <span class="sc">~</span> ShortGroup, <span class="at">data =</span> df_clean)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="fu">tidy</span>(fit_full) <span class="sc">%&gt;%</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"ANOVA: log\u2081\u2080(Titer) by Group"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(statistic, p.value), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">term =</span> <span class="st">"Source"</span>, <span class="at">df =</span> <span class="st">"df"</span>, <span class="at">sumsq =</span> <span class="st">"Sum Sq"</span>,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">meansq =</span> <span class="st">"Mean Sq"</span>, <span class="at">statistic =</span> <span class="st">"F value"</span>, <span class="at">p.value =</span> <span class="st">"Pr(&gt;F)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="nsdofhzbpu" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#nsdofhzbpu table {
+<div id="pcjbudwaaz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#pcjbudwaaz table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#nsdofhzbpu thead, #nsdofhzbpu tbody, #nsdofhzbpu tfoot, #nsdofhzbpu tr, #nsdofhzbpu td, #nsdofhzbpu th {
+#pcjbudwaaz thead, #pcjbudwaaz tbody, #pcjbudwaaz tfoot, #pcjbudwaaz tr, #pcjbudwaaz td, #pcjbudwaaz th {
   border-style: none;
 }
 
-#nsdofhzbpu p {
+#pcjbudwaaz p {
   margin: 0;
   padding: 0;
 }
 
-#nsdofhzbpu .gt_table {
+#pcjbudwaaz .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -813,12 +887,12 @@ group  7  0.3328  0.937
   border-left-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_caption {
+#pcjbudwaaz .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#nsdofhzbpu .gt_title {
+#pcjbudwaaz .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -830,7 +904,7 @@ group  7  0.3328  0.937
   border-bottom-width: 0;
 }
 
-#nsdofhzbpu .gt_subtitle {
+#pcjbudwaaz .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -842,7 +916,7 @@ group  7  0.3328  0.937
   border-top-width: 0;
 }
 
-#nsdofhzbpu .gt_heading {
+#pcjbudwaaz .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -854,13 +928,13 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_bottom_border {
+#pcjbudwaaz .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_col_headings {
+#pcjbudwaaz .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -875,7 +949,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_col_heading {
+#pcjbudwaaz .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -895,7 +969,7 @@ group  7  0.3328  0.937
   overflow-x: hidden;
 }
 
-#nsdofhzbpu .gt_column_spanner_outer {
+#pcjbudwaaz .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -907,15 +981,15 @@ group  7  0.3328  0.937
   padding-right: 4px;
 }
 
-#nsdofhzbpu .gt_column_spanner_outer:first-child {
+#pcjbudwaaz .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#nsdofhzbpu .gt_column_spanner_outer:last-child {
+#pcjbudwaaz .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#nsdofhzbpu .gt_column_spanner {
+#pcjbudwaaz .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -927,11 +1001,11 @@ group  7  0.3328  0.937
   width: 100%;
 }
 
-#nsdofhzbpu .gt_spanner_row {
+#pcjbudwaaz .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#nsdofhzbpu .gt_group_heading {
+#pcjbudwaaz .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -957,7 +1031,7 @@ group  7  0.3328  0.937
   text-align: left;
 }
 
-#nsdofhzbpu .gt_empty_group_heading {
+#pcjbudwaaz .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -972,15 +1046,15 @@ group  7  0.3328  0.937
   vertical-align: middle;
 }
 
-#nsdofhzbpu .gt_from_md > :first-child {
+#pcjbudwaaz .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#nsdofhzbpu .gt_from_md > :last-child {
+#pcjbudwaaz .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#nsdofhzbpu .gt_row {
+#pcjbudwaaz .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -999,7 +1073,7 @@ group  7  0.3328  0.937
   overflow-x: hidden;
 }
 
-#nsdofhzbpu .gt_stub {
+#pcjbudwaaz .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1012,7 +1086,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#nsdofhzbpu .gt_stub_row_group {
+#pcjbudwaaz .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1026,15 +1100,15 @@ group  7  0.3328  0.937
   vertical-align: top;
 }
 
-#nsdofhzbpu .gt_row_group_first td {
+#pcjbudwaaz .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#nsdofhzbpu .gt_row_group_first th {
+#pcjbudwaaz .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#nsdofhzbpu .gt_summary_row {
+#pcjbudwaaz .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1044,16 +1118,16 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#nsdofhzbpu .gt_first_summary_row {
+#pcjbudwaaz .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_first_summary_row.thick {
+#pcjbudwaaz .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#nsdofhzbpu .gt_last_summary_row {
+#pcjbudwaaz .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1063,7 +1137,7 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_grand_summary_row {
+#pcjbudwaaz .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1073,7 +1147,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#nsdofhzbpu .gt_first_grand_summary_row {
+#pcjbudwaaz .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1083,7 +1157,7 @@ group  7  0.3328  0.937
   border-top-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_last_grand_summary_row_top {
+#pcjbudwaaz .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1093,11 +1167,11 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_striped {
+#pcjbudwaaz .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#nsdofhzbpu .gt_table_body {
+#pcjbudwaaz .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1106,7 +1180,7 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_footnotes {
+#pcjbudwaaz .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1120,7 +1194,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_footnote {
+#pcjbudwaaz .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1129,7 +1203,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#nsdofhzbpu .gt_sourcenotes {
+#pcjbudwaaz .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1143,7 +1217,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#nsdofhzbpu .gt_sourcenote {
+#pcjbudwaaz .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1151,72 +1225,72 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#nsdofhzbpu .gt_left {
+#pcjbudwaaz .gt_left {
   text-align: left;
 }
 
-#nsdofhzbpu .gt_center {
+#pcjbudwaaz .gt_center {
   text-align: center;
 }
 
-#nsdofhzbpu .gt_right {
+#pcjbudwaaz .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#nsdofhzbpu .gt_font_normal {
+#pcjbudwaaz .gt_font_normal {
   font-weight: normal;
 }
 
-#nsdofhzbpu .gt_font_bold {
+#pcjbudwaaz .gt_font_bold {
   font-weight: bold;
 }
 
-#nsdofhzbpu .gt_font_italic {
+#pcjbudwaaz .gt_font_italic {
   font-style: italic;
 }
 
-#nsdofhzbpu .gt_super {
+#pcjbudwaaz .gt_super {
   font-size: 65%;
 }
 
-#nsdofhzbpu .gt_footnote_marks {
+#pcjbudwaaz .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#nsdofhzbpu .gt_asterisk {
+#pcjbudwaaz .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#nsdofhzbpu .gt_indent_1 {
+#pcjbudwaaz .gt_indent_1 {
   text-indent: 5px;
 }
 
-#nsdofhzbpu .gt_indent_2 {
+#pcjbudwaaz .gt_indent_2 {
   text-indent: 10px;
 }
 
-#nsdofhzbpu .gt_indent_3 {
+#pcjbudwaaz .gt_indent_3 {
   text-indent: 15px;
 }
 
-#nsdofhzbpu .gt_indent_4 {
+#pcjbudwaaz .gt_indent_4 {
   text-indent: 20px;
 }
 
-#nsdofhzbpu .gt_indent_5 {
+#pcjbudwaaz .gt_indent_5 {
   text-indent: 25px;
 }
 
-#nsdofhzbpu .katex-display {
+#pcjbudwaaz .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#nsdofhzbpu div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#pcjbudwaaz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1259,38 +1333,38 @@ group  7  0.3328  0.937
 </div>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>tukey_raw <span class="ot">&lt;-</span> <span class="fu">TukeyHSD</span>(fit_full, <span class="at">conf.level =</span> <span class="fl">0.95</span>)<span class="sc">$</span>ShortGroup</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>tukey_tbl <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(tukey_raw)</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>tukey_tbl<span class="sc">$</span>comparison <span class="ot">&lt;-</span> <span class="fu">rownames</span>(tukey_tbl)</span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(tukey_tbl) <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>tukey_tbl <span class="ot">&lt;-</span> tukey_tbl[, <span class="fu">c</span>(<span class="st">"comparison"</span>, <span class="st">"diff"</span>, <span class="st">"lwr"</span>, <span class="st">"upr"</span>, <span class="st">"p adj"</span>)]</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(tukey_tbl)[<span class="dv">5</span>] <span class="ot">&lt;-</span> <span class="st">"p_adj"</span></span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>tukey_tbl <span class="sc">%&gt;%</span></span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"Tukey HSD: Pairwise Comparisons"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(diff, lwr, upr, p_adj), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">comparison =</span> <span class="st">"Comparison"</span>, <span class="at">diff =</span> <span class="st">"Difference"</span>,</span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>             <span class="at">lwr =</span> <span class="st">"Lower CI"</span>, <span class="at">upr =</span> <span class="st">"Upper CI"</span>, <span class="at">p_adj =</span> <span class="st">"Adjusted p"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>tukey_raw <span class="ot">&lt;-</span> <span class="fu">TukeyHSD</span>(fit_full, <span class="at">conf.level =</span> <span class="fl">0.95</span>)<span class="sc">$</span>ShortGroup</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>tukey_tbl <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(tukey_raw)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>tukey_tbl<span class="sc">$</span>comparison <span class="ot">&lt;-</span> <span class="fu">rownames</span>(tukey_tbl)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(tukey_tbl) <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>tukey_tbl <span class="ot">&lt;-</span> tukey_tbl[, <span class="fu">c</span>(<span class="st">"comparison"</span>, <span class="st">"diff"</span>, <span class="st">"lwr"</span>, <span class="st">"upr"</span>, <span class="st">"p adj"</span>)]</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(tukey_tbl)[<span class="dv">5</span>] <span class="ot">&lt;-</span> <span class="st">"p_adj"</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>tukey_tbl <span class="sc">%&gt;%</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"Tukey HSD: Pairwise Comparisons"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(diff, lwr, upr, p_adj), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">comparison =</span> <span class="st">"Comparison"</span>, <span class="at">diff =</span> <span class="st">"Difference"</span>,</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>             <span class="at">lwr =</span> <span class="st">"Lower CI"</span>, <span class="at">upr =</span> <span class="st">"Upper CI"</span>, <span class="at">p_adj =</span> <span class="st">"Adjusted p"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="ruhijbkdtj" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#ruhijbkdtj table {
+<div id="mzeopixsat" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#mzeopixsat table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#ruhijbkdtj thead, #ruhijbkdtj tbody, #ruhijbkdtj tfoot, #ruhijbkdtj tr, #ruhijbkdtj td, #ruhijbkdtj th {
+#mzeopixsat thead, #mzeopixsat tbody, #mzeopixsat tfoot, #mzeopixsat tr, #mzeopixsat td, #mzeopixsat th {
   border-style: none;
 }
 
-#ruhijbkdtj p {
+#mzeopixsat p {
   margin: 0;
   padding: 0;
 }
 
-#ruhijbkdtj .gt_table {
+#mzeopixsat .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -1316,12 +1390,12 @@ group  7  0.3328  0.937
   border-left-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_caption {
+#mzeopixsat .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#ruhijbkdtj .gt_title {
+#mzeopixsat .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -1333,7 +1407,7 @@ group  7  0.3328  0.937
   border-bottom-width: 0;
 }
 
-#ruhijbkdtj .gt_subtitle {
+#mzeopixsat .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -1345,7 +1419,7 @@ group  7  0.3328  0.937
   border-top-width: 0;
 }
 
-#ruhijbkdtj .gt_heading {
+#mzeopixsat .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -1357,13 +1431,13 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_bottom_border {
+#mzeopixsat .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_col_headings {
+#mzeopixsat .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1378,7 +1452,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_col_heading {
+#mzeopixsat .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1398,7 +1472,7 @@ group  7  0.3328  0.937
   overflow-x: hidden;
 }
 
-#ruhijbkdtj .gt_column_spanner_outer {
+#mzeopixsat .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1410,15 +1484,15 @@ group  7  0.3328  0.937
   padding-right: 4px;
 }
 
-#ruhijbkdtj .gt_column_spanner_outer:first-child {
+#mzeopixsat .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#ruhijbkdtj .gt_column_spanner_outer:last-child {
+#mzeopixsat .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#ruhijbkdtj .gt_column_spanner {
+#mzeopixsat .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -1430,11 +1504,11 @@ group  7  0.3328  0.937
   width: 100%;
 }
 
-#ruhijbkdtj .gt_spanner_row {
+#mzeopixsat .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#ruhijbkdtj .gt_group_heading {
+#mzeopixsat .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1460,7 +1534,7 @@ group  7  0.3328  0.937
   text-align: left;
 }
 
-#ruhijbkdtj .gt_empty_group_heading {
+#mzeopixsat .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -1475,15 +1549,15 @@ group  7  0.3328  0.937
   vertical-align: middle;
 }
 
-#ruhijbkdtj .gt_from_md > :first-child {
+#mzeopixsat .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#ruhijbkdtj .gt_from_md > :last-child {
+#mzeopixsat .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#ruhijbkdtj .gt_row {
+#mzeopixsat .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1502,7 +1576,7 @@ group  7  0.3328  0.937
   overflow-x: hidden;
 }
 
-#ruhijbkdtj .gt_stub {
+#mzeopixsat .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1515,7 +1589,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#ruhijbkdtj .gt_stub_row_group {
+#mzeopixsat .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -1529,15 +1603,15 @@ group  7  0.3328  0.937
   vertical-align: top;
 }
 
-#ruhijbkdtj .gt_row_group_first td {
+#mzeopixsat .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#ruhijbkdtj .gt_row_group_first th {
+#mzeopixsat .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#ruhijbkdtj .gt_summary_row {
+#mzeopixsat .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1547,16 +1621,16 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#ruhijbkdtj .gt_first_summary_row {
+#mzeopixsat .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_first_summary_row.thick {
+#mzeopixsat .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#ruhijbkdtj .gt_last_summary_row {
+#mzeopixsat .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1566,7 +1640,7 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_grand_summary_row {
+#mzeopixsat .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -1576,7 +1650,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#ruhijbkdtj .gt_first_grand_summary_row {
+#mzeopixsat .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1586,7 +1660,7 @@ group  7  0.3328  0.937
   border-top-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_last_grand_summary_row_top {
+#mzeopixsat .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -1596,11 +1670,11 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_striped {
+#mzeopixsat .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#ruhijbkdtj .gt_table_body {
+#mzeopixsat .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -1609,7 +1683,7 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_footnotes {
+#mzeopixsat .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1623,7 +1697,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_footnote {
+#mzeopixsat .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -1632,7 +1706,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#ruhijbkdtj .gt_sourcenotes {
+#mzeopixsat .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -1646,7 +1720,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#ruhijbkdtj .gt_sourcenote {
+#mzeopixsat .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -1654,72 +1728,72 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#ruhijbkdtj .gt_left {
+#mzeopixsat .gt_left {
   text-align: left;
 }
 
-#ruhijbkdtj .gt_center {
+#mzeopixsat .gt_center {
   text-align: center;
 }
 
-#ruhijbkdtj .gt_right {
+#mzeopixsat .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#ruhijbkdtj .gt_font_normal {
+#mzeopixsat .gt_font_normal {
   font-weight: normal;
 }
 
-#ruhijbkdtj .gt_font_bold {
+#mzeopixsat .gt_font_bold {
   font-weight: bold;
 }
 
-#ruhijbkdtj .gt_font_italic {
+#mzeopixsat .gt_font_italic {
   font-style: italic;
 }
 
-#ruhijbkdtj .gt_super {
+#mzeopixsat .gt_super {
   font-size: 65%;
 }
 
-#ruhijbkdtj .gt_footnote_marks {
+#mzeopixsat .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#ruhijbkdtj .gt_asterisk {
+#mzeopixsat .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#ruhijbkdtj .gt_indent_1 {
+#mzeopixsat .gt_indent_1 {
   text-indent: 5px;
 }
 
-#ruhijbkdtj .gt_indent_2 {
+#mzeopixsat .gt_indent_2 {
   text-indent: 10px;
 }
 
-#ruhijbkdtj .gt_indent_3 {
+#mzeopixsat .gt_indent_3 {
   text-indent: 15px;
 }
 
-#ruhijbkdtj .gt_indent_4 {
+#mzeopixsat .gt_indent_4 {
   text-indent: 20px;
 }
 
-#ruhijbkdtj .gt_indent_5 {
+#mzeopixsat .gt_indent_5 {
   text-indent: 25px;
 }
 
-#ruhijbkdtj .katex-display {
+#mzeopixsat .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#ruhijbkdtj div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#mzeopixsat div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -1946,33 +2020,33 @@ group  7  0.3328  0.937
 <div class="cell" data-layout-align="center">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>fit_merged <span class="ot">&lt;-</span> <span class="fu">aov</span>(logTiter <span class="sc">~</span> MergedGroup, <span class="at">data =</span> df_clean)</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">tidy</span>(fit_merged) <span class="sc">%&gt;%</span></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"ANOVA: log\u2081\u2080(Titer) by Merged Group"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(statistic, p.value), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">term =</span> <span class="st">"Source"</span>, <span class="at">df =</span> <span class="st">"df"</span>, <span class="at">sumsq =</span> <span class="st">"Sum Sq"</span>,</span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">meansq =</span> <span class="st">"Mean Sq"</span>, <span class="at">statistic =</span> <span class="st">"F value"</span>, <span class="at">p.value =</span> <span class="st">"Pr(&gt;F)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>fit_merged <span class="ot">&lt;-</span> <span class="fu">aov</span>(logTiter <span class="sc">~</span> MergedGroup, <span class="at">data =</span> df_clean)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">tidy</span>(fit_merged) <span class="sc">%&gt;%</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"ANOVA: log\u2081\u2080(Titer) by Merged Group"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(statistic, p.value), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">term =</span> <span class="st">"Source"</span>, <span class="at">df =</span> <span class="st">"df"</span>, <span class="at">sumsq =</span> <span class="st">"Sum Sq"</span>,</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">meansq =</span> <span class="st">"Mean Sq"</span>, <span class="at">statistic =</span> <span class="st">"F value"</span>, <span class="at">p.value =</span> <span class="st">"Pr(&gt;F)"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="unxcuyvuej" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#unxcuyvuej table {
+<div id="jnypsejpde" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#jnypsejpde table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#unxcuyvuej thead, #unxcuyvuej tbody, #unxcuyvuej tfoot, #unxcuyvuej tr, #unxcuyvuej td, #unxcuyvuej th {
+#jnypsejpde thead, #jnypsejpde tbody, #jnypsejpde tfoot, #jnypsejpde tr, #jnypsejpde td, #jnypsejpde th {
   border-style: none;
 }
 
-#unxcuyvuej p {
+#jnypsejpde p {
   margin: 0;
   padding: 0;
 }
 
-#unxcuyvuej .gt_table {
+#jnypsejpde .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -1998,12 +2072,12 @@ group  7  0.3328  0.937
   border-left-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_caption {
+#jnypsejpde .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#unxcuyvuej .gt_title {
+#jnypsejpde .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -2015,7 +2089,7 @@ group  7  0.3328  0.937
   border-bottom-width: 0;
 }
 
-#unxcuyvuej .gt_subtitle {
+#jnypsejpde .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -2027,7 +2101,7 @@ group  7  0.3328  0.937
   border-top-width: 0;
 }
 
-#unxcuyvuej .gt_heading {
+#jnypsejpde .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -2039,13 +2113,13 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_bottom_border {
+#jnypsejpde .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_col_headings {
+#jnypsejpde .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -2060,7 +2134,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_col_heading {
+#jnypsejpde .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2080,7 +2154,7 @@ group  7  0.3328  0.937
   overflow-x: hidden;
 }
 
-#unxcuyvuej .gt_column_spanner_outer {
+#jnypsejpde .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2092,15 +2166,15 @@ group  7  0.3328  0.937
   padding-right: 4px;
 }
 
-#unxcuyvuej .gt_column_spanner_outer:first-child {
+#jnypsejpde .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#unxcuyvuej .gt_column_spanner_outer:last-child {
+#jnypsejpde .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#unxcuyvuej .gt_column_spanner {
+#jnypsejpde .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -2112,11 +2186,11 @@ group  7  0.3328  0.937
   width: 100%;
 }
 
-#unxcuyvuej .gt_spanner_row {
+#jnypsejpde .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#unxcuyvuej .gt_group_heading {
+#jnypsejpde .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2142,7 +2216,7 @@ group  7  0.3328  0.937
   text-align: left;
 }
 
-#unxcuyvuej .gt_empty_group_heading {
+#jnypsejpde .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -2157,15 +2231,15 @@ group  7  0.3328  0.937
   vertical-align: middle;
 }
 
-#unxcuyvuej .gt_from_md > :first-child {
+#jnypsejpde .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#unxcuyvuej .gt_from_md > :last-child {
+#jnypsejpde .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#unxcuyvuej .gt_row {
+#jnypsejpde .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2184,7 +2258,7 @@ group  7  0.3328  0.937
   overflow-x: hidden;
 }
 
-#unxcuyvuej .gt_stub {
+#jnypsejpde .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2197,7 +2271,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#unxcuyvuej .gt_stub_row_group {
+#jnypsejpde .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2211,15 +2285,15 @@ group  7  0.3328  0.937
   vertical-align: top;
 }
 
-#unxcuyvuej .gt_row_group_first td {
+#jnypsejpde .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#unxcuyvuej .gt_row_group_first th {
+#jnypsejpde .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#unxcuyvuej .gt_summary_row {
+#jnypsejpde .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -2229,16 +2303,16 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#unxcuyvuej .gt_first_summary_row {
+#jnypsejpde .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_first_summary_row.thick {
+#jnypsejpde .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#unxcuyvuej .gt_last_summary_row {
+#jnypsejpde .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2248,7 +2322,7 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_grand_summary_row {
+#jnypsejpde .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -2258,7 +2332,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#unxcuyvuej .gt_first_grand_summary_row {
+#jnypsejpde .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2268,7 +2342,7 @@ group  7  0.3328  0.937
   border-top-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_last_grand_summary_row_top {
+#jnypsejpde .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2278,11 +2352,11 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_striped {
+#jnypsejpde .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#unxcuyvuej .gt_table_body {
+#jnypsejpde .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -2291,7 +2365,7 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_footnotes {
+#jnypsejpde .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -2305,7 +2379,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_footnote {
+#jnypsejpde .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -2314,7 +2388,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#unxcuyvuej .gt_sourcenotes {
+#jnypsejpde .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -2328,7 +2402,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#unxcuyvuej .gt_sourcenote {
+#jnypsejpde .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -2336,72 +2410,72 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#unxcuyvuej .gt_left {
+#jnypsejpde .gt_left {
   text-align: left;
 }
 
-#unxcuyvuej .gt_center {
+#jnypsejpde .gt_center {
   text-align: center;
 }
 
-#unxcuyvuej .gt_right {
+#jnypsejpde .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#unxcuyvuej .gt_font_normal {
+#jnypsejpde .gt_font_normal {
   font-weight: normal;
 }
 
-#unxcuyvuej .gt_font_bold {
+#jnypsejpde .gt_font_bold {
   font-weight: bold;
 }
 
-#unxcuyvuej .gt_font_italic {
+#jnypsejpde .gt_font_italic {
   font-style: italic;
 }
 
-#unxcuyvuej .gt_super {
+#jnypsejpde .gt_super {
   font-size: 65%;
 }
 
-#unxcuyvuej .gt_footnote_marks {
+#jnypsejpde .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#unxcuyvuej .gt_asterisk {
+#jnypsejpde .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#unxcuyvuej .gt_indent_1 {
+#jnypsejpde .gt_indent_1 {
   text-indent: 5px;
 }
 
-#unxcuyvuej .gt_indent_2 {
+#jnypsejpde .gt_indent_2 {
   text-indent: 10px;
 }
 
-#unxcuyvuej .gt_indent_3 {
+#jnypsejpde .gt_indent_3 {
   text-indent: 15px;
 }
 
-#unxcuyvuej .gt_indent_4 {
+#jnypsejpde .gt_indent_4 {
   text-indent: 20px;
 }
 
-#unxcuyvuej .gt_indent_5 {
+#jnypsejpde .gt_indent_5 {
   text-indent: 25px;
 }
 
-#unxcuyvuej .katex-display {
+#jnypsejpde .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#unxcuyvuej div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#jnypsejpde div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -2444,38 +2518,38 @@ group  7  0.3328  0.937
 </div>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>tukey_m_raw <span class="ot">&lt;-</span> <span class="fu">TukeyHSD</span>(fit_merged, <span class="at">conf.level =</span> <span class="fl">0.95</span>)<span class="sc">$</span>MergedGroup</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>tukey_m_tbl <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(tukey_m_raw)</span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>tukey_m_tbl<span class="sc">$</span>comparison <span class="ot">&lt;-</span> <span class="fu">rownames</span>(tukey_m_tbl)</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(tukey_m_tbl) <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>tukey_m_tbl <span class="ot">&lt;-</span> tukey_m_tbl[, <span class="fu">c</span>(<span class="st">"comparison"</span>, <span class="st">"diff"</span>, <span class="st">"lwr"</span>, <span class="st">"upr"</span>, <span class="st">"p adj"</span>)]</span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(tukey_m_tbl)[<span class="dv">5</span>] <span class="ot">&lt;-</span> <span class="st">"p_adj"</span></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>tukey_m_tbl <span class="sc">%&gt;%</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"Tukey HSD: Merged Group Pairwise Comparisons"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(diff, lwr, upr, p_adj), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">comparison =</span> <span class="st">"Comparison"</span>, <span class="at">diff =</span> <span class="st">"Difference"</span>,</span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>             <span class="at">lwr =</span> <span class="st">"Lower CI"</span>, <span class="at">upr =</span> <span class="st">"Upper CI"</span>, <span class="at">p_adj =</span> <span class="st">"Adjusted p"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>tukey_m_raw <span class="ot">&lt;-</span> <span class="fu">TukeyHSD</span>(fit_merged, <span class="at">conf.level =</span> <span class="fl">0.95</span>)<span class="sc">$</span>MergedGroup</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>tukey_m_tbl <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(tukey_m_raw)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>tukey_m_tbl<span class="sc">$</span>comparison <span class="ot">&lt;-</span> <span class="fu">rownames</span>(tukey_m_tbl)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(tukey_m_tbl) <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>tukey_m_tbl <span class="ot">&lt;-</span> tukey_m_tbl[, <span class="fu">c</span>(<span class="st">"comparison"</span>, <span class="st">"diff"</span>, <span class="st">"lwr"</span>, <span class="st">"upr"</span>, <span class="st">"p adj"</span>)]</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(tukey_m_tbl)[<span class="dv">5</span>] <span class="ot">&lt;-</span> <span class="st">"p_adj"</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>tukey_m_tbl <span class="sc">%&gt;%</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">gt</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tab_header</span>(<span class="at">title =</span> <span class="st">"Tukey HSD: Merged Group Pairwise Comparisons"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">fmt_number</span>(<span class="at">columns =</span> <span class="fu">c</span>(diff, lwr, upr, p_adj), <span class="at">decimals =</span> <span class="dv">3</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cols_label</span>(<span class="at">comparison =</span> <span class="st">"Comparison"</span>, <span class="at">diff =</span> <span class="st">"Difference"</span>,</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>             <span class="at">lwr =</span> <span class="st">"Lower CI"</span>, <span class="at">upr =</span> <span class="st">"Upper CI"</span>, <span class="at">p_adj =</span> <span class="st">"Adjusted p"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="zhlenfxzcz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#zhlenfxzcz table {
+<div id="sokixeiatv" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#sokixeiatv table {
   font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-#zhlenfxzcz thead, #zhlenfxzcz tbody, #zhlenfxzcz tfoot, #zhlenfxzcz tr, #zhlenfxzcz td, #zhlenfxzcz th {
+#sokixeiatv thead, #sokixeiatv tbody, #sokixeiatv tfoot, #sokixeiatv tr, #sokixeiatv td, #sokixeiatv th {
   border-style: none;
 }
 
-#zhlenfxzcz p {
+#sokixeiatv p {
   margin: 0;
   padding: 0;
 }
 
-#zhlenfxzcz .gt_table {
+#sokixeiatv .gt_table {
   display: table;
   border-collapse: collapse;
   line-height: normal;
@@ -2501,12 +2575,12 @@ group  7  0.3328  0.937
   border-left-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_caption {
+#sokixeiatv .gt_caption {
   padding-top: 4px;
   padding-bottom: 4px;
 }
 
-#zhlenfxzcz .gt_title {
+#sokixeiatv .gt_title {
   color: #333333;
   font-size: 125%;
   font-weight: initial;
@@ -2518,7 +2592,7 @@ group  7  0.3328  0.937
   border-bottom-width: 0;
 }
 
-#zhlenfxzcz .gt_subtitle {
+#sokixeiatv .gt_subtitle {
   color: #333333;
   font-size: 85%;
   font-weight: initial;
@@ -2530,7 +2604,7 @@ group  7  0.3328  0.937
   border-top-width: 0;
 }
 
-#zhlenfxzcz .gt_heading {
+#sokixeiatv .gt_heading {
   background-color: #FFFFFF;
   text-align: center;
   border-bottom-color: #FFFFFF;
@@ -2542,13 +2616,13 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_bottom_border {
+#sokixeiatv .gt_bottom_border {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_col_headings {
+#sokixeiatv .gt_col_headings {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -2563,7 +2637,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_col_heading {
+#sokixeiatv .gt_col_heading {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2583,7 +2657,7 @@ group  7  0.3328  0.937
   overflow-x: hidden;
 }
 
-#zhlenfxzcz .gt_column_spanner_outer {
+#sokixeiatv .gt_column_spanner_outer {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2595,15 +2669,15 @@ group  7  0.3328  0.937
   padding-right: 4px;
 }
 
-#zhlenfxzcz .gt_column_spanner_outer:first-child {
+#sokixeiatv .gt_column_spanner_outer:first-child {
   padding-left: 0;
 }
 
-#zhlenfxzcz .gt_column_spanner_outer:last-child {
+#sokixeiatv .gt_column_spanner_outer:last-child {
   padding-right: 0;
 }
 
-#zhlenfxzcz .gt_column_spanner {
+#sokixeiatv .gt_column_spanner {
   border-bottom-style: solid;
   border-bottom-width: 2px;
   border-bottom-color: #D3D3D3;
@@ -2615,11 +2689,11 @@ group  7  0.3328  0.937
   width: 100%;
 }
 
-#zhlenfxzcz .gt_spanner_row {
+#sokixeiatv .gt_spanner_row {
   border-bottom-style: hidden;
 }
 
-#zhlenfxzcz .gt_group_heading {
+#sokixeiatv .gt_group_heading {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2645,7 +2719,7 @@ group  7  0.3328  0.937
   text-align: left;
 }
 
-#zhlenfxzcz .gt_empty_group_heading {
+#sokixeiatv .gt_empty_group_heading {
   padding: 0.5px;
   color: #333333;
   background-color: #FFFFFF;
@@ -2660,15 +2734,15 @@ group  7  0.3328  0.937
   vertical-align: middle;
 }
 
-#zhlenfxzcz .gt_from_md > :first-child {
+#sokixeiatv .gt_from_md > :first-child {
   margin-top: 0;
 }
 
-#zhlenfxzcz .gt_from_md > :last-child {
+#sokixeiatv .gt_from_md > :last-child {
   margin-bottom: 0;
 }
 
-#zhlenfxzcz .gt_row {
+#sokixeiatv .gt_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2687,7 +2761,7 @@ group  7  0.3328  0.937
   overflow-x: hidden;
 }
 
-#zhlenfxzcz .gt_stub {
+#sokixeiatv .gt_stub {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2700,7 +2774,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#zhlenfxzcz .gt_stub_row_group {
+#sokixeiatv .gt_stub_row_group {
   color: #333333;
   background-color: #FFFFFF;
   font-size: 100%;
@@ -2714,15 +2788,15 @@ group  7  0.3328  0.937
   vertical-align: top;
 }
 
-#zhlenfxzcz .gt_row_group_first td {
+#sokixeiatv .gt_row_group_first td {
   border-top-width: 2px;
 }
 
-#zhlenfxzcz .gt_row_group_first th {
+#sokixeiatv .gt_row_group_first th {
   border-top-width: 2px;
 }
 
-#zhlenfxzcz .gt_summary_row {
+#sokixeiatv .gt_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -2732,16 +2806,16 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#zhlenfxzcz .gt_first_summary_row {
+#sokixeiatv .gt_first_summary_row {
   border-top-style: solid;
   border-top-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_first_summary_row.thick {
+#sokixeiatv .gt_first_summary_row.thick {
   border-top-width: 2px;
 }
 
-#zhlenfxzcz .gt_last_summary_row {
+#sokixeiatv .gt_last_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2751,7 +2825,7 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_grand_summary_row {
+#sokixeiatv .gt_grand_summary_row {
   color: #333333;
   background-color: #FFFFFF;
   text-transform: inherit;
@@ -2761,7 +2835,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#zhlenfxzcz .gt_first_grand_summary_row {
+#sokixeiatv .gt_first_grand_summary_row {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2771,7 +2845,7 @@ group  7  0.3328  0.937
   border-top-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_last_grand_summary_row_top {
+#sokixeiatv .gt_last_grand_summary_row_top {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 5px;
@@ -2781,11 +2855,11 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_striped {
+#sokixeiatv .gt_striped {
   background-color: rgba(128, 128, 128, 0.05);
 }
 
-#zhlenfxzcz .gt_table_body {
+#sokixeiatv .gt_table_body {
   border-top-style: solid;
   border-top-width: 2px;
   border-top-color: #D3D3D3;
@@ -2794,7 +2868,7 @@ group  7  0.3328  0.937
   border-bottom-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_footnotes {
+#sokixeiatv .gt_footnotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -2808,7 +2882,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_footnote {
+#sokixeiatv .gt_footnote {
   margin: 0px;
   font-size: 90%;
   padding-top: 4px;
@@ -2817,7 +2891,7 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#zhlenfxzcz .gt_sourcenotes {
+#sokixeiatv .gt_sourcenotes {
   color: #333333;
   background-color: #FFFFFF;
   border-bottom-style: none;
@@ -2831,7 +2905,7 @@ group  7  0.3328  0.937
   border-right-color: #D3D3D3;
 }
 
-#zhlenfxzcz .gt_sourcenote {
+#sokixeiatv .gt_sourcenote {
   font-size: 90%;
   padding-top: 4px;
   padding-bottom: 4px;
@@ -2839,72 +2913,72 @@ group  7  0.3328  0.937
   padding-right: 5px;
 }
 
-#zhlenfxzcz .gt_left {
+#sokixeiatv .gt_left {
   text-align: left;
 }
 
-#zhlenfxzcz .gt_center {
+#sokixeiatv .gt_center {
   text-align: center;
 }
 
-#zhlenfxzcz .gt_right {
+#sokixeiatv .gt_right {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#zhlenfxzcz .gt_font_normal {
+#sokixeiatv .gt_font_normal {
   font-weight: normal;
 }
 
-#zhlenfxzcz .gt_font_bold {
+#sokixeiatv .gt_font_bold {
   font-weight: bold;
 }
 
-#zhlenfxzcz .gt_font_italic {
+#sokixeiatv .gt_font_italic {
   font-style: italic;
 }
 
-#zhlenfxzcz .gt_super {
+#sokixeiatv .gt_super {
   font-size: 65%;
 }
 
-#zhlenfxzcz .gt_footnote_marks {
+#sokixeiatv .gt_footnote_marks {
   font-size: 75%;
   vertical-align: 0.4em;
   position: initial;
 }
 
-#zhlenfxzcz .gt_asterisk {
+#sokixeiatv .gt_asterisk {
   font-size: 100%;
   vertical-align: 0;
 }
 
-#zhlenfxzcz .gt_indent_1 {
+#sokixeiatv .gt_indent_1 {
   text-indent: 5px;
 }
 
-#zhlenfxzcz .gt_indent_2 {
+#sokixeiatv .gt_indent_2 {
   text-indent: 10px;
 }
 
-#zhlenfxzcz .gt_indent_3 {
+#sokixeiatv .gt_indent_3 {
   text-indent: 15px;
 }
 
-#zhlenfxzcz .gt_indent_4 {
+#sokixeiatv .gt_indent_4 {
   text-indent: 20px;
 }
 
-#zhlenfxzcz .gt_indent_5 {
+#sokixeiatv .gt_indent_5 {
   text-indent: 25px;
 }
 
-#zhlenfxzcz .katex-display {
+#sokixeiatv .katex-display {
   display: inline-flex !important;
   margin-bottom: 0.75em !important;
 }
 
-#zhlenfxzcz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#sokixeiatv div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
   height: 0px !important;
 }
 </style>
@@ -3006,39 +3080,39 @@ group  7  0.3328  0.937
 <div class="cell" data-layout-align="center">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>df_plot <span class="ot">&lt;-</span> df_clean <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(Titer) <span class="sc">&amp;</span> Titer <span class="sc">&gt;=</span> <span class="dv">0</span>)</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>p_combined <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df_plot, <span class="fu">aes</span>(<span class="at">x =</span> MergedGroup, <span class="at">y =</span> Titer, <span class="at">fill =</span> MergedGroup)) <span class="sc">+</span></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_violin</span>(<span class="at">trim =</span> <span class="cn">FALSE</span>, <span class="at">alpha =</span> <span class="fl">0.45</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">bw =</span> <span class="fl">0.15</span>) <span class="sc">+</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="at">width =</span> <span class="fl">0.18</span>, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">alpha =</span> <span class="fl">0.60</span>) <span class="sc">+</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> PALETTE_MERGED, <span class="at">guide =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_log10</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_scientific</span>()) <span class="sc">+</span></span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">expand_limits</span>(<span class="at">y =</span> <span class="fu">max</span>(df_plot<span class="sc">$</span>Titer, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">*</span> <span class="dv">5</span>) <span class="sc">+</span></span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">x     =</span> <span class="st">"Group"</span>,</span>
-<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">y     =</span> <span class="st">"Viral Titer (pfu/mL, log scale)"</span>,</span>
-<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Viral Titers by Combined Group"</span></span>
-<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
-<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
-<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.x      =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">30</span>, <span class="at">hjust =</span> <span class="dv">1</span>),</span>
-<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.major =</span> <span class="fu">element_blank</span>(),</span>
-<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>()</span>
-<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_compare_means</span>(</span>
-<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">comparisons  =</span> COMPARISONS,</span>
-<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">method       =</span> <span class="st">"t.test"</span>,</span>
-<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">label        =</span> <span class="st">"p.signif"</span>,</span>
-<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">hide.ns      =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">size         =</span> <span class="dv">5</span>,</span>
-<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">bracket.size =</span> <span class="fl">0.6</span>,</span>
-<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">step.increase =</span> <span class="fl">0.15</span></span>
-<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">"Viral_Titer_CombinedGroups_sig.tiff"</span>, <span class="at">plot =</span> p_combined,</span>
-<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>       <span class="at">width =</span> <span class="dv">8</span>, <span class="at">height =</span> <span class="fl">5.5</span>, <span class="at">units =</span> <span class="st">"in"</span>, <span class="at">dpi =</span> <span class="dv">600</span>,</span>
-<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>       <span class="at">compression =</span> <span class="st">"lzw"</span>)</span>
-<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_combined)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>df_plot <span class="ot">&lt;-</span> df_clean <span class="sc">%&gt;%</span> <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(Titer) <span class="sc">&amp;</span> Titer <span class="sc">&gt;=</span> <span class="dv">0</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>p_combined <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(df_plot, <span class="fu">aes</span>(<span class="at">x =</span> MergedGroup, <span class="at">y =</span> Titer, <span class="at">fill =</span> MergedGroup)) <span class="sc">+</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_violin</span>(<span class="at">trim =</span> <span class="cn">FALSE</span>, <span class="at">alpha =</span> <span class="fl">0.45</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">bw =</span> <span class="fl">0.15</span>) <span class="sc">+</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_jitter</span>(<span class="at">width =</span> <span class="fl">0.18</span>, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">alpha =</span> <span class="fl">0.60</span>) <span class="sc">+</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> PALETTE_MERGED, <span class="at">guide =</span> <span class="st">"none"</span>) <span class="sc">+</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_log10</span>(<span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_scientific</span>()) <span class="sc">+</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">expand_limits</span>(<span class="at">y =</span> <span class="fu">max</span>(df_plot<span class="sc">$</span>Titer, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">*</span> <span class="dv">5</span>) <span class="sc">+</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">x     =</span> <span class="st">"Group"</span>,</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">y     =</span> <span class="st">"Viral Titer (pfu/mL, log scale)"</span>,</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Viral Titers by Combined Group"</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>(<span class="at">base_size =</span> <span class="dv">13</span>) <span class="sc">+</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.x      =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">30</span>, <span class="at">hjust =</span> <span class="dv">1</span>),</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.major =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_compare_means</span>(</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">comparisons  =</span> COMPARISONS,</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">method       =</span> <span class="st">"t.test"</span>,</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">label        =</span> <span class="st">"p.signif"</span>,</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">hide.ns      =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">size         =</span> <span class="dv">5</span>,</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">bracket.size =</span> <span class="fl">0.6</span>,</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">step.increase =</span> <span class="fl">0.15</span></span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">"Viral_Titer_CombinedGroups_sig.tiff"</span>, <span class="at">plot =</span> p_combined,</span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>       <span class="at">width =</span> <span class="dv">8</span>, <span class="at">height =</span> <span class="fl">5.5</span>, <span class="at">units =</span> <span class="st">"in"</span>, <span class="at">dpi =</span> <span class="dv">600</span>,</span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>       <span class="at">compression =</span> <span class="st">"lzw"</span>)</span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_combined)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
@@ -3506,37 +3580,37 @@ group  7  0.3328  0.937
     }
   });
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "01 · Plaque Assay + Violin Plots"</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Viral titer quantification with replicate QC and significance testing"</span></span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> |</span></span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="co">  Analyzes plaque assay data from viral infection studies. Performs replicate</span></span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="co">  agreement (Limits of Agreement), one-way ANOVA with Tukey HSD, and produces</span></span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a><span class="co">  publication-quality violin plots on a log10 titer scale.</span></span>
-<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [infection, virology, ANOVA, plaque-assay]</span></span>
-<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a><span class="fu">## Overview</span></span>
-<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Details <span class="pp">|</span></span>
-<span id="cb17-14"><a href="#cb17-14" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|---------|</span></span>
-<span id="cb17-15"><a href="#cb17-15" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Input** <span class="pp">|</span> Single CSV — one row per animal, columns for two plaque count replicates and calculated titer <span class="pp">|</span></span>
-<span id="cb17-16"><a href="#cb17-16" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Key packages** <span class="pp">|</span> <span class="in">`ggplot2`</span>, <span class="in">`ggpubr`</span>, <span class="in">`rstatix`</span>, <span class="in">`car`</span>, <span class="in">`gt`</span>, <span class="in">`scales`</span> <span class="pp">|</span></span>
-<span id="cb17-17"><a href="#cb17-17" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Statistics** <span class="pp">|</span> Limits of Agreement · Shapiro-Wilk · Levene · One-way ANOVA · Tukey HSD <span class="pp">|</span></span>
-<span id="cb17-18"><a href="#cb17-18" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Output** <span class="pp">|</span> Replicate QC plot · Violin plots (full + merged) · ANOVA + post-hoc tables <span class="pp">|</span></span>
-<span id="cb17-19"><a href="#cb17-19" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Download** <span class="pp">|</span> <span class="co">[</span><span class="ot">template.Rmd</span><span class="co">](template.Rmd)</span> <span class="pp">|</span></span>
-<span id="cb17-20"><a href="#cb17-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-21"><a href="#cb17-21" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb17-22"><a href="#cb17-22" aria-hidden="true" tabindex="-1"></a>**When to use this template:** You have viral plaque assay data with duplicate plaque</span>
-<span id="cb17-23"><a href="#cb17-23" aria-hidden="true" tabindex="-1"></a>counts per animal across multiple treatment groups, and you want to visualize titer</span>
-<span id="cb17-24"><a href="#cb17-24" aria-hidden="true" tabindex="-1"></a>distributions and test for significant differences.</span>
-<span id="cb17-25"><a href="#cb17-25" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb17-26"><a href="#cb17-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-27"><a href="#cb17-27" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Back to Gallery</span><span class="co">](../../index.html)</span>{.btn .btn-outline-secondary}</span>
-<span id="cb17-28"><a href="#cb17-28" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Open Template File</span><span class="co">](template.Rmd)</span>{.btn .btn-primary}</span>
-<span id="cb17-29"><a href="#cb17-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb17-30"><a href="#cb17-30" aria-hidden="true" tabindex="-1"></a><span class="in">```{r child="template.Rmd"}</span></span>
-<span id="cb17-31"><a href="#cb17-31" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "01 · Plaque Assay + Violin Plots"</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Viral titer quantification with replicate QC and significance testing"</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="an">description:</span><span class="co"> |</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co">  Analyzes plaque assay data from viral infection studies. Performs replicate</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="co">  agreement (Limits of Agreement), one-way ANOVA with Tukey HSD, and produces</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="co">  publication-quality violin plots on a log10 titer scale.</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="an">categories:</span><span class="co"> [infection, virology, ANOVA, plaque-assay]</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a><span class="fu">## Overview</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Details <span class="pp">|</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|---------|</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Input** <span class="pp">|</span> Single CSV — one row per animal, columns for two plaque count replicates and calculated titer <span class="pp">|</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Key packages** <span class="pp">|</span> <span class="in">`ggplot2`</span>, <span class="in">`ggpubr`</span>, <span class="in">`rstatix`</span>, <span class="in">`car`</span>, <span class="in">`gt`</span>, <span class="in">`scales`</span> <span class="pp">|</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Statistics** <span class="pp">|</span> Limits of Agreement · Shapiro-Wilk · Levene · One-way ANOVA · Tukey HSD <span class="pp">|</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Output** <span class="pp">|</span> Replicate QC plot · Violin plots (full + merged) · ANOVA + post-hoc tables <span class="pp">|</span></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **Download** <span class="pp">|</span> <span class="co">[</span><span class="ot">template.Rmd</span><span class="co">](template.Rmd)</span> <span class="pp">|</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>**When to use this template:** You have viral plaque assay data with duplicate plaque</span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>counts per animal across multiple treatment groups, and you want to visualize titer</span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>distributions and test for significant differences.</span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Back to Gallery</span><span class="co">](../../index.html)</span>{.btn .btn-outline-secondary}</span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">Open Template File</span><span class="co">](template.Rmd)</span>{.btn .btn-primary}</span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a><span class="in">```{r child="template.Rmd"}</span></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

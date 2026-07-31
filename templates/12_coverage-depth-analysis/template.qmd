@@ -1,5 +1,5 @@
 ---
-title: "11 · Genome Coverage Depth"
+title: "12 · Coverage Depth Analysis"
 subtitle: "Per-position sequencing depth with gene annotations and DPI comparison"
 description: |
   Aggregates per-base sequencing depth across replicates grouped by days post-infection

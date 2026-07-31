@@ -91,25 +91,28 @@ sample_data <- coords %>%
 
 cat("Sequences loaded:", length(seqs_S), "\n")
 cat("Samples with coordinates:", nrow(sample_data), "\n")
-print(head(sample_data))
-```
+sample_data %>%
+  head(10) %>%
+  knitr::kable(
+    caption   = "Sampling Coordinates and Metadata (First 10 Samples)",
+    col.names = c("Sample ID", "Longitude", "Latitude", "Clade", "Year", "Host")
+  )
 
-# Replicate Agreement / Sequence Alignment QC
-
-```{r seq-qc}
 seq_widths <- width(seqs_S)
-cat(sprintf("S alignment: %d sequences, length %d–%d bp\n",
-            length(seq_widths), min(seq_widths), max(seq_widths)))
-
-# Count ambiguous bases per sequence
 ambig_counts <- sapply(as.character(seqs_S), function(s)
   sum(strsplit(s, "")[[1]] %in% c("N","R","Y","S","W","K","M","B","D","H","V")))
 
 data.frame(
-  sequence    = names(seqs_S),
-  length      = seq_widths,
-  ambig_bases = ambig_counts
-) %>% arrange(desc(ambig_bases))
+  Sequence    = names(seqs_S),
+  Length_bp   = seq_widths,
+  Ambig_Bases = ambig_counts
+) %>%
+  arrange(desc(Ambig_Bases)) %>%
+  head(10) %>%
+  knitr::kable(
+    caption   = "Sequence Alignment Quality & Ambiguous Base Count",
+    col.names = c("Sequence Header", "Length (bp)", "Ambiguous Bases (N)")
+  )
 ```
 
 # Isolation by Distance (Mantel Test)
@@ -137,7 +140,6 @@ geo_mat <- distm(
 rownames(geo_mat) <- colnames(geo_mat) <- coords_ordered[[SAMPLE_COL]]
 
 # ── 3. Mantel test ─────────────────────────────────────────────────────────────
-# Subset to shared taxa
 shared  <- intersect(rownames(patristic_mat), rownames(geo_mat))
 pat_sub <- patristic_mat[shared, shared]
 geo_sub <- geo_mat[shared, shared]
@@ -145,7 +147,19 @@ geo_sub <- geo_mat[shared, shared]
 mantel_result <- mantel(pat_sub, geo_sub,
                          method  = "pearson",
                          permutations = MANTEL_NPERM)
-print(mantel_result)
+
+mantel_df <- tibble(
+  `Mantel Statistic (r)` = unname(mantel_result$statistic),
+  `p-value (Significance)` = unname(mantel_result$signif),
+  `Permutations`          = MANTEL_NPERM,
+  `Correlation Method`    = "Pearson"
+)
+
+mantel_df %>%
+  knitr::kable(
+    caption = paste("Mantel Test Result (Isolation by Distance) —", PATHOGEN_NAME),
+    digits  = 4
+  )
 
 # ── 4. Scatter plot ────────────────────────────────────────────────────────────
 ibd_df <- data.frame(

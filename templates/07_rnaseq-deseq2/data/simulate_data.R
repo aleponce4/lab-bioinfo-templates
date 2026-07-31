@@ -1,7 +1,14 @@
 # simulate_data.R
-# Builds synthetic inputs for template 07 in both supported modes:
-# 1. count matrix + metadata
-# 2. SummarizedExperiment RDS files
+# Builds realistic synthetic inputs for template 07 (RNA-seq / DESeq2):
+# - Realistic count distribution (3,535 genes spanning 10 - 50,000 counts)
+# - Realistic negative binomial mean-dispersion trend matching DESeq2 parametric model
+# - Classic volcano distribution with up-regulated, down-regulated, and non-DE background genes
+# Outputs:
+# 1. demo_gene_counts.csv / demo_transcript_counts.csv
+# 2. demo_metadata.csv / demo_metadata.xlsx
+# 3. demo_gene_se.rds / demo_transcript_se.rds
+
+if (dir.exists("templates/07_rnaseq-deseq2")) setwd("templates/07_rnaseq-deseq2")
 
 set.seed(42)
 
@@ -13,16 +20,20 @@ suppressPackageStartupMessages({
   library(S4Vectors)
 })
 
+# Curated biological pathway gene sets
 gene_sets <- list(
-  Interferon_Response = c("Stat1", "Stat2", "Irf7", "Isg15", "Ifit1", "Ifit3", "Mx1", "Oas1a"),
-  Cell_Cycle = c("Mki67", "Top2a", "Cdk1", "Ccnb1", "Ccnb2", "Aurkb", "Ube2c", "Birc5"),
-  Inflammation = c("Il6", "Ccl2", "Cxcl10", "Nfkbia", "Socs3", "Jun", "Fos", "Icam1")
+  Interferon_Response = c("Stat1", "Stat2", "Irf7", "Isg15", "Ifit1", "Ifit2", "Ifit3", "Mx1", "Oas1a", "Oas2", "Irf9", "Usp18", "B2m"),
+  Cell_Cycle = c("Mki67", "Top2a", "Cdk1", "Ccnb1", "Ccnb2", "Aurkb", "Ube2c", "Birc5", "Plk1", "Cdc20", "Cdk2"),
+  Inflammation = c("Il6", "Ccl2", "Cxcl10", "Nfkbia", "Socs3", "Jun", "Fos", "Icam1", "Tnf", "Il1b", "Cxcl9", "Ccl5")
 )
 
-required_genes <- unique(unlist(gene_sets, use.names = FALSE))
-background_genes <- paste0("Gene_", sprintf("%04d", seq_len(700)))
-gene_ids <- c(required_genes, background_genes)
+pathway_genes <- unique(unlist(gene_sets, use.names = FALSE))
+n_bg <- 3500
+bg_genes <- paste0("Gene_", sprintf("%04d", seq_len(n_bg)))
+all_genes <- c(pathway_genes, bg_genes)
+n_genes <- length(all_genes)
 
+# Samples metadata
 metadata <- tidyr::expand_grid(
   tissue = c("Brain", "Lung"),
   pair_id = paste0("Pair_", 1:4),
@@ -38,49 +49,68 @@ metadata <- tidyr::expand_grid(
 
 sample_ids <- metadata$sample_id
 
-pair_effects <- setNames(runif(length(unique(metadata$pair_id)), 0.9, 1.15), unique(metadata$pair_id))
+# 1. Base gene means: log-normal distribution (dynamic range: ~10 to 50,000 counts)
+log_means <- rnorm(n_genes, mean = 4.8, sd = 1.8)
+base_means <- exp(log_means)
+base_means <- pmax(base_means, 10)
+names(base_means) <- all_genes
 
-simulate_gene_means <- function(sample_row) {
-  mu <- rgamma(length(gene_ids), shape = 2.5, scale = 60)
-  names(mu) <- gene_ids
+# 2. Mean-dispersion relationship (DESeq2 parametric curve: alpha = alpha0 + alpha1 / mean)
+alpha0 <- 0.03
+alpha1 <- 3.5
+log_disp_noise <- rnorm(n_genes, mean = 0, sd = 0.25)
+dispersions <- (alpha0 + alpha1 / base_means) * exp(log_disp_noise)
+dispersions <- pmax(dispersions, 0.005)
+names(dispersions) <- all_genes
 
-  if (sample_row$tissue == "Brain") {
-    mu[gene_sets$Interferon_Response] <- mu[gene_sets$Interferon_Response] * 1.4
-    mu[gene_sets$Cell_Cycle] <- mu[gene_sets$Cell_Cycle] * 0.9
-  } else {
-    mu[gene_sets$Inflammation] <- mu[gene_sets$Inflammation] * 1.5
-    mu[gene_sets$Cell_Cycle] <- mu[gene_sets$Cell_Cycle] * 1.2
+# 3. Treatment Fold Changes (log2 scale)
+l2fc <- numeric(n_genes)
+names(l2fc) <- all_genes
+
+# Pathway genes
+l2fc[gene_sets$Interferon_Response] <- runif(length(gene_sets$Interferon_Response), 1.8, 4.0)
+l2fc[gene_sets$Inflammation]         <- runif(length(gene_sets$Inflammation), 1.5, 3.8)
+l2fc[gene_sets$Cell_Cycle]          <- runif(length(gene_sets$Cell_Cycle), -2.8, -1.0)
+
+# Background genes DE assignment (~11% up, ~11% down, ~78% unchanged)
+set.seed(123)
+bg_indices <- seq(length(pathway_genes) + 1, n_genes)
+n_bg_de <- round(length(bg_indices) * 0.11)
+up_bg <- sample(bg_indices, n_bg_de)
+down_bg <- sample(setdiff(bg_indices, up_bg), n_bg_de)
+
+l2fc[up_bg]   <- runif(length(up_bg), 0.8, 3.2)
+l2fc[down_bg] <- runif(length(down_bg), -3.2, -0.8)
+
+# Unchanged genes get realistic background biological noise
+null_bg <- setdiff(bg_indices, c(up_bg, down_bg))
+l2fc[null_bg] <- rnorm(length(null_bg), mean = 0, sd = 0.12)
+
+# Pair/Tissue effects per sample
+pair_effects <- setNames(exp(rnorm(4, 0, 0.08)), paste0("Pair_", 1:4))
+tissue_effects <- setNames(exp(rnorm(2, 0, 0.10)), c("Brain", "Lung"))
+
+# 4. Generate Count Matrix
+gene_counts <- matrix(0L, nrow = n_genes, ncol = nrow(metadata),
+                      dimnames = list(all_genes, sample_ids))
+
+for (i in seq_len(nrow(metadata))) {
+  row <- metadata[i, ]
+  
+  sample_l2fc <- if (row$group == "Treatment") l2fc else numeric(n_genes)
+  
+  if (row$tissue == "Brain" && row$group == "Treatment") {
+    sample_l2fc[gene_sets$Interferon_Response] <- sample_l2fc[gene_sets$Interferon_Response] + 0.5
   }
-
-  if (sample_row$group == "Treatment") {
-    if (sample_row$tissue == "Brain") {
-      mu[gene_sets$Interferon_Response] <- mu[gene_sets$Interferon_Response] * 4.5
-      mu[gene_sets$Inflammation] <- mu[gene_sets$Inflammation] * 2.0
-    } else {
-      mu[gene_sets$Inflammation] <- mu[gene_sets$Inflammation] * 4.0
-      mu[gene_sets$Cell_Cycle] <- mu[gene_sets$Cell_Cycle] * 2.5
-    }
-  }
-
-  mu * pair_effects[[sample_row$pair_id]]
+  
+  sample_means <- base_means * (2^sample_l2fc) * pair_effects[row$pair_id] * tissue_effects[row$tissue]
+  sizes <- 1 / dispersions
+  gene_counts[, i] <- rnbinom(n_genes, mu = sample_means, size = sizes)
 }
 
-gene_counts <- sapply(seq_len(nrow(metadata)), function(i) {
-  row <- metadata[i, ]
-  mu <- simulate_gene_means(row)
-  # add small random treatment effect to ~15% of background genes for realistic volcano shape
-  if (row$group == "Treatment") {
-    bg_idx <- grep("^Gene_", names(mu))
-    n_noise <- round(length(bg_idx) * 0.15)
-    noise_genes <- sample(bg_idx, n_noise)
-    mu[noise_genes] <- mu[noise_genes] * runif(n_noise, 0.4, 3.0)
-  }
-  rnbinom(length(mu), mu = mu, size = 18)
-})
-colnames(gene_counts) <- sample_ids
-rownames(gene_counts) <- gene_ids
 storage.mode(gene_counts) <- "integer"
 
+# 5. Simulate viral features (transcript counts)
 viral_features <- c("VEEV_genome", "VEEV_49S", "VEEV_26S")
 viral_lengths <- c(VEEV_genome = 11446, VEEV_49S = 11446, VEEV_26S = 3880)
 
@@ -102,6 +132,7 @@ colnames(transcript_counts) <- sample_ids
 rownames(transcript_counts) <- viral_features
 storage.mode(transcript_counts) <- "integer"
 
+# 6. Save output files
 gene_count_tbl <- tibble::tibble(Gene = rownames(gene_counts)) %>%
   bind_cols(as.data.frame(gene_counts, check.names = FALSE))
 transcript_count_tbl <- tibble::tibble(Transcript = rownames(transcript_counts)) %>%
@@ -129,4 +160,4 @@ transcript_se <- SummarizedExperiment::SummarizedExperiment(
 saveRDS(gene_se, "data/demo_gene_se.rds")
 saveRDS(transcript_se, "data/demo_transcript_se.rds")
 
-message("Wrote demo_gene_counts.csv, demo_transcript_counts.csv, demo_metadata.csv/xlsx, demo_gene_se.rds, and demo_transcript_se.rds")
+message("Wrote demo_gene_counts.csv, demo_transcript_counts.csv, demo_metadata.csv/xlsx, demo_gene_se.rds, and demo_transcript_se.rds (", n_genes, " genes)")

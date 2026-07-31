@@ -288,12 +288,24 @@ print(p_merged)
 ## Assumption Checks
 
 ```{r assumptions}
-df_clean %>%
+shapiro_res <- df_clean %>%
   group_by(ShortGroup) %>%
   filter(sd(logTiter, na.rm = TRUE) > 0) %>%
   shapiro_test(logTiter)
 
-leveneTest(logTiter ~ ShortGroup, data = df_clean)
+shapiro_res %>%
+  dplyr::select(Group = ShortGroup, `Statistic (W)` = statistic, `p-value` = p) %>%
+  knitr::kable(caption = "Shapiro-Wilk Normality Test by Group", digits = 4)
+
+lev_res <- leveneTest(logTiter ~ ShortGroup, data = df_clean)
+lev_df  <- data.frame(
+  `Source` = c("Group", "Residuals"),
+  `Df`     = lev_res$Df,
+  `F value` = c(lev_res$`F value`[1], NA),
+  `Pr(>F)` = c(lev_res$`Pr(>F)`[1], NA),
+  check.names = FALSE
+)
+knitr::kable(lev_df, caption = "Levene's Test for Homogeneity of Variance", digits = 4)
 ```
 
 ## One-Way ANOVA — All Groups

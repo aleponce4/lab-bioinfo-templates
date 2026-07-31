@@ -1,6 +1,6 @@
 ---
 title: "Image-Based Infection + Dose-Response Analysis"
-author: "Jonsson Laboratory"
+author: "Alejandro Ponce-Flores"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -175,7 +175,7 @@ process_plate_files <- function(nucleus_file, virus_file) {
   dapi_col <- names(df_nuclei)[grepl("MeanIntensity.*CH1", names(df_nuclei), ignore.case = TRUE)][1]
   if (is.na(dapi_col)) dapi_col <- NUCLEUS_DAPI_COL
 
-  area_col <- names(df_nuclei)[grepl("\\(Nucleus|nucleus\\)\\s*(Volume|Area)", names(df_nuclei), ignore.case = TRUE)][1]
+  area_col <- names(df_nuclei)[grepl("(Area|Volume)", names(df_nuclei), ignore.case = TRUE)][1]
   if (is.na(area_col)) area_col <- NUCLEUS_AREA_COL
 
   sphericity_col <- names(df_nuclei)[grepl("Sphericity|Circularity|Compactness", names(df_nuclei), ignore.case = TRUE)][1]

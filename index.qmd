@@ -1,5 +1,5 @@
 ---
-title: "Jonsson Lab Bioinformatics Templates"
+title: "Virology & Genomics Bioinformatics Analysis Templates"
 subtitle: "Reusable analysis templates for virology and genomics research"
 page-layout: full
 toc: false
@@ -15,6 +15,10 @@ library(dplyr)
 Working notebook templates used as starting points for common analyses. Each ships with
 synthetic example data and uses a publication-oriented figure style. Adapt by
 editing the `## -- USER CONFIGURATION --` block at the top; everything below runs unchanged.
+:::
+
+::: {.callout-note}
+Developed and maintained by Alejandro Ponce-Flores for bioinformatics analyses in the Jonsson Laboratory at UTHSC. This public repository contains reusable templates that ship with synthetic example data only; no experimental or study data is included.
 :::
 
 ---
@@ -320,5 +324,5 @@ source("install_packages.R")   # R templates — run once
 ```
 
 ```bash
-conda env create -f environment.yml && conda activate jonsson-bioinfo   # template 08 only
+conda env create -f environment.yml && conda activate virology-bioinfo   # template 08 only
 ```

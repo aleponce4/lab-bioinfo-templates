@@ -1,6 +1,6 @@
 ---
 title: "MagPix / Luminex Multiplex Cytokine Analysis"
-author: "Jonsson Laboratory"
+author: "Alejandro Ponce-Flores"
 date: "`r Sys.Date()`"
 output:
   html_notebook:

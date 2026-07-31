@@ -1,4 +1,4 @@
-name: jonsson-bioinfo
+name: virology-bioinfo
 channels:
   - conda-forge
   - bioconda

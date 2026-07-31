@@ -28,51 +28,51 @@
 <g clip-path='url(#cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA=)'>
 </g>
 <defs>
-  <clipPath id='cpMC4wMHw1NzYuMDB8MjkuMjZ8MzMwLjc0'>
-    <rect x='0.00' y='29.26' width='576.00' height='301.47' />
+  <clipPath id='cpMi4zNHw1NzMuNjZ8MC4wMHwzNjAuMDA='>
+    <rect x='2.34' y='0.00' width='571.33' height='360.00' />
   </clipPath>
 </defs>
-<g clip-path='url(#cpMC4wMHw1NzYuMDB8MjkuMjZ8MzMwLjc0)'>
-<rect x='0.00' y='29.26' width='576.00' height='301.47' style='stroke-width: 0.00; stroke: none;' />
+<g clip-path='url(#cpMi4zNHw1NzMuNjZ8MC4wMHwzNjAuMDA=)'>
+<rect x='2.34' y='0.00' width='571.33' height='360.00' style='stroke-width: 0.00; stroke: none;' />
 </g>
 <g clip-path='url(#cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA=)'>
 </g>
 <defs>
-  <clipPath id='cpMC4wMHw1NzYuMDB8NDUuODZ8MzA3Ljc5'>
-    <rect x='0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000' y='45.86' width='576.00' height='261.93' />
+  <clipPath id='cpMi4zNHw1NzMuNjZ8MTYuNjB8MzM3LjA1'>
+    <rect x='2.34' y='16.60' width='571.33' height='320.45' />
   </clipPath>
 </defs>
-<g clip-path='url(#cpMC4wMHw1NzYuMDB8NDUuODZ8MzA3Ljc5)'>
-<line x1='428.15' y1='113.09' x2='288.92' y2='176.40' style='stroke-width: 1.49; stroke: #D97706;' />
-<polygon points='293.95,169.37 288.92,176.40 297.52,177.24 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
-<line x1='549.82' y1='57.77' x2='428.15' y2='113.09' style='stroke-width: 1.49; stroke: #D97706;' />
-<polygon points='433.17,106.06 428.15,113.09 436.75,113.93 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
-<line x1='288.92' y1='176.40' x2='148.73' y2='240.15' style='stroke-width: 1.49; stroke: #D97706;' />
-<polygon points='153.75,233.12 148.73,240.15 157.33,240.99 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
-<line x1='26.18' y1='295.88' x2='148.73' y2='240.15' style='stroke-width: 1.49; stroke: #2563A8;' />
-<polygon points='143.71,247.18 148.73,240.15 140.13,239.32 ' style='stroke-width: 1.49; stroke: #2563A8; fill: #2563A8;' />
-<circle cx='148.73' cy='240.15' r='6.51' style='stroke-width: 1.28; stroke: #424242; fill: #CDDAEC;' />
-<rect x='283.16' y='170.64' width='11.53' height='11.53' style='stroke-width: 1.28; stroke: #006D2C; fill: #E08A1E;' />
-<circle cx='428.15' cy='113.09' r='6.51' style='stroke-width: 1.28; stroke: #006D2C; fill: #E08A1E;' />
-<rect x='20.42' y='290.11' width='11.53' height='11.53' style='stroke-width: 1.28; stroke: #006D2C; fill: #1F5EA8;' />
-<polygon points='549.82,47.65 558.58,62.83 541.06,62.83 ' style='stroke-width: 1.28; stroke: #424242; fill: #E08A1E;' />
-<text x='148.73' y='233.74' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='26.08px' lengthAdjust='spacingAndGlyphs'>ICAM1</text>
-<text x='288.92' y='169.99' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='18.50px' lengthAdjust='spacingAndGlyphs'>IRF1</text>
-<text x='428.15' y='106.68' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='20.39px' lengthAdjust='spacingAndGlyphs'>JAK1</text>
-<text x='26.18' y='289.46' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='20.41px' lengthAdjust='spacingAndGlyphs'>KLF2</text>
-<text x='549.82' y='51.35' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='66.03px' lengthAdjust='spacingAndGlyphs'>PERTURBATION</text>
+<g clip-path='url(#cpMi4zNHw1NzMuNjZ8MTYuNjB8MzM3LjA1)'>
+<line x1='426.80' y1='98.97' x2='287.82' y2='176.92' style='stroke-width: 1.49; stroke: #D97706;' />
+<polygon points='292.23,169.50 287.82,176.92 296.46,177.03 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
+<line x1='547.69' y1='31.16' x2='426.80' y2='98.97' style='stroke-width: 1.49; stroke: #D97706;' />
+<polygon points='431.21,91.54 426.80,98.97 435.44,99.08 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
+<line x1='287.82' y1='176.92' x2='149.74' y2='254.37' style='stroke-width: 1.49; stroke: #D97706;' />
+<polygon points='154.15,246.95 149.74,254.37 158.38,254.48 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
+<line x1='28.31' y1='322.48' x2='149.74' y2='254.37' style='stroke-width: 1.49; stroke: #2563A8;' />
+<polygon points='145.33,261.80 149.74,254.37 141.10,254.27 ' style='stroke-width: 1.49; stroke: #2563A8; fill: #2563A8;' />
+<circle cx='149.74' cy='254.37' r='6.51' style='stroke-width: 1.28; stroke: #424242; fill: #CDDAEC;' />
+<rect x='282.05' y='171.16' width='11.53' height='11.53' style='stroke-width: 1.28; stroke: #006D2C; fill: #E08A1E;' />
+<circle cx='426.80' cy='98.97' r='6.51' style='stroke-width: 1.28; stroke: #006D2C; fill: #E08A1E;' />
+<rect x='22.54' y='316.72' width='11.53' height='11.53' style='stroke-width: 1.28; stroke: #006D2C; fill: #1F5EA8;' />
+<polygon points='547.69,21.04 556.46,36.22 538.93,36.22 ' style='stroke-width: 1.28; stroke: #424242; fill: #E08A1E;' />
+<text x='149.74' y='247.96' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='26.08px' lengthAdjust='spacingAndGlyphs'>ICAM1</text>
+<text x='287.82' y='170.51' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='18.50px' lengthAdjust='spacingAndGlyphs'>IRF1</text>
+<text x='426.80' y='92.55' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='20.39px' lengthAdjust='spacingAndGlyphs'>JAK1</text>
+<text x='28.31' y='316.07' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='20.41px' lengthAdjust='spacingAndGlyphs'>KLF2</text>
+<text x='547.69' y='24.74' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='66.03px' lengthAdjust='spacingAndGlyphs'>PERTURBATION</text>
 </g>
 <g clip-path='url(#cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA=)'>
-<text x='143.63' y='326.03' style='font-size: 11.00px; font-family: "Arial";' textLength='50.19px' lengthAdjust='spacingAndGlyphs'>Node type</text>
-<circle cx='207.94' cy='322.10' r='4.91' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
-<circle cx='255.74' cy='322.10' r='4.91' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
-<polygon points='332.35,314.47 338.96,325.91 325.75,325.91 ' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
-<rect x='403.15' y='317.75' width='8.70' height='8.70' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
-<text x='222.06' y='325.25' style='font-size: 8.80px; font-family: "Arial";' textLength='19.56px' lengthAdjust='spacingAndGlyphs'>gene</text>
-<text x='269.86' y='325.25' style='font-size: 8.80px; font-family: "Arial";' textLength='48.38px' lengthAdjust='spacingAndGlyphs'>intermediate</text>
-<text x='346.47' y='325.25' style='font-size: 8.80px; font-family: "Arial";' textLength='46.91px' lengthAdjust='spacingAndGlyphs'>perturbation</text>
-<text x='421.62' y='325.25' style='font-size: 8.80px; font-family: "Arial";' textLength='10.75px' lengthAdjust='spacingAndGlyphs'>TF</text>
-<text x='288.00' y='43.34' text-anchor='middle' style='font-size: 12.00px; font-weight: bold; font-family: "Arial";' textLength='283.98px' lengthAdjust='spacingAndGlyphs'>Inflammatory Signaling - Recovery 96h vs Control</text>
+<text x='143.63' y='355.30' style='font-size: 11.00px; font-family: "Arial";' textLength='50.19px' lengthAdjust='spacingAndGlyphs'>Node type</text>
+<circle cx='207.94' cy='351.36' r='4.91' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
+<circle cx='255.74' cy='351.36' r='4.91' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
+<polygon points='332.35,343.73 338.96,355.17 325.75,355.17 ' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
+<rect x='403.15' y='347.01' width='8.70' height='8.70' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
+<text x='222.06' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='19.56px' lengthAdjust='spacingAndGlyphs'>gene</text>
+<text x='269.86' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='48.38px' lengthAdjust='spacingAndGlyphs'>intermediate</text>
+<text x='346.47' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='46.91px' lengthAdjust='spacingAndGlyphs'>perturbation</text>
+<text x='421.62' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='10.75px' lengthAdjust='spacingAndGlyphs'>TF</text>
+<text x='288.00' y='14.08' text-anchor='middle' style='font-size: 12.00px; font-weight: bold; font-family: "Arial";' textLength='283.98px' lengthAdjust='spacingAndGlyphs'>Inflammatory Signaling - Recovery 96h vs Control</text>
 </g>
 </g>
 </svg>

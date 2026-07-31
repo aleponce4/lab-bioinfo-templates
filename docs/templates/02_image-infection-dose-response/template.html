@@ -8,7 +8,7 @@
 
 <meta name="description" content="Analyzes per-cell fluorescence data from image-based infection assays (e.g., CQ1 microscope). Performs 3-step singlet/cell-cycle QC, per-plate two-anchor normalization (Mock/VO), population 2-component GMM gating, and side-by-side co-primary 4PL dose-response analysis (% Infection and Normalized Intensity) with Prism-style outlier masking.">
 
-<title>02 · Image Infection + Dose-Response – Jonsson Lab — Bioinfo Templates</title>
+<title>02 · Image Infection + Dose-Response – Virology &amp; Genomics Bioinfo Templates</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -118,7 +118,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
     <a class="navbar-brand" href="../../index.html">
-    <span class="navbar-title">Jonsson Lab — Bioinfo Templates</span>
+    <span class="navbar-title">Virology &amp; Genomics Bioinfo Templates</span>
     </a>
   </div>
             <div id="quarto-search" class="" title="Search"></div>
@@ -603,7 +603,7 @@ Note
 <span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  dapi_col <span class="ot">&lt;-</span> <span class="fu">names</span>(df_nuclei)[<span class="fu">grepl</span>(<span class="st">"MeanIntensity.*CH1"</span>, <span class="fu">names</span>(df_nuclei), <span class="at">ignore.case =</span> <span class="cn">TRUE</span>)][<span class="dv">1</span>]</span>
 <span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.na</span>(dapi_col)) dapi_col <span class="ot">&lt;-</span> NUCLEUS_DAPI_COL</span>
 <span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  area_col <span class="ot">&lt;-</span> <span class="fu">names</span>(df_nuclei)[<span class="fu">grepl</span>(<span class="st">"</span><span class="sc">\\</span><span class="st">(Nucleus|nucleus</span><span class="sc">\\</span><span class="st">)</span><span class="sc">\\</span><span class="st">s*(Volume|Area)"</span>, <span class="fu">names</span>(df_nuclei), <span class="at">ignore.case =</span> <span class="cn">TRUE</span>)][<span class="dv">1</span>]</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  area_col <span class="ot">&lt;-</span> <span class="fu">names</span>(df_nuclei)[<span class="fu">grepl</span>(<span class="st">"(Area|Volume)"</span>, <span class="fu">names</span>(df_nuclei), <span class="at">ignore.case =</span> <span class="cn">TRUE</span>)][<span class="dv">1</span>]</span>
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">is.na</span>(area_col)) area_col <span class="ot">&lt;-</span> NUCLEUS_AREA_COL</span>
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  sphericity_col <span class="ot">&lt;-</span> <span class="fu">names</span>(df_nuclei)[<span class="fu">grepl</span>(<span class="st">"Sphericity|Circularity|Compactness"</span>, <span class="fu">names</span>(df_nuclei), <span class="at">ignore.case =</span> <span class="cn">TRUE</span>)][<span class="dv">1</span>]</span>
@@ -793,16 +793,16 @@ Note
 <span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<table class="caption-top">
+<table class="caption-top table table-sm table-striped small">
 <caption>Well-Level Percent Infection (Global Population GMM Threshold)</caption>
 <colgroup>
-<col style="width: 7%">
-<col style="width: 14%">
-<col style="width: 7%">
+<col style="width: 5%">
+<col style="width: 19%">
 <col style="width: 17%">
-<col style="width: 21%">
+<col style="width: 13%">
 <col style="width: 17%">
-<col style="width: 14%">
+<col style="width: 13%">
+<col style="width: 11%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -816,6 +816,393 @@ Note
 </tr>
 </thead>
 <tbody>
+<tr class="odd">
+<td style="text-align: left;">C3</td>
+<td style="text-align: left;">Mock</td>
+<td style="text-align: left;">Mock</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">C4</td>
+<td style="text-align: left;">Mock</td>
+<td style="text-align: left;">Mock</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">C5</td>
+<td style="text-align: left;">Mock</td>
+<td style="text-align: left;">Mock</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">C6</td>
+<td style="text-align: left;">Mock</td>
+<td style="text-align: left;">Mock</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">C11</td>
+<td style="text-align: left;">Mock+Ab</td>
+<td style="text-align: left;">Mock</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D1</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">0.01 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D2</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">0.1 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D3</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">0.5 µM</td>
+<td style="text-align: right;">398</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D4</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">1 µM</td>
+<td style="text-align: right;">396</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D5</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">2 µM</td>
+<td style="text-align: right;">392</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D6</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">4 µM</td>
+<td style="text-align: right;">384</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D7</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">8 µM</td>
+<td style="text-align: right;">368</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D8</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">12 µM</td>
+<td style="text-align: right;">352</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D9</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">16 µM</td>
+<td style="text-align: right;">336</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D10</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">20 µM</td>
+<td style="text-align: right;">320</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">D11</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">30 µM</td>
+<td style="text-align: right;">280</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">D12</td>
+<td style="text-align: left;">Toxicity Control</td>
+<td style="text-align: left;">50 µM</td>
+<td style="text-align: right;">240</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E1</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">0.01 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">259</td>
+<td style="text-align: right;">64.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F1</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">0.01 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">259</td>
+<td style="text-align: right;">64.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E2</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">0.1 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">252</td>
+<td style="text-align: right;">63.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F2</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">0.1 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">251</td>
+<td style="text-align: right;">62.7</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E3</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">0.5 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">234</td>
+<td style="text-align: right;">58.5</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F3</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">0.5 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">234</td>
+<td style="text-align: right;">58.5</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E4</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">1 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">219</td>
+<td style="text-align: right;">54.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F4</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">1 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">219</td>
+<td style="text-align: right;">54.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E5</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">2 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">196</td>
+<td style="text-align: right;">49.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F5</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">2 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">195</td>
+<td style="text-align: right;">48.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E6</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">4 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">165</td>
+<td style="text-align: right;">41.2</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F6</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">4 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">165</td>
+<td style="text-align: right;">41.2</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E7</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">8 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">130</td>
+<td style="text-align: right;">32.5</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F7</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">8 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">130</td>
+<td style="text-align: right;">32.5</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E8</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">12 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">109</td>
+<td style="text-align: right;">27.3</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F8</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">12 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">109</td>
+<td style="text-align: right;">27.3</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E9</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">16 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">95</td>
+<td style="text-align: right;">23.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F9</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">16 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">95</td>
+<td style="text-align: right;">23.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E10</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">20 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">84</td>
+<td style="text-align: right;">21.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F10</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">20 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">84</td>
+<td style="text-align: right;">21.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E11</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">30 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">67</td>
+<td style="text-align: right;">16.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F11</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">30 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">67</td>
+<td style="text-align: right;">16.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">E12</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">50 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">49</td>
+<td style="text-align: right;">12.2</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F12</td>
+<td style="text-align: left;">Virus + Compound</td>
+<td style="text-align: left;">50 µM</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">49</td>
+<td style="text-align: right;">12.2</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">C7</td>
+<td style="text-align: left;">Virus Only</td>
+<td style="text-align: left;">0 µM (Control)</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">259</td>
+<td style="text-align: right;">64.8</td>
+<td style="text-align: left;">Valid</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">C8</td>
+<td style="text-align: left;">Virus Only</td>
+<td style="text-align: left;">0 µM (Control)</td>
+<td style="text-align: right;">400</td>
+<td style="text-align: right;">260</td>
+<td style="text-align: right;">65.0</td>
+<td style="text-align: left;">Valid</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -1053,6 +1440,11 @@ Note
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <caption>EC50 comparison across co-primary endpoints.</caption>
+<colgroup>
+<col style="width: 68%">
+<col style="width: 14%">
+<col style="width: 17%">
+</colgroup>
 <thead>
 <tr class="header">
 <th style="text-align: left;">Endpoint</th>
@@ -1063,13 +1455,13 @@ Note
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Normalized NP intensity (mean) – co-primary</td>
-<td style="text-align: right;">NA</td>
-<td style="text-align: left;">–</td>
+<td style="text-align: right;">8.552</td>
+<td style="text-align: left;">7.55 – 9.53</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">% infected (population GMM gate) – co-primary</td>
-<td style="text-align: right;">NA</td>
-<td style="text-align: left;">–</td>
+<td style="text-align: right;">7.951</td>
+<td style="text-align: left;">7.8 – 8.11</td>
 </tr>
 </tbody>
 </table>
@@ -1686,7 +2078,7 @@ Note
 <footer class="footer">
   <div class="nav-footer">
     <div class="nav-footer-left">
-<p>Jonsson Laboratory · UTHSC</p>
+<p>Alejandro Ponce-Flores · UTHSC</p>
 </div>   
     <div class="nav-footer-center">
       &nbsp;

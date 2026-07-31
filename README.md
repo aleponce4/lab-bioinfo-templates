@@ -1,4 +1,4 @@
-# Jonsson Lab Bioinformatics Templates
+# Virology & Genomics Bioinformatics Analysis Templates
 
 ![CI](https://github.com/aleponce4/lab-bioinfo-templates/actions/workflows/ci.yml/badge.svg)
 ![Render Site](https://github.com/aleponce4/lab-bioinfo-templates/actions/workflows/render-site.yml/badge.svg)
@@ -8,6 +8,10 @@ A centralized collection of reusable analysis templates for virology and genomic
 Browse the live gallery at: **https://aleponce4.github.io/lab-bioinfo-templates**
 
 ---
+
+::: {.callout-note}
+Developed and maintained by Alejandro Ponce-Flores for bioinformatics analyses in the Jonsson Laboratory at UTHSC. This public repository contains reusable templates that ship with synthetic example data only; no experimental or study data is included.
+:::
 
 ## Template Status & Scientific Audit
 
@@ -25,6 +29,10 @@ Detailed scientific method reviews, assumptions, and validation criteria for all
 | 08 | VCF Mutation Analysis | Python | Entropy, mutation frequency, heatmaps | Yes | Synthetic | 🟢 Active |
 | 09 | WGCNA Co-Expression Analysis | R | Co-expression modules, module-trait correlation | Yes | Synthetic | 🟢 Active |
 | 10 | RNA-seq TF/Causal Network | R | TF activity, signed PKN overlap, network graphs | Yes | Synthetic | 🟢 Active |
+| 11 | Variant Frequency + Shannon Entropy | Python | Intra-host variants, Shannon entropy curves | Yes | Synthetic | 🟢 Active |
+| 12 | Coverage Depth Analysis | Python | Per-position depth, gene annotations | Yes | Synthetic | 🟢 Active |
+| 13 | Selection Pressure (πN - πS) | Python | Selection pressure, nonsynonymous/synonymous diversity | Yes | Synthetic | 🟢 Active |
+| 14 | Haplotype Composition | Python | Haplotype proportions across timepoints | Yes | Synthetic | 🟢 Active |
 
 ---
 
@@ -41,11 +49,11 @@ source("install_packages.R")
 # 3. Knit / render
 ```
 
-### Python Template (08)
+### Python Templates (08, 11–14)
 
 ```bash
 conda env create -f environment.yml
-conda activate jonsson-bioinfo
+conda activate virology-bioinfo
 jupyter notebook templates/08_vcf-mutation-analysis/template.ipynb
 ```
 

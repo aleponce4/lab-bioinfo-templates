@@ -178,26 +178,18 @@ process_plate_files <- function(nucleus_file, virus_file) {
   area_col <- names(df_nuclei)[grepl("(Area|Volume)", names(df_nuclei), ignore.case = TRUE)][1]
   if (is.na(area_col)) area_col <- NUCLEUS_AREA_COL
 
-  sphericity_col <- names(df_nuclei)[grepl("Sphericity|Circularity|Compactness", names(df_nuclei), ignore.case = TRUE)][1]
-  
   virus_col <- names(df_virus)[grepl("MeanIntensity.*CH2", names(df_virus), ignore.case = TRUE)][1]
   if (is.na(virus_col)) virus_col <- VIRUS_INTENSITY_COL
 
-  if (!is.na(sphericity_col)) {
-    nuclei_clean <- df_nuclei %>%
-      dplyr::select(
-        WellName, FieldIndex, ObjectNumber,
-        dapi_intensity = all_of(dapi_col),
-        Area           = all_of(area_col),
-        Sphericity     = all_of(sphericity_col)
-      )
-  } else {
-    nuclei_clean <- df_nuclei %>%
-      dplyr::select(
-        WellName, FieldIndex, ObjectNumber,
-        dapi_intensity = all_of(dapi_col),
-        Area           = all_of(area_col)
-      ) %>%
+  nuclei_clean <- df_nuclei %>%
+    dplyr::select(
+      WellName, FieldIndex, ObjectNumber,
+      dapi_intensity = all_of(dapi_col),
+      Area           = all_of(area_col)
+    )
+
+  if (!"Sphericity" %in% names(df_nuclei)) {
+    nuclei_clean <- nuclei_clean %>%
       dplyr::mutate(Sphericity = 1.0)
   }
 
@@ -227,22 +219,43 @@ master_df_annotated <- master_df_raw_annotated %>%
     else . }
 ```
 
-# Cell Gating (QC)
+# Cell Gating (QC Scatterplot)
 
-```{r gating-plot, warning=FALSE, message=FALSE}
+```{r gating-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=4}
 master_df_pre <- master_df_annotated %>%
-  dplyr::filter(Area > AREA_MIN & Area < AREA_MAX & dapi_intensity > INTENSITY_MIN) %>%
   dplyr::mutate(
-    integrated_intensity = Area * dapi_intensity,
-    Is_Singlet = Sphericity >= CIRCULARITY_MIN
+    Pass_QC = Area >= AREA_MIN & Area <= AREA_MAX & dapi_intensity >= INTENSITY_MIN & Sphericity >= CIRCULARITY_MIN,
+    integrated_intensity = Area * dapi_intensity
   )
 
-master_df_gated <- master_df_pre %>% dplyr::filter(Is_Singlet)
+# Display QC Gating Scatterplot
+p_qc_gating <- ggplot(master_df_pre, aes(x = Area, y = dapi_intensity, color = Pass_QC)) +
+  geom_point(alpha = 0.35, size = 0.9) +
+  geom_vline(xintercept = c(AREA_MIN, AREA_MAX), linetype = "dashed", color = "firebrick", linewidth = 0.6) +
+  geom_hline(yintercept = INTENSITY_MIN, linetype = "dashed", color = "firebrick", linewidth = 0.6) +
+  scale_color_manual(
+    values = c("TRUE" = "#2B5C8F", "FALSE" = "#D95F02"),
+    labels = c("FALSE" = "Excluded Debris / Clump", "TRUE" = "Passed Gating (Singlet)")
+  ) +
+  labs(
+    title = "Single-Cell Quality Control Gating",
+    subtitle = paste0("Limits: Area [", AREA_MIN, "–", AREA_MAX, " px²], DAPI > ", INTENSITY_MIN, " a.u."),
+    x = "Nuclear Area (pixels²)",
+    y = "Mean DAPI Intensity (a.u.)",
+    color = "Cell Status"
+  ) +
+  theme_bw(base_size = 9) +
+  theme(legend.position = "top", plot.title = element_text(face = "bold"))
+
+print(p_qc_gating)
+ggsave("Plots/qc_gating_scatterplot.tiff", p_qc_gating, width = 5, height = 3.8, units = "in", dpi = 300)
+
+master_df_gated <- master_df_pre %>% dplyr::filter(Pass_QC)
 ```
 
 # Infection Gate: Control-Based Normalization + Population GMM
 
-```{r infection-gate, warning=FALSE}
+```{r infection-gate, warning=FALSE, fig.width=6, fig.height=4}
 VIRUS_LABEL_VO  <- "Virus Only"
 master_df_gated <- master_df_gated %>% mutate(Plate = "P1")
 
@@ -311,11 +324,70 @@ if (!is.null(fit_gate) && !is.null(fit_gate$parameters$mean) && length(fit_gate$
   threshold_final <- 0.5
 }
 master_df_final <- master_df_norm
+
+# Display GMM Infection Gate Density Plot
+ctrl_dens_df <- master_df_final %>%
+  filter(Treatment %in% c("Mock", "Mock+Ab", VIRUS_LABEL_VO)) %>%
+  mutate(Group = if_else(Treatment %in% c("Mock", "Mock+Ab"), "Mock (Negative Control)", "Virus Only (Positive Control)"))
+
+p_gmm_density <- ggplot(ctrl_dens_df, aes(x = x_norm, fill = Group)) +
+  geom_density(alpha = 0.55, color = "black", linewidth = 0.3) +
+  geom_vline(xintercept = threshold_final, linetype = "dashed", color = "firebrick3", linewidth = 0.9) +
+  annotate("label", x = threshold_final, y = 1.1,
+           label = paste0("GMM Infection Gate = ", round(threshold_final, 3)),
+           fill = "firebrick3", color = "white", fontface = "bold", size = 3, label.size = 0) +
+  scale_fill_manual(values = c("Mock (Negative Control)" = "grey60", "Virus Only (Positive Control)" = "#D95F02")) +
+  labs(
+    title = "Control-Based GMM Population Infection Gate",
+    subtitle = "Normalized virus intensity distribution (0 = Mock median, 1 = Virus Only high mode)",
+    x = "Normalized Virus Intensity (log10 scale)",
+    y = "Density",
+    fill = "Control Group"
+  ) +
+  theme_bw(base_size = 9) +
+  theme(legend.position = "top", plot.title = element_text(face = "bold"))
+
+print(p_gmm_density)
+ggsave("Plots/infection_gate_gmm_density.tiff", p_gmm_density, width = 5.5, height = 3.8, units = "in", dpi = 300)
 ```
 
-# Percent Infection per Well
+# Single-Cell Population Shift Across Doses (Ridgeline Density)
 
-```{r percent-infection}
+```{r ridgeline-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=5}
+ridge_df <- master_df_final %>%
+  filter(Treatment %in% c("Mock", "Virus Only", "Virus + Compound")) %>%
+  mutate(Condition = case_when(
+    Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
+    Treatment == "Virus Only"           ~ "Virus Only (0 µM)",
+    TRUE                                ~ paste0(Concentration_uM, " ", DOSE_UNIT)
+  ))
+
+dose_order <- c(
+  "Mock", "Virus Only (0 µM)",
+  paste0(sort(unique(master_df_final$Concentration_uM[!is.na(master_df_final$Concentration_uM) & master_df_final$Concentration_uM > 0])), " ", DOSE_UNIT)
+)
+ridge_df <- ridge_df %>%
+  mutate(Condition = factor(Condition, levels = rev(dose_order)))
+
+p_ridgeline <- ggplot(ridge_df, aes(x = x_norm, y = Condition, fill = Condition)) +
+  ggridges::geom_density_ridges(alpha = 0.7, scale = 1.3, color = "white", linewidth = 0.3) +
+  geom_vline(xintercept = threshold_final, linetype = "dashed", color = "firebrick3", linewidth = 0.7) +
+  labs(
+    title = "Single-Cell Viral Reporter Shift Across Compound Doses",
+    subtitle = "Dashed line indicates 2-GMM population infection threshold",
+    x = "Normalized Virus Intensity",
+    y = "Treatment / Compound Dose"
+  ) +
+  theme_bw(base_size = 8) +
+  theme(legend.position = "none", plot.title = element_text(face = "bold"))
+
+print(p_ridgeline)
+ggsave("Plots/single_cell_ridgeline_shift.tiff", p_ridgeline, width = 5.5, height = 4.8, units = "in", dpi = 300)
+```
+
+# Host Cell Viability & Cytotoxicity (CC50)
+
+```{r toxicity-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=4}
 total_counts <- master_df_final %>% dplyr::count(Treatment, Concentration_uM, WellName_std, name = "total_cell_count")
 positive_counts <- master_df_final %>% filter(x_norm > threshold_final) %>% dplyr::count(Treatment, Concentration_uM, WellName_std, name = "positive_cell_count")
 
@@ -328,6 +400,48 @@ percent_summary <- total_counts %>%
     Precision_Flag = if_else(total_cell_count < 200, "Low Precision", "Normal")
   )
 
+viab_summary <- percent_summary %>%
+  filter(Treatment %in% c("Mock", "Virus Only", "Virus + Compound", "Toxicity Control")) %>%
+  mutate(Dose_Val = case_when(
+    Treatment == "Mock"       ~ 0,
+    Treatment == "Virus Only" ~ 0,
+    TRUE                      ~ Concentration_uM
+  )) %>%
+  group_by(Treatment, Dose_Val) %>%
+  summarise(
+    n_wells    = n(),
+    mean_cells = mean(total_cell_count, na.rm = TRUE),
+    sd_cells   = if_else(n_wells > 1, sd(total_cell_count, na.rm = TRUE), 0),
+    se_cells   = if_else(n_wells > 1, sd_cells / sqrt(n_wells), 0),
+    .groups    = "drop"
+  )
+
+p_toxicity <- ggplot(viab_summary, aes(x = factor(Dose_Val), y = mean_cells, fill = Treatment)) +
+  geom_col(color = "black", alpha = 0.85, width = 0.65) +
+  geom_errorbar(aes(ymin = pmax(0, mean_cells - se_cells), ymax = mean_cells + se_cells), width = 0.25, linewidth = 0.5) +
+  scale_fill_manual(values = c(
+    "Mock"             = "grey70",
+    "Virus Only"       = "#D95F02",
+    "Virus + Compound" = "#2B5C8F",
+    "Toxicity Control" = "#7570B3"
+  )) +
+  labs(
+    title = "Host Cell Viability Across Concentrations",
+    subtitle = "Well cell counts (mean ± SE across replicates)",
+    x = paste0("Concentration (", DOSE_UNIT, ")"),
+    y = "Mean Recovered Nuclei / Well",
+    fill = "Group"
+  ) +
+  theme_bw(base_size = 9) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top", plot.title = element_text(face = "bold"))
+
+print(p_toxicity)
+ggsave("Plots/host_cell_viability_cc50.tiff", p_toxicity, width = 5.5, height = 3.8, units = "in", dpi = 300)
+```
+
+# Percent Infection per Well Table
+
+```{r percent-infection-table}
 percent_summary %>%
   mutate(
     Dose_Label = case_when(
@@ -356,7 +470,7 @@ percent_summary %>%
   )
 ```
 
-# Co-Primary Endpoint 1: % Infection Dose-Response (4PL)
+# Co-Primary Endpoint 1: % Infection Dose-Response (4PL Curve)
 
 ```{r dose-response-model}
 vo_anchor   <- mean(percent_summary$percent_positive[percent_summary$Treatment == "Virus Only"], na.rm = TRUE)
@@ -416,9 +530,9 @@ for (ec50_try in c(0.5, 1, 2, 5, 8, 10, 0.1)) {
 ci_rel <- bootstrap_ec50_ci(fit_rel)
 ```
 
-## Dose-Response Plot
+## Relative % Infection 4PL Dose-Response Plot
 
-```{r dose-response-plot, message=FALSE, warning=FALSE}
+```{r dose-response-plot, message=FALSE, warning=FALSE, fig.width=6, fig.height=4.5}
 max_pos <- if (length(pos_conc) > 0) max(pos_conc) else 100
 newx    <- exp(seq(log(zero_tick), log(max_pos), length.out = 300))
 
@@ -448,7 +562,7 @@ pts_sum <- summary_rel %>%
             .groups = "drop") %>%
   mutate(y    = ifelse(x_plot == zero_tick, 100, y),
          ymin = pmax(0,   y - se),
-         ymax = pmin(100, y + se))
+         ymax = pmin(105, y + se))
 
 if (length(pos_conc) > 6) {
   raw_brks <- 10^seq(floor(log10(min_pos)), ceiling(log10(max_pos)))
@@ -460,38 +574,39 @@ dose_labels_vec <- c("0", as.character(dose_breaks[-1]))
 
 p_dr_rel <- ggplot() +
   geom_errorbar(data = pts_sum, aes(x = x_plot, ymin = ymin, ymax = ymax),
-                width = 0.06, linewidth = 0.5, colour = "steelblue4") +
+                width = 0.07, linewidth = 0.6, colour = "#2B5C8F") +
   geom_point(data = pts_sum, aes(x = x_plot, y = y),
-             shape = 21, size = 2.6, stroke = 0.4,
-             fill = "steelblue4", colour = "steelblue4")
+             shape = 21, size = 2.8, stroke = 0.5,
+             fill = "#2B5C8F", colour = "black")
 
 if (!is.null(fit_rel)) {
   y_rel_halfway <- bottom_rel + (top_rel - bottom_rel) / 2
-  p_dr_rel <- p_dr_rel + 
+  p_dr_rel <- p_dr_rel +
     geom_line(data = pred_df_rel, aes(x = Concentration_uM, y = y),
-              color = "steelblue", linewidth = 0.9) +
+              color = "#2B5C8F", linewidth = 1.0) +
     geom_segment(aes(x = ec50_rel, xend = ec50_rel, y = 0, yend = y_rel_halfway),
-                 linetype = "dashed", color = "steelblue4", linewidth = 0.5) +
+                 linetype = "dashed", color = "firebrick3", linewidth = 0.6) +
     geom_segment(aes(x = zero_tick, xend = ec50_rel, y = y_rel_halfway, yend = y_rel_halfway),
-                 linetype = "dashed", color = "steelblue4", linewidth = 0.5) +
+                 linetype = "dashed", color = "firebrick3", linewidth = 0.6) +
     annotate("label", x = ec50_rel, y = 25, label = ec50_rel_lab,
-             fill = "steelblue4", color = "white", size = 3, label.size = 0)
+             fill = "#2B5C8F", color = "white", fontface = "bold", size = 3, label.size = 0)
 }
 
 p_dr_rel <- p_dr_rel +
   scale_x_log10(limits = c(zero_tick * 0.8, max_pos * 1.2), breaks = dose_breaks, labels = dose_labels_vec, minor_breaks = NULL) +
   annotation_logticks(sides = "b", short = unit(1.2, "mm"), mid = unit(1.6, "mm"), long = unit(2.2, "mm")) +
   labs(
-    title = paste(COMPOUND_NAME, "relative dose\u2013response"),
-    x     = paste0(COMPOUND_NAME, " (", DOSE_UNIT, ", log10)"),
-    y     = "% infected cells"
+    title = paste(COMPOUND_NAME, "relative % infection dose–response"),
+    subtitle = "Points show mean ± SE across replicate wells; curve fitted via 4PL regression",
+    x     = paste0(COMPOUND_NAME, " (", DOSE_UNIT, ", log10 scale)"),
+    y     = "% Infected Cells (Relative to Control)"
   ) +
-  coord_cartesian(ylim = c(0, 105), clip = "off") +
-  theme_bw(base_size = 8) +
+  coord_cartesian(ylim = c(0, 110), clip = "off") +
+  theme_bw(base_size = 9) +
   theme(
-    plot.title        = element_text(face = "bold", size = 9, margin = margin(b = 4)),
-    axis.title        = element_text(face = "bold", size = 8),
-    axis.text         = element_text(size = 7),
+    plot.title        = element_text(face = "bold", size = 10, margin = margin(b = 4)),
+    axis.title        = element_text(face = "bold", size = 9),
+    axis.text         = element_text(size = 8),
     axis.line         = element_line(linewidth = 0.6, colour = "black"),
     axis.ticks        = element_line(linewidth = 0.6, colour = "black"),
     axis.ticks.length = unit(2.2, "mm"),
@@ -503,7 +618,7 @@ p_dr_rel <- p_dr_rel +
 
 print(p_dr_rel)
 ggsave("Plots/compound_dose_response_relative.tiff", p_dr_rel,
-       width = 4, height = 3, units = "in", dpi = 600, compression = "lzw", device = ragg::agg_tiff)
+       width = 5.5, height = 4.0, units = "in", dpi = 300)
 ```
 
 # Co-Primary Endpoint 2: Normalized NP Intensity Dose-Response
@@ -570,7 +685,7 @@ knitr::kable(ec50_compare, caption = "EC50 comparison across co-primary endpoint
 
 ## Intensity Dose-Response Plot
 
-```{r intensity-dose-response-plot, warning=FALSE, message=FALSE}
+```{r intensity-dose-response-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=4.5}
 pts_i <- intensity_rel %>%
   filter(Treatment %in% c("Virus Only", "Virus + Compound")) %>%
   mutate(
@@ -609,10 +724,10 @@ dose_labels_i <- c("0", as.character(dose_breaks_i[-1]))
 
 p_dr_int <- ggplot() +
   geom_errorbar(data = pts_i, aes(x = x_plot, ymin = ymin, ymax = ymax),
-                width = 0.06, linewidth = 0.5, colour = "steelblue4") +
+                width = 0.07, linewidth = 0.6, colour = "#2B5C8F") +
   geom_point(data = pts_i, aes(x = x_plot, y = y),
-             shape = 21, size = 2.6, stroke = 0.4,
-             fill = "steelblue4", colour = "steelblue4")
+             shape = 21, size = 2.8, stroke = 0.5,
+             fill = "#2B5C8F", colour = "black")
 
 if (!is.null(fit_int)) {
   cf <- coef(fit_int)
@@ -621,29 +736,30 @@ if (!is.null(fit_int)) {
   int_label <- paste0("EC50 = ", signif(ec50_val, 3), " ", DOSE_UNIT)
   p_dr_int  <- p_dr_int +
     geom_line(data = pred_i, aes(x = Concentration_uM, y = y),
-              color = "steelblue", linewidth = 0.9) +
+              color = "#2B5C8F", linewidth = 1.0) +
     geom_segment(aes(x = ec50_val, xend = ec50_val, y = 0, yend = halfway),
-                 linetype = "dashed", color = "steelblue4", linewidth = 0.5) +
+                 linetype = "dashed", color = "firebrick3", linewidth = 0.6) +
     geom_segment(aes(x = zero_tick_i, xend = ec50_val, y = halfway, yend = halfway),
-                 linetype = "dashed", color = "steelblue4", linewidth = 0.5) +
+                 linetype = "dashed", color = "firebrick3", linewidth = 0.6) +
     annotate("label", x = ec50_val, y = 25, label = int_label,
-             fill = "steelblue4", color = "white", size = 3, label.size = 0)
+             fill = "#2B5C8F", color = "white", fontface = "bold", size = 3, label.size = 0)
 }
 
 p_dr_int <- p_dr_int +
   scale_x_log10(limits = c(zero_tick_i * 0.8, max_pos_i * 1.2), breaks = dose_breaks_i, labels = dose_labels_i, minor_breaks = NULL) +
   annotation_logticks(sides = "b", short = unit(1.2, "mm"), mid = unit(1.6, "mm"), long = unit(2.2, "mm")) +
   labs(
-    title = paste(COMPOUND_NAME, "intensity dose\u2013response"),
-    x     = paste0(COMPOUND_NAME, " (", DOSE_UNIT, ", log10)"),
-    y     = "Normalized NP intensity (%)"
+    title = paste(COMPOUND_NAME, "intensity dose–response"),
+    subtitle = "Points show mean ± SE across replicate wells; curve fitted via 4PL regression",
+    x     = paste0(COMPOUND_NAME, " (", DOSE_UNIT, ", log10 scale)"),
+    y     = "Normalized NP Intensity (%)"
   ) +
-  coord_cartesian(ylim = c(0, 105), clip = "off") +
-  theme_bw(base_size = 8) +
+  coord_cartesian(ylim = c(0, 110), clip = "off") +
+  theme_bw(base_size = 9) +
   theme(
-    plot.title        = element_text(face = "bold", size = 9, margin = margin(b = 4)),
-    axis.title        = element_text(face = "bold", size = 8),
-    axis.text         = element_text(size = 7),
+    plot.title        = element_text(face = "bold", size = 10, margin = margin(b = 4)),
+    axis.title        = element_text(face = "bold", size = 9),
+    axis.text         = element_text(size = 8),
     axis.line         = element_line(linewidth = 0.6, colour = "black"),
     axis.ticks        = element_line(linewidth = 0.6, colour = "black"),
     axis.ticks.length = unit(2.2, "mm"),
@@ -655,7 +771,7 @@ p_dr_int <- p_dr_int +
 
 print(p_dr_int)
 ggsave("Plots/compound_dose_response_intensity.tiff", p_dr_int,
-       width = 4, height = 3, units = "in", dpi = 600, compression = "lzw", device = ragg::agg_tiff)
+       width = 5.5, height = 4.0, units = "in", dpi = 300)
 ```
 
 # Results Summary

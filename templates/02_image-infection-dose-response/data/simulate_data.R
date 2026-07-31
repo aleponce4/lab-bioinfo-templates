@@ -16,8 +16,6 @@ if (!file.exists("template.qmd")) {
 }
 dir.create("data", showWarnings = FALSE, recursive = TRUE)
 
-n_cells   <- 400                        # cells per well
-
 ic50      <- 8                          # true IC50 (µM)
 hill      <- 0.8                        # hill slope
 mock_rows <- c("C3","C4","C5","C6")     # 4 mock wells
@@ -28,12 +26,13 @@ all_wells <- list()
 
 # ── Helper: generate cell-level data for one well ────────────────────────────
 make_cells <- function(well, treatment, conc_uM, n_cells,
-                       infected_pct, area_mean = 150, dapi_mean = 3000) {
-  area   <- pmax(40, rnorm(n_cells, area_mean, 30))
-  dapi   <- pmax(500, rnorm(n_cells, dapi_mean, 600))
+                       infected_pct, area_mean = 160, dapi_mean = 3200) {
+  # Include realistic cell size/intensity variation with debris (<30) and aggregates (>400)
+  area   <- pmax(15, rnorm(n_cells, area_mean, 50))
+  dapi   <- pmax(200, rnorm(n_cells, dapi_mean, 750))
   n_inf  <- round(n_cells * infected_pct)
-  virus_inf <- c(rnorm(n_inf, 4000, 800), rnorm(n_cells - n_inf, 250, 80))
-  virus_inf <- pmax(50, virus_inf)
+  virus_inf <- c(rnorm(n_inf, 4300, 1100), rnorm(n_cells - n_inf, 280, 110))
+  virus_inf <- pmax(40, virus_inf)
   data.frame(
     WellName     = well,
     FieldIndex   = 1,
@@ -48,19 +47,22 @@ make_cells <- function(well, treatment, conc_uM, n_cells,
 
 # ── Mock wells ────────────────────────────────────────────────────────────────
 for (w in mock_rows) {
-  all_wells[[w]] <- make_cells(w, "Mock", NA, n_cells, 0.00)
+  n_c <- round(rnorm(1, 400, 25))
+  all_wells[[w]] <- make_cells(w, "Mock", NA, n_c, 0.00)
 }
-all_wells[["C11"]] <- make_cells("C11", "Mock+Ab", NA, n_cells, 0.00)
+all_wells[["C11"]] <- make_cells("C11", "Mock+Ab", NA, 400, 0.00)
 
 # ── Virus only (dose = 0): wells C7, C8 — matches PLATE_MAP ─────────────────
 for (r in 1:2) {
   w <- paste0("C", 7 + r - 1)
-  all_wells[[w]] <- make_cells(w, "Virus Only", 0, n_cells, 0.65)
+  n_c <- round(rnorm(1, 400, 30))
+  vo_pct <- max(0.55, min(0.75, 0.65 + rnorm(1, 0, 0.04)))
+  all_wells[[w]] <- make_cells(w, "Virus Only", 0, n_c, vo_pct)
 }
 
 # ── Virus + Compound dose series ──────────────────────────────────────────────
 # 12 concentrations × 2 replicates = 24 wells (rows E-F, cols 1-12)
-# Wide range ensures visible plateaus at both ends of the 4PL curve
+# Adds realistic well-to-well biological replicate noise (sd = 0.04) and background floor (~0.02)
 doses <- c(0.01, 0.1, 0.5, 1, 2, 4, 8, 12, 16, 20, 30, 50)
 vc_layout <- data.frame(
   conc = rep(doses, 2),
@@ -70,15 +72,18 @@ vc_layout <- data.frame(
 for (i in seq_len(nrow(vc_layout))) {
   conc <- vc_layout$conc[i]
   w    <- vc_layout$well[i]
-  inf_pct <- 0.65 / (1 + (conc / ic50)^hill)
-  all_wells[[w]] <- make_cells(w, "Virus + Compound", conc, n_cells, inf_pct)
+  expected_pct <- 0.65 / (1 + (conc / ic50)^hill)
+  # Well-to-well replicate variance + background floor
+  well_pct <- max(0.02, min(0.72, expected_pct + rnorm(1, 0, 0.045)))
+  n_c <- round(rnorm(1, 400, 35))
+  all_wells[[w]] <- make_cells(w, "Virus + Compound", conc, n_c, well_pct)
 }
 
 # ── Toxicity controls ─────────────────────────────────────────────────────────
 tox_doses <- doses   # match virus+compound dose series
 for (i in seq_along(tox_rows)) {
-  viab <- max(0.60, 1 - 0.01 * tox_doses[i])   # mild toxicity
-  n_surv <- round(n_cells * viab)
+  viab <- max(0.55, 1 - 0.008 * tox_doses[i] + rnorm(1, 0, 0.03))   # mild toxicity
+  n_surv <- round(400 * viab)
   all_wells[[tox_rows[i]]] <- make_cells(tox_rows[i], "Toxicity Control",
                                           tox_doses[i], n_surv, 0.00)
 }

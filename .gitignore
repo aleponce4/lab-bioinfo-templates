@@ -6,3 +6,6 @@
 # Local developer scratch space — never commit
 scratch/
 __pycache__/
+
+# Quarto build output (rendered + published to gh-pages by CI)
+docs/

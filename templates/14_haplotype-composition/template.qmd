@@ -17,14 +17,14 @@ jupyter: python3
 | **Key packages** | `pandas`, `matplotlib`, `numpy` |
 | **Statistics** | None — descriptive visualisation only |
 | **Output** | Stacked bar chart (PNG · SVG) |
-| **Download** | [template.ipynb](template.ipynb) |
+| **Download** | [template.qmd (GitHub)](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/14_haplotype-composition/template.qmd) |
 
 Edit `ROUTE_ORDER` to control the left-to-right ordering of route groups. Edit `DPI_ORDER`
 to control the sort order of DPI values within each route. The `Okabe-Ito` palette is
 colourblind-safe by default; assign explicit colours in `HAPLOTYPE_COLORS` to override.
 
 [← Gallery](../../index.html){.btn .btn-outline-secondary}
-[Download .ipynb](template.ipynb){.btn .btn-primary}
+[Download .qmd](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/14_haplotype-composition/template.qmd){.btn .btn-primary}
 
 ---
 

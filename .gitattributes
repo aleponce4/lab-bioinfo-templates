@@ -9,7 +9,16 @@ site_libs/** linguist-vendored
 *.css linguist-vendored
 *.scss linguist-vendored
 
-# Mark Quarto (.qmd), R Markdown (.Rmd), and R (.R) scripts as R
-*.qmd linguist-language=R
+# Mark R Markdown (.Rmd) and R (.R) scripts as R
 *.Rmd linguist-language=R
 *.R linguist-language=R
+
+# Quarto (.qmd) can hold either R or Python, so attribute each file to the language
+# of the code it actually contains. Default to R (index.qmd and templates 01-07,
+# 09-10), then override the five Python templates (08, 11-14). Later rules win.
+*.qmd linguist-language=R
+templates/08_vcf-mutation-analysis/template.qmd linguist-language=Python
+templates/11_variant-entropy-analysis/template.qmd linguist-language=Python
+templates/12_coverage-depth-analysis/template.qmd linguist-language=Python
+templates/13_selection-pressure/template.qmd linguist-language=Python
+templates/14_haplotype-composition/template.qmd linguist-language=Python

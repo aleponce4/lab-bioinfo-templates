@@ -1,6 +1,8 @@
 # simulate_data.R
-# Generates synthetic CQ1-style image-based infection data for template 02,
-# using a generic per-cell HCS export schema (Area/Volume, Sphericity, DAPI, Virus CH2).
+# Generates fully synthetic, high-content-screening-style image-based infection data
+# for template 02. Column names follow the generic per-cell export schema produced by
+# most HCS platforms (Area/Volume, Sphericity, DAPI, Virus CH2). All values are
+# invented by this script from a fixed seed; no experimental data is involved.
 # Outputs: data/nucleus.csv  (DAPI channel)   data/virus.csv   (virus channel)
 # Run from template folder: Rscript data/simulate_data.R
 
@@ -25,7 +27,7 @@ tox_rows  <- paste0("D", 1:12)          # toxicity control wells (12 doses)
 
 all_wells <- list()
 
-# ── Helper: generate cell-level data for one well from invented distributions
+# ── Helper: generate synthetic cell-level data for one well from invented distributions
 make_cells <- function(well, treatment, conc_uM, n_cells,
                        infected_pct, area_mean = 250, dapi_mean = 1100) {
   # Generate realistic nuclear volume (Area) and sphericity with doublets/debris
@@ -96,7 +98,7 @@ for (i in seq_along(tox_rows)) {
 
 df <- do.call(rbind, all_wells)
 
-# Write split nucleus / virus files (matching CQ1 export format in synthetic_dose_response_example)
+# Write split nucleus / virus files (generic two-channel per-cell HCS export layout)
 nucleus <- data.frame(
   WellName                       = df$WellName,
   FieldIndex                     = df$FieldIndex,

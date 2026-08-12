@@ -17,10 +17,10 @@ jupyter: python3
 | **Key packages** | `pandas`, `numpy`, `matplotlib` |
 | **Statistics** | Mean depth ± SEM per position (aggregated across replicates) |
 | **Output** | Coverage depth profile (PNG + SVG) with gene annotations · aggregated summary CSV |
-| **Download** | [template.ipynb](template.ipynb) |
+| **Download** | [template.qmd (GitHub)](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/12_coverage-depth-analysis/template.qmd) |
 
 [← Gallery](../../index.html){.btn .btn-outline-secondary}
-[Download .ipynb](template.ipynb){.btn .btn-primary}
+[Download .qmd](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/12_coverage-depth-analysis/template.qmd){.btn .btn-primary}
 
 ---
 

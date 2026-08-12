@@ -18,14 +18,14 @@ jupyter: python3
 | **Key packages** | `pandas`, `numpy`, `matplotlib`, `scipy` |
 | **Statistics** | Mean ± SEM · Limma BH FDR · Kruskal–Wallis BH FDR |
 | **Output** | `selection_pressure_bar.png/.svg` · `selection_pressure_stacked_dpi.png/.svg` |
-| **Download** | [template.qmd](template.qmd) |
+| **Download** | [template.qmd (GitHub)](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/13_selection-pressure/template.qmd) |
 
 Edit `GENE_ORDER` if your pathogen uses a different gene / protein name ordering. The
 default palette maps `FDR ≥ 0.05` bars to grey; significant bars use the viridis
 colormap scaled from the minimum observed FDR to 0.05.
 
 [← Gallery](../../index.html){.btn .btn-outline-secondary}
-[Download .qmd](template.qmd){.btn .btn-primary}
+[Download .qmd](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/13_selection-pressure/template.qmd){.btn .btn-primary}
 
 ---
 

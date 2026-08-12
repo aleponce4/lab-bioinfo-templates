@@ -2,3 +2,7 @@
 **/*.quarto_ipynb
 *.tiff
 *.pdf
+
+# Local developer scratch space — never commit
+scratch/
+__pycache__/

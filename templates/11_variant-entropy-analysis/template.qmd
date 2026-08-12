@@ -17,12 +17,12 @@ jupyter: python3
 | **Key packages** | `pandas`, `numpy`, `matplotlib`, `scipy`, `matplotlib_venn` (optional) |
 | **Statistics** | Shannon entropy (natural log) · Allele frequency filtering · Caller overlap |
 | **Output** | Variant frequency scatter (SVG/PNG) · Entropy curves (SVG/PNG) · Venn diagram (SVG/PNG) |
-| **Download** | [template.ipynb](template.ipynb) |
+| **Download** | [template.qmd (GitHub)](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/11_variant-entropy-analysis/template.qmd) |
 
 Edit `FILTER_MIN_DP` and `FILTER_MIN_AF` to set depth and allele-frequency cut-offs. Modify `DPI_CONFIG` to control colour and display order for each DPI group.
 
 [← Gallery](../../index.html){.btn .btn-outline-secondary}
-[Download .ipynb](template.ipynb){.btn .btn-primary}
+[Download .qmd](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/11_variant-entropy-analysis/template.qmd){.btn .btn-primary}
 
 ---
 

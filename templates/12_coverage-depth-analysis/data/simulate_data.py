@@ -24,7 +24,8 @@ GENES = {
 }
 
 DPI_REPS = {1: 3, 3: 3, 5: 3}
-# Empirical base depth scales per timepoint chosen only to exercise the log-scale plot
+# Invented base depth scales per timepoint. Round placeholder numbers, chosen only so the
+# log-scale depth plot spans a few orders of magnitude — not measurements from any dataset.
 DPI_BASE_DEPTH = {1: 100, 3: 50000, 5: 60000}
 AMPLICON_DROPS = [(2000, 2200), (4300, 4450), (7000, 7150)]
 
@@ -35,7 +36,7 @@ def generate():
         base_depth = DPI_BASE_DEPTH[dpi_val]
         for rep in range(1, n_reps + 1):
             sample_id = f"DPI{dpi_val}_R{rep}_Lung"
-            # Simulate genome coverage with empirical terminal drop-offs, subgenomic elevation, amplicon dropouts
+            # Simulate genome coverage with synthetic terminal drop-offs, subgenomic elevation, amplicon dropouts
             for pos in range(1, GENOME_LEN + 1):
                 # 3' structural gene subgenomic mRNA elevation (26S RNA)
                 subgenomic_mult = 1.8 if pos > 7500 else 1.0

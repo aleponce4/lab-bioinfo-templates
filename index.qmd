@@ -13,12 +13,16 @@ library(dplyr)
 
 ::: {.site-intro}
 Working notebook templates used as starting points for common analyses. Each ships with
-synthetic example data and uses a publication-oriented figure style. Adapt by
+synthetic example data and a publication-oriented figure style. Adapt by
 editing the `## -- USER CONFIGURATION --` block at the top; everything below runs unchanged.
 :::
 
 ::: {.callout-note}
-Developed and maintained by Alejandro Ponce-Flores for bioinformatics analyses in the Jonsson Laboratory at UTHSC. This public repository contains reusable templates that ship with synthetic example data only; no experimental or study data is included.
+Developed and maintained by Alejandro Ponce-Flores for virology and genomics bioinformatics
+work at UTHSC. Every template on this site is rendered from **synthetic example data generated
+by the `data/simulate_data.R` / `data/simulate_data.py` script in its own folder** — no
+experimental or study data is included, and no figure or statistic shown here was produced
+from a real dataset.
 :::
 
 ---
@@ -163,8 +167,6 @@ module network plots, and Cytoscape-ready exports.
 
 [Open Template →](templates/10_rnaseq-tf-causal-network/template.html){.btn .btn-primary}
 :::
-:::
-
 :::
 
 :::

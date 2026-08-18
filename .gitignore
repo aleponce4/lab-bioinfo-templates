@@ -8,6 +8,10 @@
 # only, so it goes stale silently whenever the template.Rmd child changes.
 _freeze/
 
+# Quarto/knitr render intermediates (a couple of these had been committed by accident)
+*.rmarkdown
+templates/*/template_files/
+
 # Local developer scratch space — never commit
 scratch/
 __pycache__/

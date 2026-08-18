@@ -130,6 +130,13 @@ for _seg, _cfg in SEGMENT_CONFIG.items():
     _cfg["cds_length"] = _cds_len
 
 # ── Global plot style ─────────────────────────────────────────────────────────
+# Reproducible SVG output: matplotlib stamps a wall-clock date and randomly
+# generated element IDs into every SVG, so re-rendering an unchanged figure
+# produced a large but meaningless git diff. A fixed salt and a fixed
+# SOURCE_DATE_EPOCH make repeat renders byte-identical.
+os.environ.setdefault("SOURCE_DATE_EPOCH", "1735689600")   # 2025-01-01 UTC
+plt.rcParams["svg.hashsalt"] = "lab-bioinfo-templates"
+
 plt.rcParams.update({
     'axes.titlesize': 12,
     'axes.labelsize': 10,

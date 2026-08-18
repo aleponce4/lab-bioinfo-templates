@@ -90,6 +90,13 @@ from matplotlib.transforms import blended_transform_factory
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ── Publication styling ──────────────────────────────────────────────────────
+# Reproducible SVG output: matplotlib stamps a wall-clock date and randomly
+# generated element IDs into every SVG, so re-rendering an unchanged figure
+# produced a large but meaningless git diff. A fixed salt and a fixed
+# SOURCE_DATE_EPOCH make repeat renders byte-identical.
+os.environ.setdefault("SOURCE_DATE_EPOCH", "1735689600")   # 2025-01-01 UTC
+plt.rcParams["svg.hashsalt"] = "lab-bioinfo-templates"
+
 plt.rcParams.update({
     "font.family":     "sans-serif",
     "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],

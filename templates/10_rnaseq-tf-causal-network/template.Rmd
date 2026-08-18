@@ -18,32 +18,40 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 # Input DE table: Gene, Comparison, log2FoldChange, padj, optional stat.
 DEG_FILE <- "data/example_deg_results.csv"
 GENE_MODULE_FILE <- "data/example_gene_modules.csv"
-SPECIES <- "mouse"
 COMPARISONS_ORDER <- NULL
 
 # DEG / TF filters.
 FDR_THRESHOLD <- 0.05
 LFC_THRESHOLD <- 1
+# Within-contrast |z| a TF must reach to be drawn in a module network. This is a
+# *selection* threshold only; the activation/inhibition call comes from the sign
+# of the raw activity score, never from the z-score.
 TF_ACTIVITY_ABS_CUTOFF <- 0.8
 TOP_TF_PER_CONTRAST <- 12
 RECURRENT_EDGE_THRESHOLD <- 0.50
 
-# Resource cache. Keep downloads off for gallery/offline rendering.
-DOWNLOAD_EXTERNAL_NETWORKS <- FALSE
+# Rebuild the bundled prior networks from the tribbles below instead of reading
+# outputs/cache/*.rds. Set TRUE after editing toy_collectri() or the PKN.
 FORCE_REFRESH_NETWORK_CACHE <- FALSE
 
-# Optional heavy solver step. The gallery uses cached toy results.
+# Optional heavy solver step. This template ships cached toy results and never
+# calls CARNIVAL itself; the flags exist so a fork can wire a solver in.
 RUN_CARNIVAL_SOLVER <- FALSE
 USE_CACHED_CARNIVAL_RESULTS <- TRUE
 FORCE_RERUN_SOLVER <- FALSE
 SOLVER <- "gurobi"      # gurobi, cplex, cbc, lpSolve
-CARNIVAL_THREADS <- 4
-CARNIVAL_TIME_LIMIT <- 1800
 
 # Plot behavior.
 SHOW_RNA_EVIDENCE_BORDER <- TRUE
 REMOVE_AMBIGUOUS_NODES_STATIC <- TRUE
 RNA_COLOR_LIMIT <- 6
+# Fixed seed for the force-directed network layout. Without it every render
+# produces different node coordinates and rewrites all 40 PNG/SVG files.
+NETWORK_LAYOUT_SEED <- 42
+# Font family for figures. "" = the graphics device default, the only portable
+# choice: naming a font the device has not registered (e.g. "Arial" on Windows)
+# aborts rendering with `invalid font type`.
+PLOT_FONT <- ""
 
 OUTPUT_DIR <- "outputs"
 ## ────────────────────────────────────────────────────────────────────────────
@@ -75,6 +83,21 @@ paths <- list(
 )
 invisible(lapply(paths, dir.create, recursive = TRUE, showWarnings = FALSE))
 
+# The two bundled prior networks are memoised here. FORCE_REFRESH_NETWORK_CACHE
+# deletes them so the chunks below genuinely rebuild from the tribbles. The
+# CARNIVAL result cache is deliberately NOT touched: that one is governed by
+# USE_CACHED_CARNIVAL_RESULTS / FORCE_RERUN_SOLVER.
+network_cache_files <- c(
+  collectri = file.path(paths$cache, "collectri_signed_tf_target.rds"),
+  pkn       = file.path(paths$cache, "omnipath_signed_pkn.rds")
+)
+if (isTRUE(FORCE_REFRESH_NETWORK_CACHE)) {
+  stale <- network_cache_files[file.exists(network_cache_files)]
+  if (length(stale)) file.remove(stale)
+  message("FORCE_REFRESH_NETWORK_CACHE = TRUE: cleared ", length(stale),
+          " cached prior-network file(s) in ", paths$cache)
+}
+
 pal <- list(
   predicted_up = "#E08A1E", predicted_down = "#1F5EA8", ambiguous = "#BDBDBD",
   edge_up = "#D97706", edge_down = "#2563A8", edge_unknown = "#8A8A8A",
@@ -83,7 +106,7 @@ pal <- list(
 )
 
 plot_theme <- function(base_size = 10) {
-  theme_bw(base_size = base_size, base_family = "Arial") +
+  theme_bw(base_size = base_size, base_family = PLOT_FONT) +
     theme(panel.grid = element_blank(), plot.title = element_text(face = "bold", hjust = 0.5),
           strip.background = element_rect(fill = "grey95", color = "grey70"),
           strip.text = element_text(face = "bold"))
@@ -103,6 +126,11 @@ normalize_gene_symbol <- function(x) {
 safe_name <- function(x) {
   x %>% stringr::str_replace_all("[^A-Za-z0-9]+", "_") %>% stringr::str_replace_all("^_|_$", "")
 }
+
+# The bundled toy networks use human-style ALL-CAPS gene symbols. Mouse symbols
+# are title case (Ifit1), so case folding is what joins the two. Named rather
+# than left as a bare toupper() so the assumption is visible at every call site.
+harmonize_symbol <- function(x) toupper(as.character(x))
 
 rna_color <- function(x, limit = RNA_COLOR_LIMIT) {
   x <- pmax(pmin(x, limit), -limit)
@@ -178,6 +206,12 @@ write_csv(modules, file.path(paths$tables, "gene_modules.csv"))
 
 # Signed CollecTRI-Style TF-Target Network
 
+A **hand-written** 36-row signed regulon table in the shape CollecTRI uses
+(`tf`, `target`, `mor` = mode of regulation). This is not CollecTRI and this
+template does not call `decoupleR` or `OmnipathR` — keeping the network inline is
+what lets the whole document render offline. To use a real regulon, return one
+from `toy_collectri()` with the same three columns.
+
 ```{r collectri}
 toy_collectri <- function() {
   tribble(
@@ -196,8 +230,8 @@ toy_collectri <- function() {
   )
 }
 
-collectri_cache <- file.path(paths$cache, "collectri_signed_tf_target.rds")
-if (file.exists(collectri_cache) && !FORCE_REFRESH_NETWORK_CACHE) {
+collectri_cache <- network_cache_files[["collectri"]]
+if (file.exists(collectri_cache)) {
   collectri <- readRDS(collectri_cache)
 } else {
   collectri <- toy_collectri()
@@ -210,14 +244,32 @@ write_csv(collectri, file.path(paths$tables, "collectri_tf_target_network.csv"))
 
 ```{r tf-activity}
 tf_activity <- deg_all %>%
-  mutate(target = toupper(Gene)) %>%
-  inner_join(collectri, by = "target") %>%
+  mutate(target = harmonize_symbol(Gene)) %>%
+  # Many-to-many is expected: one gene appears once per contrast on the left and
+  # can be regulated by several TFs on the right.
+  inner_join(collectri, by = "target", relationship = "many-to-many") %>%
   group_by(Comparison, tf) %>%
-  summarise(activity = sum(mor * de_score, na.rm = TRUE) / sqrt(n()), target_count = n_distinct(target), .groups = "drop") %>%
+  summarise(
+    # Mean-of-signed-scores scaled by sqrt(n): divide by the number of targets
+    # that actually contributed a score, not by n(), which counts NA rows too
+    # and silently dilutes the activity of regulons with missing DE values.
+    scored_targets = sum(!is.na(mor * de_score)),
+    activity = if (scored_targets > 0) {
+      sum(mor * de_score, na.rm = TRUE) / sqrt(scored_targets)
+    } else {
+      NA_real_
+    },
+    target_count = n_distinct(target),
+    .groups = "drop"
+  ) %>%
   group_by(Comparison) %>%
+  # activity_z ranks TFs *within* a contrast; it is a relative measure and says
+  # nothing about direction (a z below the contrast mean can still be a positive
+  # activity). Direction therefore comes from sign(activity), never from the z.
   mutate(activity_z = as.numeric(scale(activity)),
-         predicted_state = case_when(activity_z > 0 ~ "predicted activation",
-                                     activity_z < 0 ~ "predicted inhibition",
+         predicted_state = case_when(is.na(activity) ~ "ambiguous",
+                                     sign(activity) > 0 ~ "predicted activation",
+                                     sign(activity) < 0 ~ "predicted inhibition",
                                      TRUE ~ "ambiguous")) %>%
   ungroup() %>%
   arrange(Comparison, desc(abs(activity_z)))
@@ -227,18 +279,24 @@ tf_activity %>%
   group_by(Comparison) %>%
   slice_max(abs(activity_z), n = 5) %>%
   ungroup() %>%
+  select(Comparison, tf, activity, target_count, scored_targets, activity_z, predicted_state) %>%
   knitr::kable(
     caption   = "Top 5 Inferred Transcription Factors per Comparison",
-    col.names = c("Comparison", "TF", "Activity Score", "Target Count", "Normalized z-score", "Predicted State"),
+    col.names = c("Comparison", "TF", "Activity Score", "Target Count", "Scored Targets",
+                  "Within-contrast z (ranking only)", "Predicted State"),
     digits    = 3
   )
 ```
 
 # Signed OmniPath-Style PKN And TF Overlap
 
+Likewise a **hand-written** 15-edge signed prior knowledge network in OmniPath's
+`source` / `target` / `sign` shape, rooted at a synthetic `PERTURBATION` node.
+Replace the `tribble()` with a real signed PKN to use this on live data.
+
 ```{r pkn-overlap, fig.height=4, fig.width=6}
-pkn_cache <- file.path(paths$cache, "omnipath_signed_pkn.rds")
-if (file.exists(pkn_cache) && !FORCE_REFRESH_NETWORK_CACHE) {
+pkn_cache <- network_cache_files[["pkn"]]
+if (file.exists(pkn_cache)) {
   pkn <- readRDS(pkn_cache)
 } else {
   pkn <- tribble(
@@ -274,6 +332,12 @@ p_overlap
 ```
 
 # Cached CARNIVAL-Style Results
+
+**No solver is run here and `CARNIVAL` is never called.** The "recurrent edges"
+below are the same 15 hand-written PKN edges with invented `recurrence` weights,
+in the shape CARNIVAL's per-sample solutions would have after aggregation. The
+`RUN_CARNIVAL_SOLVER` / `SOLVER` knobs and the `solver_available()` probe exist so
+a fork can drop a real solver call in at this point.
 
 ```{r carnival-cache}
 solver_available <- function(solver) {
@@ -340,9 +404,49 @@ p_heat
 # Network Helpers
 
 ```{r network-helpers}
-node_activity_from_edges <- function(edges) {
-  bind_rows(edges %>% transmute(node = source, evidence = sign), edges %>% transmute(node = target, evidence = sign)) %>%
-    group_by(node) %>% summarise(predicted_activity = sign(sum(evidence, na.rm = TRUE)), .groups = "drop")
+# Causal sign propagation.
+#
+# Start the perturbation at +1 and push the sign forward along DIRECTED edges:
+# a node's state is its upstream state multiplied by the edge sign. A node
+# reached with two conflicting signs is ambiguous (0); a node not reachable from
+# the perturbation at all is unknown (NA). Both render grey.
+#
+# This replaces an earlier version that summed a node's incoming AND outgoing
+# edge signs. That is not sign propagation - it is a degree statistic - and in a
+# predominantly activating prior network it made almost every node come out +1.
+propagate_sign_from_perturbation <- function(edges, root = "PERTURBATION") {
+  nodes <- sort(unique(c(edges$source, edges$target)))
+  state <- setNames(rep(NA_real_, length(nodes)), nodes)
+
+  if (!root %in% nodes) {
+    return(tibble(node = nodes, predicted_activity = NA_real_))
+  }
+  state[[root]] <- 1
+
+  e <- edges %>%
+    filter(!is.na(sign)) %>%
+    distinct(source, target, sign) %>%
+    mutate(sign = sign(sign))
+
+  # State only ever moves NA -> +/-1 -> 0, and 0 is absorbing, so this converges
+  # in at most one pass per node even when the graph contains cycles.
+  for (iter in seq_along(nodes)) {
+    changed <- FALSE
+    for (i in seq_len(nrow(e))) {
+      upstream <- state[[e$source[[i]]]]
+      if (is.na(upstream)) next
+      proposed <- upstream * e$sign[[i]]
+      current  <- state[[e$target[[i]]]]
+      updated  <- if (is.na(current)) proposed else if (current == proposed) current else 0
+      if (is.na(current) || current != updated) {
+        state[[e$target[[i]]]] <- updated
+        changed <- TRUE
+      }
+    }
+    if (!changed) break
+  }
+
+  tibble(node = names(state), predicted_activity = unname(state))
 }
 
 upstream_closure <- function(edges, seeds) {
@@ -367,12 +471,17 @@ write_network_sidecars <- function(edges, nodes, out_prefix) {
   dot_nodes <- nodes %>% mutate(shape_dot = case_when(node_type == "TF" ~ "box", node_type == "perturbation" ~ "plaintext", TRUE ~ "ellipse")) %>%
     transmute(line = paste0('  "', node, '" [label="', node, '", shape=', shape_dot, ', style=filled, fillcolor="', fill_color, '", color="', border_color, '"];'))
   dot_edges <- edges %>% transmute(line = paste0('  "', source, '" -> "', target, '" [color="', edge_color(sign), '"];'))
-  writeLines(c("digraph causal_network {", "  graph [rankdir=LR, fontname=Arial];", "  node [fontname=Arial];", "  edge [fontname=Arial];", dot_nodes$line, dot_edges$line, "}"), paste0(out_prefix, ".dot"))
+  # Helvetica is one of Graphviz's built-in PostScript font names, so the .dot
+  # renders identically everywhere; "Arial" resolves only where it is installed.
+  writeLines(c("digraph causal_network {", "  graph [rankdir=LR, fontname=Helvetica];", "  node [fontname=Helvetica];", "  edge [fontname=Helvetica];", dot_nodes$line, dot_edges$line, "}"), paste0(out_prefix, ".dot"))
 }
 
 plot_network <- function(edges, nodes, title) {
   if (!nrow(edges) || !nrow(nodes)) return(ggplot() + annotate("text", 0, 0, label = "No network edges after filtering") + theme_void())
   graph <- graph_from_data_frame(edges %>% select(source, target), directed = TRUE, vertices = nodes %>% select(node))
+  # layout_with_fr() is stochastic. Without a fixed seed every render produces new
+  # coordinates and rewrites every PNG/SVG, which is permanent binary churn in git.
+  set.seed(NETWORK_LAYOUT_SEED)
   coords <- as_tibble(layout_with_fr(graph), .name_repair = "minimal") %>% setNames(c("x", "y")) %>% mutate(node = V(graph)$name) %>% left_join(nodes, by = "node")
   edge_xy <- edges %>%
     left_join(coords %>% select(node, x_source = x, y_source = y), by = c("source" = "node")) %>%
@@ -381,24 +490,36 @@ plot_network <- function(edges, nodes, title) {
     geom_segment(data = edge_xy, aes(x = x_source, y = y_source, xend = x_target, yend = y_target, color = edge_color(sign)), linewidth = 0.7,
                  arrow = grid::arrow(length = grid::unit(0.12, "inches"), type = "closed"), lineend = "round") +
     geom_point(data = coords, aes(x, y, shape = node_type, fill = fill_color, color = border_color), size = 5.5, stroke = 0.9) +
-    geom_text(data = coords, aes(x, y, label = node), size = 3, family = "Arial", vjust = -1.05, check_overlap = TRUE) +
+    geom_text(data = coords, aes(x, y, label = node), size = 3, family = PLOT_FONT, vjust = -1.05, check_overlap = TRUE) +
     scale_shape_manual(values = c(TF = 22, gene = 21, intermediate = 21, perturbation = 24), drop = FALSE) +
     scale_fill_identity() + scale_color_identity() +
     guides(shape = guide_legend(title = "Node type", override.aes = list(fill = "white", color = "grey30", size = 4))) +
-    labs(title = title) + coord_equal() + theme_void(base_family = "Arial") +
-    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 12), legend.position = "bottom")
+    labs(
+      title = title,
+      # The fill channel carries two different things, so say which is which.
+      caption = paste(
+        "Node fill - target genes: measured log2FC (blue = down, red = up).",
+        "TFs / intermediates / perturbation: causal sign propagated from PERTURBATION",
+        "(orange = activated, blue = inhibited, grey = ambiguous or unreachable).",
+        sep = "\n"
+      )
+    ) +
+    coord_equal() + theme_void(base_family = PLOT_FONT) +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 12),
+          plot.caption = element_text(hjust = 0, size = 7, color = "grey30"),
+          legend.position = "bottom")
 }
 
 build_module_network <- function(comparison_name, module_name) {
-  sig_targets <- deg_all %>% filter(as.character(Comparison) == comparison_name, significant) %>% mutate(target = toupper(Gene)) %>% inner_join(modules %>% mutate(target = toupper(gene)), by = "target") %>% filter(module == module_name)
+  sig_targets <- deg_all %>% filter(as.character(Comparison) == comparison_name, significant) %>% mutate(target = harmonize_symbol(Gene)) %>% inner_join(modules %>% mutate(target = harmonize_symbol(gene)), by = "target") %>% filter(module == module_name)
   if (!nrow(sig_targets)) return(NULL)
   active_tfs <- tf_activity %>% filter(as.character(Comparison) == comparison_name, abs(activity_z) >= TF_ACTIVITY_ABS_CUTOFF) %>% pull(tf)
   tf_edges <- collectri %>% semi_join(sig_targets, by = "target") %>% filter(tf %in% active_tfs) %>% transmute(source = tf, target, sign = mor, recurrence = 1, edge_class = "TF-target")
   if (!nrow(tf_edges)) return(NULL)
   upstream_edges <- carnival_edges %>% filter(as.character(Comparison) == comparison_name) %>% select(source, target, sign, recurrence) %>% mutate(edge_class = "CARNIVAL-PKN") %>% upstream_closure(unique(tf_edges$source))
   edges <- bind_rows(upstream_edges, tf_edges) %>% distinct(source, target, .keep_all = TRUE)
-  pred <- node_activity_from_edges(edges)
-  rna_here <- deg_all %>% filter(as.character(Comparison) == comparison_name) %>% mutate(node = toupper(Gene))
+  pred <- propagate_sign_from_perturbation(edges)
+  rna_here <- deg_all %>% filter(as.character(Comparison) == comparison_name) %>% mutate(node = harmonize_symbol(Gene))
   nodes <- tibble(node = sort(unique(c(edges$source, edges$target)))) %>%
     mutate(node_type = case_when(node == "PERTURBATION" ~ "perturbation", node %in% unique(tf_edges$source) ~ "TF", node %in% unique(tf_edges$target) ~ "gene", TRUE ~ "intermediate")) %>%
     left_join(pred, by = "node") %>% left_join(rna_here %>% select(node, log2FoldChange, padj, significant), by = "node") %>%
@@ -417,7 +538,7 @@ build_module_network <- function(comparison_name, module_name) {
 
 ```{r networks, fig.height=5, fig.width=8}
 overview_edges <- carnival_edges %>% group_by(source, target, sign) %>% summarise(recurrence = mean(recurrence), edge_class = "CARNIVAL-PKN", .groups = "drop")
-overview_nodes <- tibble(node = sort(unique(c(overview_edges$source, overview_edges$target)))) %>% left_join(node_activity_from_edges(overview_edges), by = "node") %>% mutate(node_type = case_when(node == "PERTURBATION" ~ "perturbation", node %in% unique(tf_activity$tf) ~ "TF", TRUE ~ "intermediate"), fill_color = activity_color(predicted_activity), border_color = pal$border_default)
+overview_nodes <- tibble(node = sort(unique(c(overview_edges$source, overview_edges$target)))) %>% left_join(propagate_sign_from_perturbation(overview_edges), by = "node") %>% mutate(node_type = case_when(node == "PERTURBATION" ~ "perturbation", node %in% unique(tf_activity$tf) ~ "TF", TRUE ~ "intermediate"), fill_color = activity_color(predicted_activity), border_color = pal$border_default)
 write_network_sidecars(overview_edges, overview_nodes, file.path(paths$source_files, "recurrent_edge_overview"))
 write_csv(overview_edges, file.path(paths$cytoscape, "recurrent_edge_overview_edges.csv"))
 write_csv(overview_nodes, file.path(paths$cytoscape, "recurrent_edge_overview_nodes.csv"))
@@ -451,8 +572,8 @@ module_summary_tbl
 
 ```{r module-summary}
 module_deg_summary <- deg_all %>%
-  mutate(gene_upper = toupper(Gene)) %>%
-  inner_join(modules %>% mutate(gene_upper = toupper(gene)), by = "gene_upper") %>%
+  mutate(gene_upper = harmonize_symbol(Gene)) %>%
+  inner_join(modules %>% mutate(gene_upper = harmonize_symbol(gene)), by = "gene_upper") %>%
   filter(significant) %>%
   transmute(module, gene = Gene, Comparison, log2FoldChange, padj, direction = ifelse(log2FoldChange > 0, "up", "down")) %>%
   arrange(module, gene, Comparison)

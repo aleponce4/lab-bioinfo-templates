@@ -21,7 +21,7 @@ knitr::opts_chunk$set(
 ```
 
 ::: {.callout-note}
-**Analytical Purpose:** Performs multi-condition Welch's One-Way ANOVA with planned contrasts (reference group vs. all experimental conditions) and Holm-Bonferroni FWER correction. Designed for viral titres and NGS read count comparisons where heteroscedasticity is common.
+**Analytical Purpose:** Performs multi-condition Welch's One-Way ANOVA with planned contrasts (reference group vs. all experimental conditions) and a configurable multiplicity correction (`P_ADJUST_METHOD`, Holm-Bonferroni by default). Designed for viral titres and NGS read count comparisons where heteroscedasticity is common.
 :::
 
 ```{r user-config, message=FALSE, warning=FALSE}
@@ -50,8 +50,21 @@ REFERENCE_GROUP <- "CellType_A"
 #   titres and NGS read-count data.
 LOG_TRANSFORM <- TRUE
 
+# PSEUDOCOUNT: Added to every value before log10 so that true zeros (below the
+#   limit of detection, or zero read counts) do not become -Inf.
+#   -Inf is NOT NA: it slips through every is.na() guard and then poisons
+#   shapiro.test() (which errors), oneway.test() and t.test().
+#   Choose it on the scale of your data: 1 for read counts, or the assay's
+#   limit of detection for titres. Set to 0 only if you are certain no value
+#   can ever be zero — the template checks and stops if one is.
+PSEUDOCOUNT <- 1
+
 # ALPHA: Significance threshold for all tests.
 ALPHA <- 0.05
+
+# P_ADJUST_METHOD: Multiplicity correction for the planned contrasts.
+#   Any method accepted by p.adjust() ("holm", "BH", "bonferroni", ...).
+P_ADJUST_METHOD <- "holm"
 
 ## ────────────────────────────────────────────────────────────────────────────
 ```
@@ -66,15 +79,56 @@ library(knitr)
 # Load Data
 
 ```{r load-data}
+# ── Input validation ─────────────────────────────────────────────────────────
+missing_files <- CONDITION_FILES[!file.exists(CONDITION_FILES)]
+if (length(missing_files) > 0) {
+  stop("CONDITION_FILES not found: ",
+       paste(sQuote(missing_files), collapse = ", "),
+       ". Run `Rscript data/simulate_data.R` from the template directory to ",
+       "regenerate the demo data, or point CONDITION_FILES at your own CSVs.")
+}
+if (!FOCAL_CONDITION %in% names(CONDITION_FILES)) {
+  stop("FOCAL_CONDITION (", sQuote(FOCAL_CONDITION), ") is not one of ",
+       "names(CONDITION_FILES): ",
+       paste(sQuote(names(CONDITION_FILES)), collapse = ", "))
+}
+stopifnot(PSEUDOCOUNT >= 0, P_ADJUST_METHOD %in% p.adjust.methods)
+
 clean_one <- function(path, condition_label) {
-  read_csv(path, show_col_types = FALSE) %>%
-    select(-matches("^Unnamed")) %>%                       # drop blank index cols
+  raw <- read_csv(path, show_col_types = FALSE) %>%
+    select(-matches("^Unnamed"))                           # drop blank index cols
+
+  if (ncol(raw) == 0) {
+    stop("No usable columns in ", sQuote(path),
+         " — expected one column per cell type / sample group.")
+  }
+
+  long <- raw %>%
     pivot_longer(
       everything(),
       names_to  = "cell_type_raw",
       values_to = "value"
     ) %>%
-    filter(!is.na(value)) %>%
+    filter(!is.na(value))
+
+  if (!is.numeric(long$value)) {
+    stop("Non-numeric values in ", sQuote(path),
+         ". Every column must hold measurements only (no text, no units).")
+  }
+  if (any(long$value < 0)) {
+    stop("Negative values in ", sQuote(path),
+         " — these cannot be log-transformed. Inspect the file before proceeding.")
+  }
+  # log10(0) is -Inf, and -Inf is not NA, so it passes every is.na() guard and
+  # then breaks shapiro.test()/oneway.test()/t.test(). Refuse rather than let
+  # that happen silently.
+  if (LOG_TRANSFORM && PSEUDOCOUNT == 0 && any(long$value == 0)) {
+    stop(sum(long$value == 0), " zero value(s) in ", sQuote(path),
+         " with LOG_TRANSFORM = TRUE and PSEUDOCOUNT = 0. ",
+         "Set PSEUDOCOUNT to a positive number (e.g. 1, or your limit of detection).")
+  }
+
+  long %>%
     mutate(
       cell_type = str_remove(cell_type_raw, "\\.[0-9]+$") %>%   # strip ".1"
                   str_remove("\\.+$"),                           # strip trailing dots
@@ -84,12 +138,22 @@ clean_one <- function(path, condition_label) {
         1L
       ),
       condition   = condition_label,
-      log_value   = if (LOG_TRANSFORM) log10(value) else value
+      log_value   = if (LOG_TRANSFORM) log10(value + PSEUDOCOUNT) else value
     ) %>%
     select(condition, cell_type, replicate, value, log_value)
 }
 
 all_data <- imap_dfr(CONDITION_FILES, ~ clean_one(.x, .y))
+
+# Nothing downstream can recover from a non-finite response.
+stopifnot(all(is.finite(all_data$log_value)))
+
+if (!REFERENCE_GROUP %in% all_data$cell_type[all_data$condition == FOCAL_CONDITION]) {
+  stop("REFERENCE_GROUP (", sQuote(REFERENCE_GROUP), ") is not present in ",
+       FOCAL_CONDITION, ". Available groups: ",
+       paste(sQuote(sort(unique(all_data$cell_type[all_data$condition == FOCAL_CONDITION]))),
+             collapse = ", "))
+}
 
 all_data %>%
   head(15) %>%
@@ -104,11 +168,22 @@ all_data %>%
 # Assumption Checks
 
 ```{r diagnostics}
+# Shapiro-Wilk must be applied to the WITHIN-GROUP deviations, not to the
+# pooled values. Pooling several cell types with different means produces a
+# mixture distribution that Shapiro-Wilk will reject even when every individual
+# group is perfectly normal — the normality assumption of ANOVA is about the
+# residuals, so that is what is tested here.
+shapiro_or_na <- function(x) {
+  x <- x[is.finite(x)]
+  if (length(x) < 3 || stats::sd(x) == 0) return(NA_real_)
+  stats::shapiro.test(x)$p.value
+}
+
 diagnostics <- all_data %>%
   group_by(condition) %>%
   summarise(
-    shapiro_raw  = shapiro.test(value)$p.value,
-    shapiro_log  = shapiro.test(log_value)$p.value,
+    shapiro_raw_resid = shapiro_or_na(residuals(lm(value ~ cell_type))),
+    shapiro_log_resid = shapiro_or_na(residuals(lm(log_value ~ cell_type))),
     bartlett_log = bartlett.test(log_value ~ cell_type)$p.value,
     levene_log   = car::leveneTest(
       log_value ~ factor(cell_type),
@@ -119,16 +194,34 @@ diagnostics <- all_data %>%
 
 diagnostics %>%
   knitr::kable(
-    caption     = "Normality (Shapiro-Wilk) and Homogeneity of Variance (Bartlett & Levene) Diagnostics",
-    col.names   = c("Condition", "Shapiro (Raw) p", "Shapiro (Log10) p", "Bartlett (Log10) p", "Levene (Log10) p"),
+    caption     = "Normality (Shapiro-Wilk on model residuals) and Homogeneity of Variance (Bartlett & Levene) Diagnostics",
+    col.names   = c("Condition", "Shapiro (Raw residuals) p", "Shapiro (Log10 residuals) p", "Bartlett (Log10) p", "Levene (Log10) p"),
     digits      = 4
+  )
+```
+
+```{r diagnostics-per-group}
+# Per cell type as well, so a single badly behaved group is visible rather than
+# averaged away. NA = fewer than 3 observations or zero variance.
+all_data %>%
+  group_by(condition, cell_type) %>%
+  summarise(
+    n           = dplyr::n(),
+    shapiro_log = shapiro_or_na(log_value),
+    .groups     = "drop"
+  ) %>%
+  knitr::kable(
+    caption   = "Per-Group Shapiro-Wilk on Log10 Values (NA = n < 3 or zero variance)",
+    col.names = c("Condition", "Cell Type", "n", "Shapiro (Log10) p"),
+    digits    = 4
   )
 ```
 
 ## Interpretation Guide
 
-- **Raw data** from viral infections are typically **log-normally distributed** — expect low Shapiro-Wilk p-values on raw values.
-- **Log₁₀ transform** symmetrises the distribution and stabilises variance. Check `shapiro_log` > `r ALPHA`.
+- **Raw data** from viral infections are typically **log-normally distributed** — expect low Shapiro-Wilk p-values on the raw-scale residuals.
+- **Log₁₀ transform** symmetrises the distribution and stabilises variance. Check `shapiro_log_resid` > `r ALPHA`.
+- Both Shapiro columns are computed on **residuals from the cell-type means within each condition**, which is the quantity ANOVA actually assumes to be normal. Testing the pooled values instead would reject normality simply because the groups have different means.
 - **Bartlett / Levene tests** flag heteroscedasticity. If these are significant for your focal condition, Welch's ANOVA (used below) is the correct choice.
 
 ### Why Welch's One-Way ANOVA on log₁₀ data?
@@ -169,30 +262,54 @@ welch_tbl %>%
 ```{r contrasts}
 other_groups <- levels(focal$cell_type)[levels(focal$cell_type) != REFERENCE_GROUP]
 
+if (length(other_groups) == 0) {
+  stop("No groups to compare against REFERENCE_GROUP (", sQuote(REFERENCE_GROUP),
+       ") in ", FOCAL_CONDITION, ".")
+}
+
 contrasts <- map_df(other_groups, function(grp) {
-  t_out <- t.test(
-    focal$log_value[focal$cell_type == REFERENCE_GROUP],
-    focal$log_value[focal$cell_type == grp],
-    var.equal = FALSE
-  )
+  x_ref <- focal$log_value[focal$cell_type == REFERENCE_GROUP]
+  x_grp <- focal$log_value[focal$cell_type == grp]
+  # t.test() errors with fewer than 2 observations per arm; report NA instead
+  # of killing the render.
+  t_out <- if (length(x_ref) >= 2 && length(x_grp) >= 2) {
+    tryCatch(t.test(x_ref, x_grp, var.equal = FALSE), error = function(e) NULL)
+  } else NULL
+
   tibble(
     Comparison  = paste(REFERENCE_GROUP, "vs", grp),
-    Log_Diff    = unname(t_out$estimate[1] - t_out$estimate[2]),
-    p_raw       = t_out$p.value
+    n_ref       = length(x_ref),
+    n_grp       = length(x_grp),
+    Diff        = if (is.null(t_out)) NA_real_
+                  else unname(t_out$estimate[1] - t_out$estimate[2]),
+    p_raw       = if (is.null(t_out)) NA_real_ else t_out$p.value
   )
 }) %>%
   mutate(
-    p_adj       = p.adjust(p_raw, method = "holm"),
-    fold_change = round(10^(-Log_Diff), 2),
-    significant = ifelse(p_adj < ALPHA, "Yes", "No")
+    p_adj = p.adjust(p_raw, method = P_ADJUST_METHOD),
+    # Only a log10 difference can be exponentiated back to a fold change.
+    # With LOG_TRANSFORM = FALSE, Diff is already a difference on the raw
+    # scale, so 10^ would be meaningless.
+    effect_size = if (LOG_TRANSFORM) round(10^(-Diff), 2) else round(-Diff, 2),
+    significant = case_when(
+      is.na(p_adj)   ~ "n/a",
+      p_adj < ALPHA  ~ "Yes",
+      TRUE           ~ "No"
+    )
   ) %>%
   arrange(p_adj)
 
 contrasts %>%
   knitr::kable(
-    caption     = paste0("Planned Contrasts vs Reference Group (", REFERENCE_GROUP, ") with Holm-Bonferroni FWER Correction"),
-    col.names   = c("Comparison", "Log10 Diff", "Raw p-value", "Holm Adj. p", "Fold Change", "Significant"),
-    digits      = 4
+    caption   = paste0("Planned Contrasts vs Reference Group (", REFERENCE_GROUP,
+                       ") with ", P_ADJUST_METHOD, " FWER/FDR correction"),
+    col.names = c("Comparison", "n (ref)", "n (group)",
+                  if (LOG_TRANSFORM) "Log10 Diff" else "Raw Diff",
+                  "Raw p-value",
+                  paste0(P_ADJUST_METHOD, " Adj. p"),
+                  if (LOG_TRANSFORM) "Fold Change" else "Difference (group - ref)",
+                  "Significant"),
+    digits    = 4
   )
 ```
 
@@ -239,9 +356,10 @@ print(p_focal)
 
 ```{r summary-note}
 cat(sprintf(
-  "Focal condition: %s\nReference group: %s\nSignificant contrasts (Holm-adjusted p < %.2f): %d / %d\n",
+  "Focal condition: %s\nReference group: %s\nSignificant contrasts (%s-adjusted p < %.2f): %d / %d\n",
   FOCAL_CONDITION,
   REFERENCE_GROUP,
+  P_ADJUST_METHOD,
   ALPHA,
   sum(contrasts$significant == "Yes"),
   nrow(contrasts)

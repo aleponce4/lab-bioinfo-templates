@@ -5,23 +5,29 @@
 # Repos configured by r-lib/actions/setup-r (use-public-rspm: true) or CRAN fallback
 
 # ── CRAN packages ─────────────────────────────────────────────────────────────
+# Keep this list to what the templates actually use — `Rscript scripts/validate_packages.R`
+# reports anything referenced but undeclared, and anything declared but unreferenced.
 cran_pkgs <- c(
   # Core tidyverse
   "tidyverse", "readr", "readxl", "writexl", "janitor", "stringr",
   # Plotting
-  "ggplot2", "ggpubr", "ggridges", "ggrepel", "ggbeeswarm", "ggh4x", "hexbin",
+  "ggplot2", "ggpubr", "ggridges", "ggbeeswarm",
   "viridis", "RColorBrewer", "scales", "patchwork", "svglite", "ragg",
   "scatterpie", "ggspatial", "pheatmap",
   "gprofiler2", "igraph",
   # Statistics
-  "car", "broom", "rstatix", "emmeans", "coin", "drc", "vegan", "mclust", "minpack.lm", "MASS",
+  "car", "broom", "rstatix", "emmeans", "vegan", "mclust", "minpack.lm",
+  "ashr",                  # 07_rnaseq-deseq2: lfcShrink(type = "ashr")
   # Spatial / maps
   "sf", "rnaturalearth", "rnaturalearthdata", "gtools", "ape",
-  # APIs / export helpers
-  "jsonlite", "httr",
   # Misc
-  "knitr", "DT", "gt", "here", "forcats", "geosphere", "survival"
+  "knitr", "DT", "gt", "forcats", "geosphere"
 )
+
+# Rscript sets no CRAN mirror, so install.packages() fails non-interactively without this.
+if (is.null(getOption("repos")[["CRAN"]]) || getOption("repos")[["CRAN"]] %in% c("@CRAN@", NA)) {
+  options(repos = c(CRAN = "https://cloud.r-project.org"))
+}
 
 to_install <- cran_pkgs[!cran_pkgs %in% installed.packages()[, "Package"]]
 if (length(to_install)) {
@@ -46,18 +52,14 @@ bioc_pkgs <- c(
   "org.Hs.eg.db",        # human
   "clusterProfiler",     # 06_go-enrichment
   "enrichplot",
-  "ggtree",              # transitive dep of enrichplot; explicit pin ensures ggplot2-compatible version
-  "GOplot",
-  "ggVennDiagram",
-  "ReactomePA",
-  "BiocParallel",          # 09_wgcna
   "impute",                # WGCNA Bioconductor dep (not on CRAN)
   "preprocessCore",        # WGCNA Bioconductor dep
   "GO.db",                 # WGCNA Bioconductor dep
-  "WGCNA",                 # 09_wgcna (installed after its Bioc deps)
-  "decoupleR",             # 10_rnaseq-tf-causal-network
-  "OmnipathR",             # 10_rnaseq-tf-causal-network
-  "CARNIVAL"               # 10_rnaseq-tf-causal-network; solver still installed separately
+  "WGCNA"                  # 09_wgcna (installed after its Bioc deps)
+  # NOTE: decoupleR / OmnipathR / CARNIVAL are deliberately NOT listed. Template 10
+  # is a self-contained toy demo built on hardcoded CollecTRI-style and
+  # CARNIVAL-style networks and never calls those packages, so installing them
+  # would add three heavy dependencies for zero executed code.
 )
 
 bioc_to_install <- bioc_pkgs[!bioc_pkgs %in% installed.packages()[, "Package"]]
@@ -66,6 +68,14 @@ if (length(bioc_to_install)) {
   BiocManager::install(bioc_to_install, ask = FALSE)
 } else {
   message("All Bioconductor packages already installed.")
+}
+
+# install.packages()/BiocManager::install() only warn on a failed build, so verify
+# rather than reporting success unconditionally.
+still_missing <- setdiff(c(cran_pkgs, bioc_pkgs), rownames(installed.packages()))
+if (length(still_missing)) {
+  stop("Failed to install: ", paste(still_missing, collapse = ", "),
+       "\nCheck the build log above for missing system libraries.")
 }
 
 message("\nDone! All packages installed.")

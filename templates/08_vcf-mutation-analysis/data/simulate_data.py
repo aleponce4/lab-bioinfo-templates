@@ -8,19 +8,18 @@ VCF filename format: aa_change_{ID}-{SOURCE}_{SEGMENT}_{THRESHOLD}.vcf
 Run from the template folder:
     python data/simulate_data.py
 
-Three samples × three tissue types × two segments × three thresholds = 54 VCF files.
-Synthetic mutations are randomly seeded for reproducibility.
+Six samples x three tissue types x two segments x three thresholds = 108 VCF files.
+The random number generator is seeded, so re-running rewrites byte-identical files.
 """
 
 import os
 import random
-import string
-import math
 
-# Ensure working directory is set to template directory
+SEED = 42
+random.seed(SEED)
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.dirname(SCRIPT_DIR)
-os.chdir(TEMPLATE_DIR)
 
 OUT_DIR = os.path.join(TEMPLATE_DIR, "data", "aa_change_vcf")
 os.makedirs(OUT_DIR, exist_ok=True)
@@ -28,16 +27,28 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 # ── Configuration mirrors template config ─────────────────────────────────────
 SAMPLE_IDS = ["SMPL001", "SMPL002", "SMPL003",
-               "SMPL004", "SMPL005", "SMPL006"]
+              "SMPL004", "SMPL005", "SMPL006"]
 TISSUE_TYPES = ["Lung", "Saliva", "Urine"]
 SEGMENTS = ["S", "M"]
 VAF_THRESHOLDS = ["1%", "2%", "5%"]
 
-# Segment lengths (nt) and CDS boundaries
+# Segment lengths (nt) and CDS boundaries. Keep in sync with SEGMENT_CONFIG in
+# template.qmd; the assertion below enforces a codon-aligned CDS.
 SEGMENT_CONFIG = {
     "S": {"length": 1902, "cds_start": 250, "cds_end": 1329, "aa_length": 360},
-    "M": {"length": 3675, "cds_start":  52, "cds_end": 3461, "aa_length": 1135},
+    "M": {"length": 3675, "cds_start":  52, "cds_end": 3456, "aa_length": 1135},
 }
+
+for _seg, _cfg in SEGMENT_CONFIG.items():
+    _cds_len = _cfg["cds_end"] - _cfg["cds_start"] + 1
+    assert _cds_len == _cfg["aa_length"] * 3, (
+        f"Segment {_seg}: CDS spans {_cds_len} nt but aa_length={_cfg['aa_length']} "
+        f"implies {_cfg['aa_length'] * 3} nt. Fix cds_start/cds_end/aa_length."
+    )
+    assert _cfg["cds_end"] <= _cfg["length"], (
+        f"Segment {_seg}: cds_end ({_cfg['cds_end']}) exceeds segment length "
+        f"({_cfg['length']})."
+    )
 
 DEPTH_MIN = 500   # minimum coverage to pass QC filter
 
@@ -125,24 +136,28 @@ def make_vcf_records(segment, vaf_str):
     return records
 
 
-# ── Write VCF files ───────────────────────────────────────────────────────────
-file_count = 0
-for sample_id in SAMPLE_IDS:
-    for source in TISSUE_TYPES:
-        for segment in SEGMENTS:
-            for threshold in VAF_THRESHOLDS:
-                threshold_str = threshold.replace("%", "pct")
-                fname = f"aa_change_{sample_id}-{source}_{segment}_{threshold_str}.vcf"
-                fpath = os.path.join(OUT_DIR, fname)
+def generate():
+    file_count = 0
+    for sample_id in SAMPLE_IDS:
+        for source in TISSUE_TYPES:
+            for segment in SEGMENTS:
+                for threshold in VAF_THRESHOLDS:
+                    threshold_str = threshold.replace("%", "pct")
+                    fname = f"aa_change_{sample_id}-{source}_{segment}_{threshold_str}.vcf"
+                    fpath = os.path.join(OUT_DIR, fname)
 
-                with open(fpath, "w") as fh:
-                    fh.write(VCF_HEADER)
-                    for rec in make_vcf_records(segment, threshold):
-                        fh.write(rec)
+                    with open(fpath, "w") as fh:
+                        fh.write(VCF_HEADER)
+                        for rec in make_vcf_records(segment, threshold):
+                            fh.write(rec)
 
-                file_count += 1
+                    file_count += 1
 
-print(f"Wrote {file_count} synthetic VCF files to {OUT_DIR}/")
-print("Each file follows the naming convention:")
-print("  aa_change_{SampleID}-{Source}_{Segment}_{Threshold}.vcf")
-print("Example: aa_change_SMPL001-Lung_S_1pct.vcf")
+    print(f"Wrote {file_count} synthetic VCF files to {OUT_DIR}/")
+    print("Each file follows the naming convention:")
+    print("  aa_change_{SampleID}-{Source}_{Segment}_{Threshold}.vcf")
+    print("Example: aa_change_SMPL001-Lung_S_1pct.vcf")
+
+
+if __name__ == "__main__":
+    generate()

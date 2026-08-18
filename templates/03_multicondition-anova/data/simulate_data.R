@@ -20,7 +20,8 @@ out_dir <- "data/"
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 cell_types <- c("CellType_A", "CellType_B", "CellType_C", "CellType_D")
-n_reps     <- 3       # technical replicates per cell type
+n_reps     <- 3       # replicates per cell type, per experimental block
+n_blocks   <- 2       # independent experimental blocks written as ".1" columns
 conditions <- c("Condition_A", "Condition_B", "Condition_C")
 
 # Mean log10 titer per condition × cell type (CellType_A is the "reference")
@@ -32,22 +33,36 @@ means <- list(
 sd_val <- 0.35   # within-group SD on log10 scale
 
 # ── Generate and save CSVs ────────────────────────────────────────────────────
+# Each experimental block is drawn INDEPENDENTLY. (An earlier version copied the
+# first block into the ".1" columns, which doubled the apparent n without adding
+# any information and made every p-value far too small.)
+draw_block <- function(m) {
+  as.data.frame(sapply(cell_types, function(ct) {
+    10^rnorm(n_reps, mean = m[[ct]], sd = sd_val)
+  }))
+}
+
 for (cond in conditions) {
   m <- means[[cond]]
-  # Wide format: each column = cell type, rows = replicates
-  mat <- sapply(cell_types, function(ct) {
-    vals <- 10^rnorm(n_reps, mean = m[ct], sd = sd_val)
-    vals
+
+  # Block 1 -> plain column names; block 2 -> ".1" suffix, block 3 -> ".2", ...
+  blocks <- lapply(seq_len(n_blocks), function(b) {
+    blk <- draw_block(m)
+    colnames(blk) <- if (b == 1) cell_types else paste0(cell_types, ".", b - 1)
+    blk
   })
-  # First replicate in plain column; subsequent as "CellType.1", "CellType.2"
-  df <- as.data.frame(mat)
-  # Add extra replicate columns (mimicking the original file structure)
-  df2 <- df
-  colnames(df2) <- cell_types
-  # Append second replicate block as ".1" columns (original format convention)
-  df3 <- df2
-  colnames(df3) <- paste0(cell_types, ".1")
-  out <- cbind(df2, df3)
+  out <- do.call(cbind, blocks)
+
+  # Guard against the copy-paste bug returning: no two replicate blocks may be
+  # identical, and no value may be non-positive (the template log-transforms).
+  if (n_blocks > 1) {
+    for (b in 2:n_blocks) {
+      stopifnot(!isTRUE(all.equal(unname(as.matrix(blocks[[1]])),
+                                  unname(as.matrix(blocks[[b]])))))
+    }
+  }
+  stopifnot(all(out > 0), !any(is.na(out)))
+
   write.csv(out, file = paste0(out_dir, cond, ".csv"), row.names = FALSE)
-  message("Wrote data/", cond, ".csv")
+  message("Wrote data/", cond, ".csv  (", nrow(out), " rows x ", ncol(out), " cols)")
 }

@@ -1,2 +1,2 @@
 genes_before,genes_after,genes_removed,count_filter_min,count_filter_min_samples
-3536,3536,0,10,2
+3536,3531,5,10,2

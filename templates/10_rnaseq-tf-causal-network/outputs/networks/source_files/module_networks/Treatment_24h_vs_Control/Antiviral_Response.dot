@@ -1,7 +1,7 @@
 digraph causal_network {
-  graph [rankdir=LR, fontname=Arial];
-  node [fontname=Arial];
-  edge [fontname=Arial];
+  graph [rankdir=LR, fontname=Helvetica];
+  node [fontname=Helvetica];
+  edge [fontname=Helvetica];
   "CXCL10" [label="CXCL10", shape=ellipse, style=filled, fillcolor="#EBAAA4", color="#424242"];
   "IFIT1" [label="IFIT1", shape=ellipse, style=filled, fillcolor="#E69B95", color="#424242"];
   "IRF1" [label="IRF1", shape=box, style=filled, fillcolor="#E08A1E", color="#006D2C"];

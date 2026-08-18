@@ -17,12 +17,12 @@ jupyter: python3
 | **Key packages** | `pandas`, `numpy`, `matplotlib`, `scipy`, `matplotlib_venn` (optional) |
 | **Statistics** | Shannon entropy (natural log) · Allele frequency filtering · Caller overlap |
 | **Output** | Variant frequency scatter (SVG/PNG) · Entropy curves (SVG/PNG) · Venn diagram (SVG/PNG) |
-| **Download** | [template.qmd (GitHub)](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/11_variant-entropy-analysis/template.qmd) |
+| **Download** | [template.qmd](template.qmd) |
 
-Edit `FILTER_MIN_DP` and `FILTER_MIN_AF` to set depth and allele-frequency cut-offs. Modify `DPI_CONFIG` to control colour and display order for each DPI group.
+Edit `FILTER_MIN_DP` and `FILTER_MIN_AF` to set depth and allele-frequency cut-offs. Modify `DPI_CONFIG` to control colour and display order for each DPI group. Set `GENOME_LENGTH` to your reference length — it is *not* inferred from the gene annotation, which would silently drop any variant past the last annotated gene.
 
 [← Gallery](../../index.html){.btn .btn-outline-secondary}
-[Download .qmd](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/11_variant-entropy-analysis/template.qmd){.btn .btn-primary}
+[Download .qmd](template.qmd){.btn .btn-primary}
 
 ---
 
@@ -52,11 +52,18 @@ DPI_CONFIG = {
     5: {"label": "DPI 5", "color": "#009E73"},
 }
 
+# Reference genome length (nt). Set this explicitly — deriving it from the gene
+# annotation drops every variant downstream of the last annotated gene.
+GENOME_LENGTH = 11447
+
 # Output directory for plots
 OUTPUT_DIR = "outputs"
 
 # Sliding-window size for entropy curves (genomic positions)
 WINDOW_SIZE = 200
+
+# Step between successive entropy windows (nt). 1 = maximum smoothness.
+WINDOW_STEP = 1
 
 # ─────────────────────────────────────────────────────────────────────────────
 ```
@@ -72,10 +79,11 @@ import warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.stats import entropy
-from collections import defaultdict
 
-warnings.filterwarnings("ignore")
+# Narrow suppression only: numpy raises this when a sliding window happens to hold
+# a single variant, where the sample standard deviation is undefined by design.
+warnings.filterwarnings("ignore", category=RuntimeWarning,
+                        message="Degrees of freedom <= 0")
 
 # ── Global plot theme: white background, no grid, black spine, Arial ─────────
 plt.rcParams.update({
@@ -122,11 +130,22 @@ DPI_ORDER  = sorted(DPI_CONFIG.keys())
 ```{python}
 #| label: load-data
 
+def require_columns(df, required, name):
+    """Fail loudly if an input table is missing a column the analysis depends on."""
+    missing = set(required) - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"{name} is missing required column(s): {sorted(missing)}. "
+            f"Found: {list(df.columns)}"
+        )
+
 manifest = pd.read_csv(MANIFEST_CSV)
+require_columns(manifest, ["sample_id", "dpi"], MANIFEST_CSV)
 print(f"Manifest: {len(manifest)} samples")
 print(manifest.head(), "\n")
 
 gene_coords = pd.read_csv(GENE_COORDS)
+require_columns(gene_coords, ["gene", "start", "end"], GENE_COORDS)
 print(f"Gene coordinates: {len(gene_coords)} genes")
 print(gene_coords.head(), "\n")
 
@@ -135,20 +154,38 @@ ivar_raw   = pd.read_csv(IVAR_CSV)
 print(f"LoFreq: {len(lofreq_raw)} variants")
 print(f"iVar:   {len(ivar_raw)} variants")
 
-for df, name in [(lofreq_raw, "LoFreq"), (ivar_raw, "iVar")]:
-    missing = {"AF", "DP", "POS", "sample_id", "dpi"} - set(df.columns)
-    if missing:
-        raise ValueError(f"{name} CSV is missing required columns: {missing}")
+for df, name in [(lofreq_raw, LOFREQ_CSV), (ivar_raw, IVAR_CSV)]:
+    require_columns(df, ["AF", "DP", "POS", "sample_id", "dpi"], name)
 
 # Merge variant data into a single DataFrame with a 'caller' column
 lofreq_raw["caller"] = "LoFreq"
 ivar_raw["caller"]   = "iVar"
 all_vars = pd.concat([lofreq_raw, ivar_raw], ignore_index=True)
 
-# Attach DPI from manifest
-if "dpi" not in all_vars.columns:
-    dpi_map = dict(zip(manifest["sample_id"], manifest["dpi"]))
-    all_vars["dpi"] = all_vars["sample_id"].map(dpi_map)
+CALLERS = ["LoFreq", "iVar"]
+
+# Cross-check the per-variant DPI against the manifest: a sample_id whose dpi
+# disagrees with its manifest row would scatter that variant into the wrong group.
+dpi_map = dict(zip(manifest["sample_id"], manifest["dpi"]))
+expected_dpi = all_vars["sample_id"].map(dpi_map)
+unknown = sorted(all_vars.loc[expected_dpi.isna(), "sample_id"].unique())
+if unknown:
+    raise ValueError(f"sample_id(s) absent from {MANIFEST_CSV}: {unknown}")
+mismatch = all_vars.loc[expected_dpi != all_vars["dpi"]]
+if len(mismatch):
+    raise ValueError(
+        f"{len(mismatch)} variant row(s) have a 'dpi' that disagrees with "
+        f"{MANIFEST_CSV}, e.g.\n{mismatch.head()[['sample_id', 'dpi', 'caller']]}"
+    )
+
+# Positions outside the reference are a data error, not something to drop quietly.
+off_genome = all_vars[(all_vars["POS"] < 1) | (all_vars["POS"] > GENOME_LENGTH)]
+if len(off_genome):
+    raise ValueError(
+        f"{len(off_genome)} variant(s) fall outside GENOME_LENGTH={GENOME_LENGTH} "
+        f"(positions {off_genome['POS'].min()}–{off_genome['POS'].max()}). "
+        f"Check GENOME_LENGTH against your reference."
+    )
 
 print(f"\nCombined: {len(all_vars)} total variants")
 all_vars.head()
@@ -167,12 +204,14 @@ all_vars = all_vars[
 print(f"Retained {len(all_vars)} / {pre} variants "
       f"(DP ≥ {FILTER_MIN_DP}, AF ≥ {FILTER_MIN_AF})")
 
-# Assign variant classification for plotting
+# Assign variant classification for plotting.
+# Gene first: an intergenic position has no reading frame, so any coding
+# consequence attached to it is meaningless and must not win the classification.
 def classify_variant(row):
-    if row.get("consequence", "") == "missense_variant":
-        return "missense"
-    elif row.get("gene", "") == "intergenic":
+    if row.get("gene", "") == "intergenic":
         return "intergenic"
+    elif row.get("consequence", "") == "missense_variant":
+        return "missense"
     else:
         return "synonymous/other"
 
@@ -190,8 +229,6 @@ boundaries as vertical spans and DPI as colour.
 #| fig-width: 14
 #| fig-height: 5
 
-from matplotlib.patches import Patch
-
 # Define marker shapes per variant class
 class_styles = {
     "missense":       {"marker": "o", "s": 18, "edgecolors": "black", "linewidths": 0.3},
@@ -201,7 +238,7 @@ class_styles = {
 
 gene_colors = plt.cm.Set3(np.linspace(0, 1, len(gene_coords)))
 
-for caller in ["LoFreq", "iVar"]:
+for caller in CALLERS:
     fig, ax = plt.subplots(figsize=(14, 5), constrained_layout=True)
     cdf = all_vars[all_vars["caller"] == caller]
 
@@ -235,7 +272,7 @@ for caller in ["LoFreq", "iVar"]:
     ax.set_ylabel("Allele Frequency (log scale)")
     ax.set_xlabel("Genomic Position (nt)")
     ax.set_title(f"Variant Frequency — {caller}")
-    ax.set_xlim(1, max(cdf["POS"].max(), gene_coords["end"].max()))
+    ax.set_xlim(1, GENOME_LENGTH)
 
     # Deduplicated legend
     handles, labels = ax.get_legend_handles_labels()
@@ -258,10 +295,14 @@ Sliding-window Shannon entropy computed genome-wide. A separate curve (mean ± S
 is drawn for each DPI group so that entropy accumulation can be compared through the
 course of infection.
 
+**One panel per caller.** A variant found by both callers appears once in each panel,
+never twice in the same curve — pooling the callers would double-weight exactly the
+concordant variants and leave the discordant ones under-weighted.
+
 ```{python}
 #| label: entropy-curves
 #| fig-width: 14
-#| fig-height: 5
+#| fig-height: 9
 
 SEM_ALPHA = 0.20
 
@@ -269,69 +310,77 @@ def shannon_entropy(af_values):
     """Binary Shannon entropy (natural log) for a list of variant AFs. Expects AFs as float."""
     vals = np.asarray(af_values, dtype=float)
     ref_freq = 1.0 - vals
-    ent = -(vals * np.log(vals + 1e-300) + ref_freq * np.log(ref_freq + 1e-300))
-    return ent
+    return -(vals * np.log(vals + 1e-300) + ref_freq * np.log(ref_freq + 1e-300))
 
-# Build position-indexed dictionary per DPI
-# Key: dpi → dict of {position: [AF values across replicates]}
-genome_len = int(gene_coords["end"].max())
-entropy_data = {dpi: {pos: [] for pos in range(1, genome_len + 1)}
-                for dpi in DPI_ORDER}
 
-for _, row in all_vars.iterrows():
-    dpi = row["dpi"]
-    pos = row["POS"]
-    if dpi in entropy_data and 1 <= pos <= genome_len:
-        entropy_data[dpi][pos].append(row["AF"])
+def sliding_entropy(frame):
+    """Mean ± SEM of per-variant entropy in windows of WINDOW_SIZE nt.
 
-# Sliding window (windows are overlapping — step = 1 for smoothness)
-half = WINDOW_SIZE // 2
-dpi_curves = {}
+    Window i covers positions [start, start + WINDOW_SIZE - 1] inclusive and is
+    plotted at its true midpoint, so every position from 1 to GENOME_LENGTH is
+    covered by at least one window. Running sums make the step-1 slide cheap.
+    """
+    ent_sum = np.zeros(GENOME_LENGTH + 1)   # 1-based, index 0 unused
+    ent_sq  = np.zeros(GENOME_LENGTH + 1)
+    counts  = np.zeros(GENOME_LENGTH + 1)
 
-for dpi in DPI_ORDER:
-    pos_dict = entropy_data[dpi]
-    x_positions = []
-    y_means  = []
-    y_sems   = []
+    pos = frame["POS"].to_numpy(dtype=int)
+    ent = shannon_entropy(frame["AF"].to_numpy(dtype=float))
+    np.add.at(ent_sum, pos, ent)
+    np.add.at(ent_sq,  pos, ent ** 2)
+    np.add.at(counts,  pos, 1.0)
 
-    for center in range(half + 1, genome_len - half + 1):
-        window_afs = []
-        for wp in range(center - half, center + half):
-            window_afs.extend(pos_dict.get(wp, []))
+    c_sum = np.concatenate([[0.0], np.cumsum(ent_sum)])
+    c_sq  = np.concatenate([[0.0], np.cumsum(ent_sq)])
+    c_n   = np.concatenate([[0.0], np.cumsum(counts)])
 
-        if len(window_afs) < 2:
+    starts = np.arange(1, GENOME_LENGTH - WINDOW_SIZE + 2, WINDOW_STEP)
+    ends   = starts + WINDOW_SIZE - 1
+    n   = c_n[ends]   - c_n[starts - 1]
+    s   = c_sum[ends] - c_sum[starts - 1]
+    q   = c_sq[ends]  - c_sq[starts - 1]
+
+    usable = n >= 2
+    mean = s[usable] / n[usable]
+    # Sample variance from the running sums, floored at 0 against rounding noise.
+    var  = np.maximum((q[usable] - n[usable] * mean ** 2) / (n[usable] - 1), 0.0)
+    sem  = np.sqrt(var / n[usable])
+    centers = (starts[usable] + ends[usable]) / 2.0
+    return centers, mean, sem
+
+
+# Plot: one row per caller, one curve per DPI.
+fig, axes = plt.subplots(len(CALLERS), 1, figsize=(14, 4.5 * len(CALLERS)),
+                         sharex=True, sharey=True, constrained_layout=True,
+                         squeeze=False)
+axes = axes.ravel()
+
+for ax, caller in zip(axes, CALLERS):
+    caller_vars = all_vars[all_vars["caller"] == caller]
+
+    for dpi in DPI_ORDER:
+        sub = caller_vars[caller_vars["dpi"] == dpi]
+        if sub.empty:
             continue
+        x_pos, y_mean, y_sem = sliding_entropy(sub)
+        if len(x_pos) == 0:
+            continue
+        ax.plot(x_pos, y_mean, color=DPI_COLORS[dpi], linewidth=1.2,
+                label=DPI_LABELS[dpi])
+        ax.fill_between(x_pos, y_mean - y_sem, y_mean + y_sem,
+                        color=DPI_COLORS[dpi], alpha=SEM_ALPHA, linewidth=0)
 
-        window_ent = shannon_entropy(window_afs)
-        x_positions.append(center)
-        y_means.append(np.mean(window_ent))
-        y_sems.append(np.std(window_ent, ddof=1) / np.sqrt(len(window_afs)))
+    for (_, gene_row), gc in zip(gene_coords.iterrows(), gene_colors):
+        ax.axvspan(gene_row["start"], gene_row["end"],
+                   alpha=0.08, color=gc, zorder=0)
 
-    dpi_curves[dpi] = (np.array(x_positions), np.array(y_means), np.array(y_sems))
+    ax.set_xlim(1, GENOME_LENGTH)
+    ax.set_ylabel("Shannon Entropy (nat)")
+    ax.set_title(f"{caller} — sliding window = {WINDOW_SIZE} nt")
+    ax.legend(loc="upper right", frameon=False)
 
-# Plot
-fig, ax = plt.subplots(figsize=(14, 5), constrained_layout=True)
-
-for dpi in DPI_ORDER:
-    if dpi not in dpi_curves:
-        continue
-    x_pos, y_mean, y_sem = dpi_curves[dpi]
-    ax.plot(x_pos, y_mean, color=DPI_COLORS[dpi], linewidth=1.2,
-            label=DPI_LABELS[dpi])
-    ax.fill_between(x_pos, y_mean - y_sem, y_mean + y_sem,
-                    color=DPI_COLORS[dpi], alpha=SEM_ALPHA, linewidth=0)
-
-for (_, gene_row), gc in zip(gene_coords.iterrows(), gene_colors):
-    ax.axvspan(
-        gene_row["start"], gene_row["end"],
-        alpha=0.08, color=gc, zorder=0,
-    )
-
-ax.set_xlim(1, genome_len)
-ax.set_xlabel("Genomic Position (nt)")
-ax.set_ylabel("Shannon Entropy (nat)")
-ax.set_title(f"Genome-Wide Shannon Entropy (sliding window = {WINDOW_SIZE} nt)")
-ax.legend(loc="upper right", frameon=False)
+axes[-1].set_xlabel("Genomic Position (nt)")
+fig.suptitle("Genome-Wide Shannon Entropy by Caller and DPI")
 
 out_svg = os.path.join(OUTPUT_DIR, "entropy_curves.svg")
 out_png = os.path.join(OUTPUT_DIR, "entropy_curves.png")
@@ -403,26 +452,29 @@ try:
 
 except ImportError:
     print(
-        "matplotlib_venn is not installed — printing overlap contingency table instead.\n"
-        "Install with: pip install matplotlib-venn"
+        "matplotlib_venn is not installed — the overlap contingency table below "
+        "carries the same numbers.\nInstall the figure with: pip install matplotlib-venn"
     )
+```
 
-    rows = []
-    for dpi in DPI_ORDER:
-        lf = lofreq_positions.get(dpi, set())
-        iv = ivar_positions.get(dpi, set())
-        rows.append({
-            "DPI":          dpi,
-            "LoFreq only":  len(lf - iv),
-            "iVar only":    len(iv - lf),
-            "Shared":       len(lf & iv),
-            "Total union":  len(lf | iv),
-        })
+```{python}
+#| label: caller-overlap-table
 
-    overlap_df = pd.DataFrame(rows)
-    overlap_df.to_csv(os.path.join(OUTPUT_DIR, "caller_overlap_summary.csv"), index=False)
-    print("Saved: caller_overlap_summary.csv")
-    print(overlap_df.to_string(index=False))
+# Always write the overlap numbers, whether or not matplotlib_venn drew the figure.
+overlap_df = pd.DataFrame([
+    {
+        "DPI":          dpi,
+        "LoFreq only":  len(lofreq_positions.get(dpi, set()) - ivar_positions.get(dpi, set())),
+        "iVar only":    len(ivar_positions.get(dpi, set()) - lofreq_positions.get(dpi, set())),
+        "Shared":       len(lofreq_positions.get(dpi, set()) & ivar_positions.get(dpi, set())),
+        "Total union":  len(lofreq_positions.get(dpi, set()) | ivar_positions.get(dpi, set())),
+    }
+    for dpi in DPI_ORDER
+])
+overlap_df["Jaccard"] = (overlap_df["Shared"] / overlap_df["Total union"]).round(3)
+overlap_df.to_csv(os.path.join(OUTPUT_DIR, "caller_overlap_summary.csv"), index=False)
+print("Saved: caller_overlap_summary.csv")
+overlap_df
 ```
 
 ## Summary: Variant Counts per DPI per Caller
@@ -439,18 +491,21 @@ summary = (
 summary.columns.name = None
 summary.index.name = "DPI"
 
-# Add variant-class breakdown
+# Variant-class breakdown, kept split by caller: a variant both callers report is
+# one call per caller, and collapsing the caller axis would count it twice.
 class_summary = (
     all_vars
-    .groupby(["dpi", "variant_class"])["POS"]
+    .groupby(["caller", "dpi", "variant_class"])["POS"]
     .count()
     .unstack(fill_value=0)
 )
 
 print("=== Variants per DPI per Caller ===")
 print(summary.to_string())
-print(f"\nSaved {len(all_vars)} filtered variants to memory; "
-      f"CSV inputs from data/ directory.")
+print("\n=== Variant classes per DPI per Caller ===")
+print(class_summary.to_string())
+print(f"\n{len(all_vars)} filtered variant calls in total "
+      f"(each caller counted separately).")
 summary.to_csv(os.path.join(OUTPUT_DIR, "variant_summary_by_caller.csv"))
 class_summary.to_csv(os.path.join(OUTPUT_DIR, "variant_summary_by_class.csv"))
 print("Saved: variant_summary_by_caller.csv, variant_summary_by_class.csv")

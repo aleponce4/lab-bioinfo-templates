@@ -54,6 +54,9 @@ COUNT_FILTER_MIN_SAMPLES <- 2
 FDR_THRESHOLD <- 0.05
 LFC_THRESHOLD <- 1
 TOP_HEATMAP_GENES <- 25
+# Volcano axis limits. Points beyond them are squished onto the boundary, never
+# dropped - a volcano that silently deletes its most significant hits is worse
+# than one with a visible pile-up at the edge.
 VOLCANO_XLIM <- c(-6, 6)
 VOLCANO_YLIM <- 12
 PCA_COLOR_COLUMN <- "group"
@@ -86,7 +89,12 @@ VIRAL_FEATURE_CONFIG <- list(
     VEEV_49S = 11446,
     VEEV_26S = 3880
   ),
-  log_pseudocount = 0.5
+  # Added to every value before the log10 axis transform, so zero-count samples
+  # stay on the plot without being reported as a measured background level.
+  log_pseudocount = 0.5,
+  # position_jitter() is random. Without a fixed seed every render moves the
+  # points and rewrites the SVG, which is permanent churn in version control.
+  jitter_seed = 42
 )
 ## -----------------------------------------------------------------------------
 ```
@@ -329,10 +337,12 @@ comparison_label_from_row <- function(model_id, contrast_name, split_enabled) {
   }
 }
 
-extract_results_tidy <- function(result_obj, comparison_label, model_id, contrast_name) {
+extract_results_tidy <- function(result_obj, shrunk_obj, comparison_label, model_id, contrast_name) {
   as.data.frame(result_obj) %>%
     tibble::rownames_to_column("Gene") %>%
     mutate(
+      log2FoldChange_shrunk = as.numeric(shrunk_obj$log2FoldChange[match(Gene, rownames(shrunk_obj))]),
+      lfcSE_shrunk = as.numeric(shrunk_obj$lfcSE[match(Gene, rownames(shrunk_obj))]),
       model_id = model_id,
       contrast_name = contrast_name,
       comparison_label = comparison_label,
@@ -355,13 +365,52 @@ match_feature_row <- function(mat, pattern, label) {
   hits
 }
 
-calculate_tpm <- function(count_matrix, lengths_bp) {
-  lengths_kb <- lengths_bp / 1000
-  rate <- sweep(count_matrix, 1, lengths_kb, "/")
-  scaling_factors <- colSums(rate, na.rm = TRUE)
-  tpm_matrix <- sweep(rate, 2, scaling_factors / 1e6, "/")
-  tpm_matrix[, scaling_factors == 0] <- 0
-  tpm_matrix
+# NOTE: this template deliberately does NOT compute TPM for the viral features.
+# TPM's per-sample scaling factor is a sum over the *whole* transcriptome; applied
+# to a handful of viral rows it forces every sample's values to sum to 1e6, which
+# erases exactly the between-group difference the panel exists to show. The gene
+# count matrix carries no feature lengths, so a real transcriptome-wide TPM is not
+# computable from these inputs. Instead the viral panel reports host size-factor
+# normalized counts (correct for library depth, comparable across samples) and the
+# same values divided by feature length (comparable across features).
+normalize_by_length_kb <- function(count_matrix, lengths_bp) {
+  missing_lengths <- setdiff(rownames(count_matrix), names(lengths_bp))
+  if (length(missing_lengths) > 0) {
+    stop("No feature length supplied for: ", paste(missing_lengths, collapse = ", "))
+  }
+  lengths_kb <- lengths_bp[rownames(count_matrix)] / 1000
+  sweep(count_matrix, 1, lengths_kb, "/")
+}
+
+# lfcShrink stabilizes fold changes for low-count genes. apeglm cannot take an
+# arbitrary `contrast`, so prefer ashr when installed and fall back to the
+# built-in normal prior otherwise (no extra dependency).
+shrink_log2_fold_changes <- function(dds, contrast, res) {
+  shrink_type <- if (requireNamespace("ashr", quietly = TRUE)) "ashr" else "normal"
+  DESeq2::lfcShrink(dds, contrast = contrast, res = res, type = shrink_type, quiet = TRUE)
+}
+
+# Excel sheet names are capped at 31 characters, so two similar comparison labels
+# can truncate to the same string and silently overwrite each other.
+make_unique_sheet_names <- function(labels) {
+  out <- character(length(labels))
+  for (i in seq_along(labels)) {
+    candidate <- substr(labels[[i]], 1, 31)
+    if (candidate %in% out[seq_len(i - 1)]) {
+      suffix <- 2L
+      repeat {
+        tag <- paste0("_", suffix)
+        candidate <- paste0(substr(labels[[i]], 1, 31 - nchar(tag)), tag)
+        if (!candidate %in% out[seq_len(i - 1)]) break
+        suffix <- suffix + 1L
+      }
+      warning("Excel sheet name for '", labels[[i]],
+              "' collided after truncation to 31 characters; using '", candidate, "'.",
+              call. = FALSE)
+    }
+    out[[i]] <- candidate
+  }
+  out
 }
 
 make_bubble_plot <- function(pathway_name, genes, result_data, comparison_levels) {
@@ -783,14 +832,19 @@ for (i in seq_len(nrow(contrast_table))) {
     split_enabled = split_enabled
   )
 
+  contrast_spec <- c(row_i$factor, row_i$numerator, row_i$denominator)
+
   result_obj <- DESeq2::results(
     fit_i$dds,
-    contrast = c(row_i$factor, row_i$numerator, row_i$denominator),
+    contrast = contrast_spec,
     alpha = FDR_THRESHOLD
   )
 
+  shrunk_obj <- shrink_log2_fold_changes(fit_i$dds, contrast_spec, result_obj)
+
   results_list[[comparison_label]] <- extract_results_tidy(
     result_obj = result_obj,
+    shrunk_obj = shrunk_obj,
     comparison_label = comparison_label,
     model_id = row_i$model_id,
     contrast_name = row_i$contrast_name
@@ -820,11 +874,22 @@ pca_data_list <- lapply(names(model_fits), function(model_id) {
     fit_i$vsd,
     intgroup = PCA_COLOR_COLUMN,
     returnData = TRUE
-  ) %>%
-    mutate(model_id = model_id)
+  )
 
-  attr(pca_tbl, "percentVar") <- attr(pca_tbl, "percentVar")
-  pca_tbl
+  # plotPCA() returns the variance explained only as an attribute, and bind_rows()
+  # drops attributes. Promote it to real columns (and into the facet label) so the
+  # published PCA does not ship with bare "PC1"/"PC2" axes.
+  percent_var <- attr(pca_tbl, "percentVar")
+  pc1_pct <- round(100 * percent_var[1])
+  pc2_pct <- round(100 * percent_var[2])
+
+  pca_tbl %>%
+    mutate(
+      model_id = model_id,
+      pc1_percent_var = pc1_pct,
+      pc2_percent_var = pc2_pct,
+      model_label = sprintf("%s  (PC1 %d%%, PC2 %d%%)", model_id, pc1_pct, pc2_pct)
+    )
 })
 names(pca_data_list) <- names(model_fits)
 
@@ -832,11 +897,11 @@ pca_data <- bind_rows(pca_data_list)
 
 p_pca <- ggplot(pca_data, aes(x = PC1, y = PC2, color = .data[[PCA_COLOR_COLUMN]])) +
   geom_point(size = 2.8, alpha = 0.9) +
-  facet_wrap(~ model_id, scales = "free") +
+  facet_wrap(~ model_label, scales = "free") +
   labs(
     title = "PCA - Variance-Stabilized Counts",
-    x = "PC1",
-    y = "PC2",
+    x = "PC1 (% variance explained shown per panel)",
+    y = "PC2 (% variance explained shown per panel)",
     color = PCA_COLOR_COLUMN
   ) +
   theme_bw(base_size = 10, base_family = "sans") +
@@ -856,6 +921,13 @@ p_pca
 volcano_plots <- lapply(comparison_levels, function(label) {
   df <- results_list[[label]]
 
+  # Count what the axis limits will clamp so the figure can say so out loud.
+  n_squished <- sum(
+    df$log2FoldChange < VOLCANO_XLIM[1] | df$log2FoldChange > VOLCANO_XLIM[2] |
+      df$log_padj > VOLCANO_YLIM,
+    na.rm = TRUE
+  )
+
   ggplot(df, aes(x = log2FoldChange, y = -log10(padj_plot), color = direction)) +
     geom_point(alpha = 0.55, size = 0.8) +
     geom_hline(
@@ -871,9 +943,21 @@ volcano_plots <- lapply(comparison_levels, function(label) {
       linewidth = 0.3
     ) +
     scale_color_manual(values = c(Up = "#a00000", Down = "#2066a8", NS = "gray70")) +
-    scale_x_continuous(limits = VOLCANO_XLIM) +
-    scale_y_continuous(limits = c(0, VOLCANO_YLIM)) +
-    labs(title = label, x = expression(log[2] * " Fold Change"), y = "-log10(FDR)") +
+    # oob = squish clamps out-of-range points to the axis boundary. A plain
+    # `limits =` would DELETE them, and the deleted points are precisely the
+    # strongest hits (padj underflows to ~1e-308, i.e. -log10 ~ 308).
+    scale_x_continuous(limits = VOLCANO_XLIM, oob = scales::squish) +
+    scale_y_continuous(limits = c(0, VOLCANO_YLIM), oob = scales::squish) +
+    labs(
+      title = label,
+      x = expression(log[2] * " Fold Change"),
+      y = "-log10(FDR)",
+      caption = if (n_squished > 0) {
+        sprintf("%d point(s) beyond the axis limits are drawn clamped at the boundary.", n_squished)
+      } else {
+        NULL
+      }
+    ) +
     theme_bw(base_size = 10, base_family = "sans") +
     theme(
       plot.title = element_text(face = "bold", hjust = 0.5),
@@ -898,12 +982,15 @@ if (isTRUE(OPTIONAL_MODULES$ma_plots)) {
     df <- results_list[[label]] %>%
       mutate(baseMean_plot = pmax(baseMean, 1))
 
-    ggplot(df, aes(x = baseMean_plot, y = log2FoldChange, color = direction)) +
+    # MA plots are the canonical place for shrunken fold changes: without them the
+    # low-count end of the x axis is dominated by high-variance noise.
+    ggplot(df, aes(x = baseMean_plot, y = log2FoldChange_shrunk, color = direction)) +
       geom_point(alpha = 0.55, size = 0.8) +
       scale_x_log10(labels = scales::comma) +
       scale_color_manual(values = c(Up = "#a00000", Down = "#2066a8", NS = "gray70")) +
       geom_hline(yintercept = c(-LFC_THRESHOLD, LFC_THRESHOLD), linetype = "dashed", color = "darkgrey") +
-      labs(title = label, x = "Base mean (log10 scale)", y = expression(log[2] * " Fold Change")) +
+      labs(title = label, x = "Base mean (log10 scale)",
+           y = expression("Shrunken " * log[2] * " Fold Change")) +
       theme_bw(base_size = 10, base_family = "sans") +
       theme(
         plot.title = element_text(face = "bold", hjust = 0.5),
@@ -959,12 +1046,17 @@ if (isTRUE(OPTIONAL_MODULES$sample_distance_heatmap)) {
 ```{r top-heatmaps, fig.width=8, fig.height=8, message=FALSE, warning=FALSE}
 if (isTRUE(OPTIONAL_MODULES$top_heatmaps)) {
   for (label in comparison_levels) {
+    # Only genes that actually pass FDR + |LFC| belong under a "Top DEGs" heading.
+    # Sorting by padj alone would happily show 25 rows when nothing is significant.
     result_df <- results_list[[label]] %>%
-      filter(!is.na(padj)) %>%
-      arrange(padj, desc(abs(log2FoldChange)))
+      filter(significant) %>%
+      arrange(padj, desc(abs(log2FoldChange_shrunk)))
 
     top_genes <- head(result_df$Gene, TOP_HEATMAP_GENES)
     if (length(top_genes) < 2) {
+      message("Skipping top-DEG heatmap for '", label, "': ",
+              nrow(result_df), " gene(s) pass FDR < ", FDR_THRESHOLD,
+              " and |log2FC| >= ", LFC_THRESHOLD, ".")
       next
     }
 
@@ -1117,15 +1209,19 @@ if (isTRUE(OPTIONAL_MODULES$viral_features)) {
   viral_counts <- transcript_counts[matched_rows, , drop = FALSE]
   rownames(viral_counts) <- names(matched_rows)
 
+  # Host size factors come from the full host count matrix, so this is a genuine
+  # library-depth correction and is directly comparable between samples.
   host_size_factors <- DESeq2::estimateSizeFactorsForMatrix(round(filtered_counts))
   viral_sf_norm <- sweep(viral_counts, 2, host_size_factors, "/")
-  viral_tpm <- calculate_tpm(viral_counts, viral_lengths_bp[rownames(viral_counts)])
+  # Same values, additionally divided by feature length, so the three viral
+  # features are comparable with each other (see normalize_by_length_kb).
+  viral_sf_norm_per_kb <- normalize_by_length_kb(viral_sf_norm, viral_lengths_bp)
 
   viral_long <- bind_rows(
     as.data.frame(as.table(viral_sf_norm), stringsAsFactors = FALSE) %>%
       transmute(feature = Var1, sample_name = Var2, value = Freq, metric = "Host size-factor normalized counts"),
-    as.data.frame(as.table(viral_tpm), stringsAsFactors = FALSE) %>%
-      transmute(feature = Var1, sample_name = Var2, value = Freq, metric = "TPM")
+    as.data.frame(as.table(viral_sf_norm_per_kb), stringsAsFactors = FALSE) %>%
+      transmute(feature = Var1, sample_name = Var2, value = Freq, metric = "Normalized counts per kb")
   ) %>%
     left_join(
       metadata %>%
@@ -1133,7 +1229,9 @@ if (isTRUE(OPTIONAL_MODULES$viral_features)) {
       by = "sample_name"
     ) %>%
     mutate(
-      value_plot = pmax(value, VIRAL_FEATURE_CONFIG$log_pseudocount),
+      # A real pseudocount, not pmax(): flooring every zero-viral sample at the
+      # same value fabricates a flat plateau that reads as measured background.
+      value_plot = value + VIRAL_FEATURE_CONFIG$log_pseudocount,
       facet_label = if (!is.null(VIRAL_FEATURE_CONFIG$facet_column)) {
         paste(feature, .data[[VIRAL_FEATURE_CONFIG$facet_column]], sep = " | ")
       } else {
@@ -1146,14 +1244,18 @@ if (isTRUE(OPTIONAL_MODULES$viral_features)) {
     viral_long,
     aes(x = .data[[group_col]], y = value_plot, color = .data[[group_col]])
   ) +
-    geom_point(position = position_jitter(width = 0.08, height = 0), alpha = 0.5, size = 1.7) +
+    geom_point(
+      position = position_jitter(width = 0.08, height = 0,
+                                 seed = VIRAL_FEATURE_CONFIG$jitter_seed),
+      alpha = 0.5, size = 1.7
+    ) +
     stat_summary(fun = mean, geom = "point", size = 2.8) +
     scale_y_log10(labels = scales::comma_format()) +
     facet_grid(metric ~ facet_label, scales = "free_y") +
     labs(
       title = "Optional Viral Feature Module",
       x = group_col,
-      y = "Abundance (log10 scale)",
+      y = sprintf("Abundance + %g (log10 scale)", VIRAL_FEATURE_CONFIG$log_pseudocount),
       color = group_col
     ) +
     theme_bw(base_size = 10, base_family = "sans") +
@@ -1168,7 +1270,7 @@ if (isTRUE(OPTIONAL_MODULES$viral_features)) {
   viral_tables <- list(
     viral_counts = viral_counts,
     viral_sf_norm = viral_sf_norm,
-    viral_tpm = viral_tpm,
+    viral_sf_norm_per_kb = viral_sf_norm_per_kb,
     viral_long = viral_long
   )
 
@@ -1181,15 +1283,16 @@ if (isTRUE(OPTIONAL_MODULES$viral_features)) {
 ```{r export-de-tables, message=FALSE, warning=FALSE}
 deg_workbook <- list()
 
-for (label in comparison_levels) {
+safe_names  <- vapply(comparison_levels, sanitize_filename, character(1))
+sheet_names <- make_unique_sheet_names(safe_names)
+
+for (i in seq_along(comparison_levels)) {
+  label <- comparison_levels[[i]]
   export_df <- results_list[[label]] %>%
-    arrange(padj, desc(abs(log2FoldChange)))
+    arrange(padj, desc(abs(log2FoldChange_shrunk)))
 
-  safe_name <- sanitize_filename(label)
-  write_csv(export_df, file.path(SUMMARY_DIR, paste0("DEGs_", safe_name, ".csv")))
-
-  sheet_name <- substr(safe_name, 1, 31)
-  deg_workbook[[sheet_name]] <- export_df
+  write_csv(export_df, file.path(SUMMARY_DIR, paste0("DEGs_", safe_names[[i]], ".csv")))
+  deg_workbook[[sheet_names[[i]]]] <- export_df
 }
 
 writexl::write_xlsx(deg_workbook, path = file.path(SUMMARY_DIR, "DEG_tables.xlsx"))

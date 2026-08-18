@@ -16,7 +16,7 @@ categories: [infection, statistics, ANOVA]
 | **Input** | Wide-format CSV per condition (columns = cell types, rows = replicates) |
 | **Key packages** | `tidyverse`, `car`, `broom` |
 | **Statistics** | Shapiro-Wilk, Bartlett, Levene, Welch one-way ANOVA, Welch t-tests |
-| **Correction** | Holm (FWER) |
+| **Correction** | Holm (FWER) by default; any `p.adjust()` method via `P_ADJUST_METHOD` |
 | **Output** | Diagnostic table · ANOVA result · Contrast table with fold-changes |
 | **Download** | [template.Rmd](template.Rmd) |
 

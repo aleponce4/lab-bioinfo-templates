@@ -26,51 +26,8 @@
   </clipPath>
 </defs>
 <g clip-path='url(#cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA=)'>
-</g>
-<defs>
-  <clipPath id='cpMTI3LjYyfDQ0OC4zOHwwLjAwfDM2MC4wMA=='>
-    <rect x='127.62' y='0.00' width='320.76' height='360.00' />
-  </clipPath>
-</defs>
-<g clip-path='url(#cpMTI3LjYyfDQ0OC4zOHwwLjAwfDM2MC4wMA==)'>
-<rect x='127.62' y='0.00' width='320.76' height='360.00' style='stroke-width: 0.00; stroke: none;' />
-</g>
-<g clip-path='url(#cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA=)'>
-</g>
-<defs>
-  <clipPath id='cpMTI3LjYyfDQ0OC4zOHwxNi42MHwzMzcuMDU='>
-    <rect x='127.62' y='16.60' width='320.76' height='320.45' />
-  </clipPath>
-</defs>
-<g clip-path='url(#cpMTI3LjYyfDQ0OC4zOHwxNi42MHwzMzcuMDU=)'>
-<line x1='142.20' y1='148.19' x2='288.35' y2='176.80' style='stroke-width: 1.49; stroke: #D97706;' />
-<polygon points='280.18,179.60 288.35,176.80 281.84,171.12 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
-<line x1='288.35' y1='176.80' x2='316.98' y2='31.16' style='stroke-width: 1.49; stroke: #D97706;' />
-<polygon points='319.77,39.34 316.98,31.16 311.30,37.67 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
-<line x1='288.35' y1='176.80' x2='259.95' y2='322.48' style='stroke-width: 1.49; stroke: #D97706;' />
-<polygon points='257.14,314.31 259.95,322.48 265.62,315.97 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
-<line x1='288.35' y1='176.80' x2='433.80' y2='205.28' style='stroke-width: 1.49; stroke: #D97706;' />
-<polygon points='425.63,208.08 433.80,205.28 427.29,199.60 ' style='stroke-width: 1.49; stroke: #D97706; fill: #D97706;' />
-<circle cx='316.98' cy='31.16' r='6.51' style='stroke-width: 1.28; stroke: #424242; fill: #F2BFBB;' />
-<circle cx='259.95' cy='322.48' r='6.51' style='stroke-width: 1.28; stroke: #424242; fill: #EAA59F;' />
-<circle cx='142.20' cy='148.19' r='6.51' style='stroke-width: 1.28; stroke: #006D2C; fill: #E08A1E;' />
-<circle cx='433.80' cy='205.28' r='6.51' style='stroke-width: 1.28; stroke: #424242; fill: #E9A29C;' />
-<rect x='282.58' y='171.04' width='11.53' height='11.53' style='stroke-width: 1.28; stroke: #006D2C; fill: #E08A1E;' />
-<text x='316.98' y='24.74' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='27.03px' lengthAdjust='spacingAndGlyphs'>ITGAM</text>
-<text x='259.95' y='316.07' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='19.77px' lengthAdjust='spacingAndGlyphs'>LYZ2</text>
-<text x='142.20' y='141.77' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='33.67px' lengthAdjust='spacingAndGlyphs'>MAPK14</text>
-<text x='433.80' y='198.86' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='30.38px' lengthAdjust='spacingAndGlyphs'>S100A9</text>
-<text x='288.35' y='170.38' text-anchor='middle' style='font-size: 8.54px; font-family: "Arial";' textLength='18.50px' lengthAdjust='spacingAndGlyphs'>SPI1</text>
-</g>
-<g clip-path='url(#cpMC4wMHw1NzYuMDB8MC4wMHwzNjAuMDA=)'>
-<text x='181.20' y='355.30' style='font-size: 11.00px; font-family: "Arial";' textLength='50.19px' lengthAdjust='spacingAndGlyphs'>Node type</text>
-<circle cx='245.51' cy='351.36' r='4.91' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
-<circle cx='293.31' cy='351.36' r='4.91' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
-<rect x='365.58' y='347.01' width='8.70' height='8.70' style='stroke-width: 1.28; stroke: #4D4D4D; fill: #FFFFFF;' />
-<text x='259.63' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='19.56px' lengthAdjust='spacingAndGlyphs'>gene</text>
-<text x='307.43' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='48.38px' lengthAdjust='spacingAndGlyphs'>intermediate</text>
-<text x='384.05' y='354.51' style='font-size: 8.80px; font-family: "Arial";' textLength='10.75px' lengthAdjust='spacingAndGlyphs'>TF</text>
-<text x='288.00' y='14.08' text-anchor='middle' style='font-size: 12.00px; font-weight: bold; font-family: "Arial";' textLength='275.98px' lengthAdjust='spacingAndGlyphs'>Leukocyte Infiltration - Treatment 48h vs Control</text>
+<rect x='0.00' y='0.00' width='576.00' height='360.00' style='stroke-width: 0.00; stroke: none;' />
+<text x='288.00' y='183.94' text-anchor='middle' style='font-size: 11.00px; font-family: "Arial";' textLength='152.34px' lengthAdjust='spacingAndGlyphs'>No network edges after filtering</text>
 </g>
 </g>
 </svg>

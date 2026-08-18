@@ -6,17 +6,14 @@ channels:
 dependencies:
   - python=3.11
   - pip
-  - pyyaml
   - pip:
       - pandas>=2.0
       - vcfpy>=0.13
       - matplotlib>=3.7
+      - matplotlib-venn>=0.11
       - seaborn>=0.12
       - scipy>=1.11
       - numpy>=1.24
-      - scikit-learn>=1.3
-      - umap-learn>=0.5
-      - glasbey>=0.2
       - ipykernel
       - nbformat
       - nbconvert

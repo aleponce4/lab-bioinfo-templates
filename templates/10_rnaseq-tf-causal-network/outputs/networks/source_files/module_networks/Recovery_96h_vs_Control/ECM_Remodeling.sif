@@ -1,5 +1,0 @@
-MAPK1	activates	JUN
-MAPK1	activates	FOS
-PERTURBATION	activates	MAPK1
-JUN	activates	MMP3
-FOS	activates	MMP3

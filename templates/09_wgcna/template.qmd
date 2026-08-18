@@ -13,7 +13,7 @@ categories: [genomics, transcriptomics, WGCNA, co-expression, network]
 | Item | Details |
 |------|---------|
 | **Input** | `dds_wgcna_template.RData` — a saved `DESeqDataSet` already processed with `DESeq()` |
-| **Key packages** | `WGCNA`, `DESeq2`, `gprofiler2`, `igraph`, `ggplot2`, `patchwork` |
+| **Key packages** | `WGCNA`, `DESeq2`, `gprofiler2`, `igraph`, `ggplot2` |
 | **Statistics** | Bicor correlation · scale-free topology fit · module–trait Pearson r (FDR) · hub score (kME + z.kWithin + GS.virus) |
 | **Output** | Dendrogram · module–trait heatmap · eigengene trajectories · correlation barplot · enrichment lollipop · hub gene bubble plot |
 | **Download** | [template.Rmd](template.Rmd) |

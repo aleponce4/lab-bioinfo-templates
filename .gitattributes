@@ -1,7 +1,6 @@
 # GitHub Linguist language detection overrides
-# Exclude auto-generated site libs, froze rendering caches, and web bundles from language stats
+# Exclude auto-generated site libs and web bundles from language stats
 docs/** linguist-vendored
-_freeze/** linguist-vendored
 site_libs/** linguist-vendored
 *.html linguist-vendored
 *.js linguist-vendored

@@ -39,6 +39,14 @@ MERGE_HEIGHT  <- 0.25            # module merge dendrogram cut height
 # ── Filtering ────────────────────────────────────────────────────────────────
 R_CUT         <- 0.6             # |r| threshold for trait-correlated modules
 P_CUT         <- 0.05            # FDR p-value threshold
+
+# ── Figures ──────────────────────────────────────────────────────────────────
+# Font family for every figure. "" means "whatever the graphics device defaults
+# to", which is the only portable choice: naming a font that is not registered
+# with the device (e.g. "Arial" on Windows) aborts rendering with
+# `invalid font type`. Set this to a real family only if you know it resolves
+# on the machine doing the render.
+PLOT_FONT     <- ""
 ```
 
 ```{r libraries, include=FALSE}
@@ -114,7 +122,8 @@ plot(sampleTree,
 ```{r soft-threshold, fig.height=3.5, fig.width=7}
 enableWGCNAThreads(N_THREADS)
 
-powers <- 1:20
+# Signed networks need higher powers than unsigned ones (WGCNA FAQ suggests up to 30).
+powers <- c(1:10, seq(12, 30, by = 2))
 sft <- pickSoftThreshold(
   datExpr,
   powerVector = powers,
@@ -127,7 +136,16 @@ sft <- pickSoftThreshold(
 # Auto-select smallest power reaching SOFT_R2
 r_sq   <- -sign(sft$fitIndices$slope) * sft$fitIndices$SFT.R.sq
 idx    <- which(r_sq >= SOFT_R2)[1]
-softPower <- if (!is.na(idx)) sft$fitIndices$Power[idx] else sft$fitIndices$Power[which.max(r_sq)]
+if (is.na(idx)) {
+  softPower <- sft$fitIndices$Power[which.max(r_sq)]
+  warning("No power in `powers` reached the scale-free R^2 target of ", SOFT_R2,
+          ". Falling back to the best-fitting power (", softPower,
+          ", R^2 = ", sprintf("%.2f", max(r_sq, na.rm = TRUE)),
+          "). Inspect the scale-independence plot before trusting the modules.",
+          call. = FALSE, immediate. = TRUE)
+} else {
+  softPower <- sft$fitIndices$Power[idx]
+}
 cat("Selected soft-thresholding power:", softPower,
     sprintf("(R² = %.2f, mean connectivity = %.1f)\n",
             r_sq[which(sft$fitIndices$Power == softPower)],
@@ -167,7 +185,11 @@ net <- blockwiseModules(
   nThreads         = N_THREADS
 )
 
-moduleColors <- labels2colors(net$colors)
+# numericLabels = FALSE above, so net$colors already holds colour strings.
+# Do NOT run labels2colors() on them again — that re-factorises the colour names
+# alphabetically and re-assigns standardColors(), permuting every module and
+# silently dropping the 'grey' (unassigned) bucket.
+moduleColors <- net$colors
 cat("Modules detected:", length(unique(moduleColors[moduleColors != "grey"])), "\n")
 cat("Grey (unassigned) genes:", sum(moduleColors == "grey"), "\n")
 ```
@@ -180,7 +202,7 @@ dir.create("Plots", showWarnings = FALSE)
 tiff("Plots/WGCNA_Dendrogram.tiff",
      width = 5, height = 3, units = "in",
      res = 300, compression = "lzw",
-     family = "Arial", pointsize = 10)
+     family = PLOT_FONT, pointsize = 10)
 par(mar = c(1, 4.1, 2.5, 1))
 plotDendroAndColors(
   net$dendrograms[[1]],
@@ -225,8 +247,11 @@ MEs         <- orderMEs(net$MEs)
 sampleInfo  <- as.data.frame(colData(dds))[rownames(datExpr), , drop = FALSE]
 
 # Build numeric trait data
+# as.character() matters: indexing a named vector with a factor matches by level
+# code, not by name, so a factor dpi column would silently scramble the values.
 traitData <- data.frame(
-  dpi       = if (!is.null(DPI_MAP)) DPI_MAP[sampleInfo[[DPI_COL]]] else as.numeric(sampleInfo[[DPI_COL]]),
+  dpi       = if (!is.null(DPI_MAP)) unname(DPI_MAP[as.character(sampleInfo[[DPI_COL]])])
+              else as.numeric(as.character(sampleInfo[[DPI_COL]])),
   infection = as.numeric(sampleInfo[[TREATMENT_COL]] == VIRUS_LEVEL),
   row.names = rownames(sampleInfo)
 )
@@ -250,20 +275,27 @@ trait_labels <- c(dpi = "Days post-infection",
                   virus = "Viral RNA (RNA-seq)")
 x_labels <- trait_labels[colnames(moduleTraitCor)]
 
-stars <- ifelse(moduleTraitPvalue[ord, ] < 0.001, "***",
-         ifelse(moduleTraitPvalue[ord, ] < 0.01,  "**",
-         ifelse(moduleTraitPvalue[ord, ] < 0.05,  "*", "ns")))
-dim(stars) <- dim(moduleTraitPvalue[ord, ])
+cor_mat <- moduleTraitCor[ord, , drop = FALSE]
+p_mat   <- moduleTraitPvalue[ord, , drop = FALSE]
 
-y_labs <- gsub("^ME", "", rownames(moduleTraitCor)[ord])
+stars <- ifelse(p_mat < 0.001, "***",
+         ifelse(p_mat < 0.01,  "**",
+         ifelse(p_mat < 0.05,  "*", "ns")))
+dim(stars) <- dim(p_mat)
+
+# labeledHeatmap() derives the module colour squares from substring(yLabels, 3),
+# so yLabels must keep the "ME" prefix; ySymbols carries the text actually drawn.
+y_labs <- rownames(cor_mat)
+y_syms <- gsub("^ME", "", y_labs)
 
 plot_file <- "Plots/WGCNA_ModuleTraitHeatmap.pdf"
-cairo_pdf(plot_file, width = 2.5, height = 5.5, family = "Arial", pointsize = 10)
+cairo_pdf(plot_file, width = 2.5, height = 5.5, family = PLOT_FONT, pointsize = 10)
 par(mar = c(5, 6, 2, 1), cex.main = 0.9)
 labeledHeatmap(
-  Matrix          = moduleTraitCor[ord, ],
+  Matrix          = cor_mat,
   xLabels         = x_labels,
   yLabels         = y_labs,
+  ySymbols        = y_syms,
   colorLabels     = TRUE,
   colors          = blueWhiteRed(50),
   textMatrix      = stars,
@@ -277,9 +309,10 @@ dev.off()
 
 par(mar = c(5, 6, 2, 1), cex.main = 0.9)
 labeledHeatmap(
-  Matrix          = moduleTraitCor[ord, ],
+  Matrix          = cor_mat,
   xLabels         = x_labels,
   yLabels         = y_labs,
+  ySymbols        = y_syms,
   colorLabels     = TRUE,
   colors          = blueWhiteRed(50),
   textMatrix      = stars,
@@ -363,7 +396,7 @@ p_bar <- ggplot(plot_df_bar, aes(x = Module, y = virusCor, fill = virusCor)) +
   scale_y_continuous(expand = expansion(mult = c(0.2, 0.2))) +
   labs(x = "Module", y = "Correlation with viral expression",
        title = "Module–viral load correlation") +
-  theme_classic(base_size = 10, base_family = "Arial") +
+  theme_classic(base_size = 10, base_family = PLOT_FONT) +
   theme(
     plot.title  = element_text(size = 10, face = "bold", hjust = 0.5),
     axis.title  = element_text(size = 9),
@@ -387,7 +420,11 @@ ME_df$sample <- rownames(ME_df)
 # Subset colData to the same samples that are in ME_df
 meta         <- as.data.frame(colData(dds))[rownames(ME_df), , drop = FALSE]
 
-meta$dpi_n <- if (!is.null(DPI_MAP)) DPI_MAP[meta[[DPI_COL]]] else as.numeric(meta[[DPI_COL]])
+meta$dpi_n <- if (!is.null(DPI_MAP)) {
+  unname(DPI_MAP[as.character(meta[[DPI_COL]])])
+} else {
+  as.numeric(as.character(meta[[DPI_COL]]))
+}
 plot_df_eig <- cbind(ME_df, meta)
 
 long_df <- plot_df_eig %>%
@@ -427,7 +464,7 @@ p_traj <- ggplot(
   facet_wrap(~Module, scales = "free_y") +
   scale_x_continuous(breaks = unique(long_df$dpi_n)) +
   labs(x = "Days post-infection", y = "Eigengene (\u0394 vs control)") +
-  theme_classic(base_size = 10, base_family = "Arial") +
+  theme_classic(base_size = 10, base_family = PLOT_FONT) +
   theme(
     strip.background = element_blank(),
     strip.text       = element_text(size = 9, face = "bold"),
@@ -447,6 +484,11 @@ zNA <- function(x) { y <- as.numeric(scale(x)); y[!is.finite(y)] <- 0; y }
 
 keep_mods  <- module_df$Module
 keep_genes <- moduleColors %in% keep_mods & moduleColors != "grey"
+
+# The viral gene is the trait, not a hub candidate: its GS.virus is 1 by
+# definition, which would otherwise make it the top hub of whichever module it
+# happens to fall into.
+if (!is.null(VIRAL_GENE)) keep_genes <- keep_genes & colnames(datExpr) != VIRAL_GENE
 
 datExpr_h      <- as.matrix(datExpr[, keep_genes, drop = FALSE])
 moduleColors_h <- moduleColors[keep_genes]
@@ -477,8 +519,11 @@ hub_tbl <- data.frame(
   stringsAsFactors = FALSE
 )
 
-if (!is.null(VIRAL_GENE) && VIRAL_GENE %in% colnames(datExpr_h)) {
-  virus_vec      <- as.numeric(datExpr_h[, VIRAL_GENE])
+# Take the viral-load vector from the FULL expression matrix: datExpr_h keeps only
+# genes in trait-correlated modules, so the viral gene itself is usually absent
+# from it and GS.virus would silently collapse to a column of zeros.
+if (!is.null(VIRAL_GENE) && VIRAL_GENE %in% colnames(datExpr)) {
+  virus_vec      <- as.numeric(datExpr[rownames(datExpr_h), VIRAL_GENE])
   GS_virus       <- bicor(datExpr_h, virus_vec, maxPOutliers = 0.05,
                           use = "pairwise.complete.obs")
   hub_tbl$GS.virus <- as.numeric(GS_virus)
@@ -495,7 +540,8 @@ hub_summary <- hub_tbl %>%
   dplyr::group_by(Module) %>%
   dplyr::summarise(
     topGene        = Gene[which.max(hubness)],
-    meanHubness    = mean(hubness, na.rm = TRUE),
+    # No meanHubness column: hubness is a sum of within-module z-scores, so its
+    # module mean is 0 by construction and carries no information.
     maxHubness     = max(hubness, na.rm = TRUE),
     meanAbsGSvirus = mean(abs(GS.virus), na.rm = TRUE),
     .groups = "drop"
@@ -606,7 +652,7 @@ if (nrow(all_enrich) > 0) {
     coord_cartesian(clip = "off") +
     expand_limits(x = x_right) +
     labs(x = "Gene ratio (%)", y = NULL, title = "Top enriched terms per module") +
-    theme_bw(base_size = 10, base_family = "Arial") +
+    theme_bw(base_size = 10, base_family = PLOT_FONT) +
     theme(
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
@@ -626,13 +672,27 @@ if (nrow(all_enrich) > 0) {
 
 ```{r hub-bubble, fig.height=5, fig.width=5}
 # DE results per DPI contrast (virus vs PBS).
-# Names must match keys in DPI_MAP; values assume group = paste0(treatment, dpi).
-# Update these if your group encoding differs.
-dpi_contrasts <- list(
-  one   = c("group", paste0(VIRUS_LEVEL, "one"),   paste0(PBS_LEVEL, "one")),
-  three = c("group", paste0(VIRUS_LEVEL, "three"), paste0(PBS_LEVEL, "three")),
-  five  = c("group", paste0(VIRUS_LEVEL, "five"),  paste0(PBS_LEVEL, "five"))
+# The time-point level names come straight from DPI_MAP (or from the dpi column
+# itself when DPI_MAP is NULL) rather than being hardcoded, and the group encoding
+# is assumed to be group = paste0(treatment, dpi). Change `dpi_group_level()` if
+# your group labels are built differently.
+dpi_time_levels <- if (!is.null(DPI_MAP)) {
+  names(DPI_MAP)
+} else {
+  sort(unique(as.character(colData(dds)[[DPI_COL]])))
+}
+
+dpi_group_level <- function(treatment_level, time_level) paste0(treatment_level, time_level)
+
+dpi_contrasts <- setNames(
+  lapply(dpi_time_levels, function(tl)
+    c("group", dpi_group_level(VIRUS_LEVEL, tl), dpi_group_level(PBS_LEVEL, tl))),
+  dpi_time_levels
 )
+
+dpi_numeric <- function(time_level) {
+  if (!is.null(DPI_MAP)) unname(DPI_MAP[[time_level]]) else suppressWarnings(as.numeric(time_level))
+}
 
 tidy_res <- function(res, dpi_val) {
   as.data.frame(res) %>%
@@ -643,11 +703,27 @@ tidy_res <- function(res, dpi_val) {
 de_long <- dplyr::bind_rows(
   lapply(names(dpi_contrasts), function(d) {
     tryCatch(
-      tidy_res(results(dds, contrast = dpi_contrasts[[d]]), DPI_MAP[d]),
-      error = function(e) NULL
+      tidy_res(results(dds, contrast = dpi_contrasts[[d]]), dpi_numeric(d)),
+      error = function(e) {
+        # Report the failure instead of swallowing it — an unmatched level name here
+        # otherwise resurfaces much later as a confusing "object 'padj' not found".
+        warning("DPI contrast '", d, "' (",
+                paste(dpi_contrasts[[d]][-1], collapse = " vs "),
+                ") failed: ", conditionMessage(e),
+                "\n  Available resultsNames(dds): ",
+                paste(resultsNames(dds), collapse = ", "),
+                call. = FALSE, immediate. = TRUE)
+        NULL
+      }
     )
   })
 )
+
+if (nrow(de_long) == 0) {
+  stop("No DPI contrast could be computed. Check that DPI_MAP / VIRUS_LEVEL / PBS_LEVEL ",
+       "match the 'group' levels in colData(dds): ",
+       paste(levels(colData(dds)$group), collapse = ", "))
+}
 
 DEG_genes <- de_long %>%
   dplyr::filter(!is.na(padj), padj < 0.05, abs(log2FoldChange) >= 0.5) %>%
@@ -682,7 +758,13 @@ plot_bubble <- de_long %>%
     Comparison  = factor(as.character(dpi), levels = as.character(sort(unique(dpi)))),
     Gene        = factor(Gene, levels = ordered_genes),
     color_group = ifelse(!is.na(padj) & padj < 0.05, "significant", "nonsignificant"),
-    log_padj    = ifelse(!is.na(padj) & padj > 0, -log10(padj), 0),
+    # padj can underflow to exactly 0; that is the MOST significant case, so it
+    # must map to the top of the colour scale, not to 0 (the least significant).
+    log_padj    = dplyr::case_when(
+      is.na(padj) ~ 0,
+      padj > 0    ~ -log10(padj),
+      TRUE        ~ -log10(.Machine$double.xmin)
+    ),
     direction   = ifelse(log2FoldChange > 0, "Up", "Down")
   )
 
@@ -713,7 +795,7 @@ p_bubble <- ggplot() +
   ) +
   scale_y_discrete(position = "right", drop = FALSE) +
   labs(title = "Top hub genes per module", x = "DPI", y = NULL) +
-  theme_classic(base_size = 13, base_family = "Arial") +
+  theme_classic(base_size = 13, base_family = PLOT_FONT) +
   theme(
     axis.text.x  = element_text(size = 12, angle = 45, hjust = 1, face = "bold"),
     axis.text.y  = element_text(size = 10, face = "italic"),

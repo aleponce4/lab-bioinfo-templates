@@ -1,6 +1,6 @@
 # simulate_data.R
 # Builds realistic synthetic inputs for template 07 (RNA-seq / DESeq2):
-# - Realistic count distribution (3,535 genes spanning 10 - 50,000 counts)
+# - Realistic count distribution (3,536 genes spanning 10 - 50,000 counts)
 # - Realistic negative binomial mean-dispersion trend matching DESeq2 parametric model
 # - Classic volcano distribution with up-regulated, down-regulated, and non-DE background genes
 # Outputs:
@@ -85,7 +85,9 @@ l2fc[gene_sets$Inflammation]         <- runif(length(gene_sets$Inflammation), 1.
 l2fc[gene_sets$Cell_Cycle]          <- runif(length(gene_sets$Cell_Cycle), -2.8, -1.0)
 
 # Background genes DE assignment (~11% up, ~11% down, ~78% unchanged)
-set.seed(123)
+# NOTE: no second set.seed() here. Re-seeding mid-script restarts the RNG stream
+# and makes everything after this point independent of the set.seed(42) above,
+# which quietly breaks the "one seed reproduces the whole file" contract.
 bg_indices <- seq(length(pathway_genes) + 1, n_genes)
 n_bg_de <- round(length(bg_indices) * 0.11)
 up_bg <- sample(bg_indices, n_bg_de)

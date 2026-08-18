@@ -55,8 +55,13 @@ source("install_packages.R")
 ```bash
 conda env create -f environment.yml
 conda activate virology-bioinfo
-jupyter notebook templates/08_vcf-mutation-analysis/template.ipynb
+
+# Each Python template is a Quarto document; render it to reproduce the gallery page
+quarto render templates/08_vcf-mutation-analysis/template.qmd
 ```
+
+`templates/08_vcf-mutation-analysis/template.ipynb` is a notebook export of that
+template's `.qmd`, regenerated with `quarto convert` — edit the `.qmd`, not the notebook.
 
 ---
 
@@ -93,7 +98,6 @@ source("templates/01_plaque-assay-violin/data/simulate_data.R")
 All templates enforce publication-oriented plotting and export defaults that require study-specific review:
 
 - `theme_classic()` or `theme_bw()` base themes
-- Arial font family throughout
 - Okabe-Ito colorblind-safe palettes where applicable
 - TIFF / SVG / PDF output defaults at 300–600 dpi
 - Consistent axis tick lengths and line widths
@@ -103,10 +107,18 @@ All templates enforce publication-oriented plotting and export defaults that req
 ## Contributing
 
 1. Fork the repo
-2. Copy an existing template folder as a starting point
+2. Copy an existing template folder as a starting point (template 07 is the most
+   complete reference — config block, path helpers, input validation)
 3. Follow the conversion rules in the template header comments
-4. Add a row to `index.qmd`'s gallery table
+4. Register the new template in all four places: the card **and** the reference table in
+   `index.qmd`, the render list **and** sidebar in `_quarto.yml`, the `PAGES` array in
+   `scripts/ci-preflight.sh`, and the table above. Python templates also need a
+   `linguist-language` line in `.gitattributes`.
 5. Open a pull request
+
+Each template's analysis lives in `template.Rmd` (R) or in the `{python}` chunks of
+`template.qmd` (Python). For R templates the `template.qmd` is a thin gallery wrapper that
+pulls the `.Rmd` in as a child document — edit the `.Rmd`.
 
 ---
 

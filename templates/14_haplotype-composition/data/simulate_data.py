@@ -1,26 +1,23 @@
 """
 Simulate haplotype composition data for template 14:
   - data/haplotype_frequencies.csv — per-sample haplotype frequencies
-  - data/gene_coords.csv          — genome annotation
-  - data/manifest.csv             — sample metadata
+  - data/manifest.csv             — sample metadata (sample_id, dpi, replicate, route)
+
+Run from the template folder:
+    python data/simulate_data.py
 """
 
-import csv, random, math, os
+import csv
+import os
+import random
 
 SEED = 42
 random.seed(SEED)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.dirname(SCRIPT_DIR)
-os.chdir(TEMPLATE_DIR)
 DATA_DIR = os.path.join(TEMPLATE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
-
-GENES = {
-    "nsp1": (1, 1800), "nsp2": (1801, 4500), "nsp3": (4501, 5700),
-    "nsp4": (5701, 7500), "capsid": (7501, 8300), "E3": (8301, 9000),
-    "E2": (9001, 10200), "6K": (10201, 10400), "E1": (10401, 11400)
-}
 
 DPI_VALUES = [3, 5]
 ROUTES = ["Intranasal", "Subcutaneous"]
@@ -36,19 +33,11 @@ BASE_HAPLOTYPES = [
 
 
 def generate():
-    # Write gene coords
-    with open(os.path.join(DATA_DIR, "gene_coords.csv"), "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["gene", "start", "end"])
-        for name, (s, e) in GENES.items():
-            w.writerow([name, s, e])
-
     rows = []
     manifest_rows = []
     sample_idx = 1
 
     for route in ROUTES:
-        study_code = "45" if route == "Intranasal" else "47"
         route_factor = 0.7 if route == "Intranasal" else 1.0
         for dpi_val in DPI_VALUES:
             dpi_factor = 0.8 if dpi_val == 3 else 1.0
@@ -61,7 +50,6 @@ def generate():
                     "dpi": dpi_val,
                     "replicate": rep,
                     "route": route,
-                    "study_code": study_code
                 })
 
                 freqs = []
@@ -70,25 +58,33 @@ def generate():
                     f = max(0.005, f)
                     freqs.append(f)
 
+                # Normalise so each sample's haplotype frequencies sum to 1.0.
+                # Round first, then absorb the rounding residual into the largest
+                # haplotype so the written values sum to exactly 1.0000.
                 total = sum(freqs)
-                for hap, freq in zip(BASE_HAPLOTYPES, freqs):
+                rounded = [round(f / total, 4) for f in freqs]
+                biggest = max(range(len(rounded)), key=rounded.__getitem__)
+                rounded[biggest] = round(rounded[biggest] + (1.0 - sum(rounded)), 4)
+
+                for hap, freq in zip(BASE_HAPLOTYPES, rounded):
                     rows.append({
                         "sample_id": sample_id,
                         "haplotype": hap["name"],
                         "snp_positions": ",".join(str(s) for s in hap["snps"]) if hap["snps"] else "",
-                        "frequency": round(freq / total, 4)
+                        "frequency": freq,
                     })
 
     with open(os.path.join(DATA_DIR, "haplotype_frequencies.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=rows[0].keys())
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
 
     with open(os.path.join(DATA_DIR, "manifest.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=manifest_rows[0].keys())
+        w = csv.DictWriter(f, fieldnames=list(manifest_rows[0].keys()))
         w.writeheader()
         w.writerows(manifest_rows)
-    print(f"  Wrote data/haplotype_frequencies.csv ({len(rows)} rows) and data/manifest.csv")
+    print(f"  Wrote data/haplotype_frequencies.csv ({len(rows)} rows) "
+          f"and data/manifest.csv ({len(manifest_rows)} samples)")
 
 
 if __name__ == "__main__":

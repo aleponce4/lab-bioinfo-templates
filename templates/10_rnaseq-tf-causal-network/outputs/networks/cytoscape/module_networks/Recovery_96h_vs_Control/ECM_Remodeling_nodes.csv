@@ -1,6 +1,0 @@
-node,node_type,predicted_activity,log2FoldChange,padj,significant,fill_color,border_color
-FOS,TF,1,-0.7914,0.8091,FALSE,#E08A1E,#006D2C
-JUN,TF,1,0.0813,0.5693,FALSE,#E08A1E,#006D2C
-MAPK1,intermediate,1,-0.988,0.6049,FALSE,#E08A1E,#006D2C
-MMP3,gene,1,2.9794,4.489e-7,TRUE,#E4958F,#424242
-PERTURBATION,perturbation,1,NA,NA,NA,#E08A1E,#424242

@@ -10,9 +10,9 @@ on:
 permissions:
   contents: read
 
-# Fast checks only. The full render lives in render-site.yml; this job is meant to
-# fail in ~2 minutes on the mistakes that are cheap to catch without installing the
-# whole R/Bioconductor stack.
+# Fast checks only, Python-only toolchain so the job finishes in ~1 minute.
+# Anything needing R (including the R syntax check) runs in render-site.yml, which
+# has to install R anyway.
 jobs:
   validate:
     name: Static Checks & Data Generators
@@ -25,19 +25,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: "4.5"
-          use-public-rspm: true
-
       - name: Run static preflight script
         run: bash scripts/ci-preflight.sh --render-only
-
-      # Parses every R chunk without loading any package, so a syntax error in a
-      # template.Rmd fails here rather than 40 minutes into the render job.
-      - name: Check R templates parse
-        run: Rscript scripts/check_r_syntax.R
 
       # The five simulate_data.py scripts use only the standard library by design,
       # so no pip install is needed to run them.

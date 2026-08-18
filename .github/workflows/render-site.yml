@@ -49,6 +49,11 @@ jobs:
           r-version: "4.5"
           use-public-rspm: true   # binary packages → faster install
 
+      # Parses every R chunk with base R only, before the long package install, so a
+      # syntax error in a template.Rmd fails in seconds rather than 40 minutes in.
+      - name: Check R templates parse
+        run: Rscript scripts/check_r_syntax.R
+
       - name: Restore R package cache
         id: cache-r-packages
         uses: actions/cache/restore@v5

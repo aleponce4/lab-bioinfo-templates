@@ -75,12 +75,12 @@ def generate():
                     })
 
     with open(os.path.join(DATA_DIR, "haplotype_frequencies.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
 
     with open(os.path.join(DATA_DIR, "manifest.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(manifest_rows[0].keys()))
+        w = csv.DictWriter(f, fieldnames=list(manifest_rows[0].keys()), lineterminator="\n")
         w.writeheader()
         w.writerows(manifest_rows)
     print(f"  Wrote data/haplotype_frequencies.csv ({len(rows)} rows) "

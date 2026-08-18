@@ -70,7 +70,7 @@ def generate():
                 })
 
     with open(os.path.join(DATA_DIR, "delta_per_sample.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
 
@@ -89,7 +89,7 @@ def generate():
         })
 
     with open(os.path.join(DATA_DIR, "selection_gene_key.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(key_rows[0].keys()))
+        w = csv.DictWriter(f, fieldnames=list(key_rows[0].keys()), lineterminator="\n")
         w.writeheader()
         w.writerows(key_rows)
 

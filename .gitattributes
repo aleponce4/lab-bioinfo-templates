@@ -21,3 +21,11 @@ templates/11_variant-entropy-analysis/template.qmd linguist-language=Python
 templates/12_coverage-depth-analysis/template.qmd linguist-language=Python
 templates/13_selection-pressure/template.qmd linguist-language=Python
 templates/14_haplotype-composition/template.qmd linguist-language=Python
+
+# Example data is stored with LF. The Python generators pin the csv lineterminator
+# to "\n" so that regenerating and diffing behaves identically on Windows and Linux
+# (csv's default 'excel' dialect emits CRLF on every platform, which made the CI
+# reproducibility check fail on the Linux runner).
+*.csv text eol=lf
+*.vcf text eol=lf
+*.tsv text eol=lf

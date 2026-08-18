@@ -67,7 +67,7 @@ def generate():
                 })
 
     with open(os.path.join(DATA_DIR, "coverage.csv"), "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=rows[0].keys())
+        w = csv.DictWriter(f, fieldnames=rows[0].keys(), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
     print(f"  Wrote data/coverage.csv ({len(rows)} rows)")

@@ -181,7 +181,7 @@ def generate():
         rows = calls[caller]
         fname = f"{caller}_variants.csv"
         with open(os.path.join(DATA_DIR, fname), "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+            w = csv.DictWriter(f, fieldnames=list(rows[0].keys()), lineterminator="\n")
             w.writeheader()
             w.writerows(rows)
         print(f"  Wrote {fname} ({len(rows)} variants)")

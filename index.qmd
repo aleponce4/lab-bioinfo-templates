@@ -204,7 +204,7 @@ Genome-wide sequencing depth curves with gene annotations and DPI comparisons.
 #### 13 — Selection Pressure (πN-πS)
 [Python]{.badge-python}
 
-Per-gene delta bar plots with limma/Kruskal FDR stars and DPI panel comparisons.
+Per-gene delta bar plots with Kruskal-Wallis BH FDR stars and DPI panel comparisons.
 
 [Open Template →](templates/13_selection-pressure/template.html){.btn .btn-primary}
 :::
@@ -282,7 +282,7 @@ templates <- data.frame(
     "TF activity score, PKN overlap, recurrent causal edges",
     "Shannon entropy, allele frequency",
     "Coverage depth per position",
-    "piN-piS, Kruskal-Wallis, limma FDR",
+    "piN-piS, Kruskal-Wallis, BH FDR",
     "Haplotype frequency, SNP clustering"
   ),
   `Key Plots` = c(
@@ -326,5 +326,5 @@ source("install_packages.R")   # R templates — run once
 ```
 
 ```bash
-conda env create -f environment.yml && conda activate virology-bioinfo   # template 08 only
+conda env create -f environment.yml && conda activate virology-bioinfo   # Python templates 08, 11-14
 ```

@@ -17,10 +17,10 @@ jupyter: python3
 | **Key packages** | `pandas`, `numpy`, `matplotlib` |
 | **Statistics** | Mean depth ± SEM per position (aggregated across replicates) |
 | **Output** | Coverage depth profile (PNG + SVG) with gene annotations · aggregated summary CSV |
-| **Download** | [template.qmd (GitHub)](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/12_coverage-depth-analysis/template.qmd) |
+| **Download** | [template.qmd](template.qmd) |
 
 [← Gallery](../../index.html){.btn .btn-outline-secondary}
-[Download .qmd](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/12_coverage-depth-analysis/template.qmd){.btn .btn-primary}
+[Download .qmd](template.qmd){.btn .btn-primary}
 
 ---
 
@@ -37,14 +37,21 @@ DATA_DIR = "data"
 # Output directory for figures and summary tables
 OUTPUT_DIR = "outputs"
 
-# Okabe-Ito colorblind-safe palette (mapped to DPI values in display order)
+# Okabe-Ito colorblind-safe palette (mapped to DPI values in display order).
+# Any DPI present in the data but absent here falls back to the palette cycle below.
 DPI_COLORS = {
     1: "#E69F00",   # orange
     3: "#56B4E9",   # sky blue
     5: "#009E73",   # bluish green
 }
 
-DPI_ORDER = [1, 3, 5]
+# Fallback palette for DPI values not listed in DPI_COLORS
+OKABE_ITO_CYCLE = ["#E69F00", "#56B4E9", "#009E73", "#F0E442",
+                   "#0072B2", "#D55E00", "#CC79A7", "#000000"]
+
+# Display order for DPI groups. None = derive (ascending) from the data, which is
+# what you want unless you need a specific non-numeric ordering.
+DPI_ORDER = None
 
 # Figure dimensions (inches)
 FIG_WIDTH  = 12
@@ -67,15 +74,24 @@ LOG_SCALE = True
 import os
 import warnings
 
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-warnings.filterwarnings("ignore")
+# Narrow suppression only: matplotlib emits this for any non-positive value on a
+# log axis. Zero-depth positions are reported explicitly further down instead.
+warnings.filterwarnings("ignore", category=UserWarning,
+                        message="Data has no positive values")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ── Publication‑ready matplotlib style (white bg, no grid, black spines) ─────
+
+# Reproducible SVG output: matplotlib stamps a wall-clock date and randomly
+# generated element IDs into every SVG, so re-rendering an unchanged figure
+# produced a large but meaningless git diff. A fixed salt and a fixed
+# SOURCE_DATE_EPOCH make repeat renders byte-identical.
+os.environ.setdefault("SOURCE_DATE_EPOCH", "1735689600")   # 2025-01-01 UTC
+plt.rcParams["svg.hashsalt"] = "lab-bioinfo-templates"
 
 plt.rcParams.update({
     "axes.facecolor":       "white",
@@ -110,13 +126,42 @@ print(f"Output will be saved to: {os.path.abspath(OUTPUT_DIR)}")
 ```{python}
 #| label: load-data
 
-cov    = pd.read_csv(os.path.join(DATA_DIR, "coverage.csv"))
-genes  = pd.read_csv(os.path.join(DATA_DIR, "gene_coords.csv"))
+def require_columns(df, required, name):
+    """Fail loudly if an input table is missing a column the analysis depends on."""
+    missing = set(required) - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"{name} is missing required column(s): {sorted(missing)}. "
+            f"Found: {list(df.columns)}"
+        )
+
+cov      = pd.read_csv(os.path.join(DATA_DIR, "coverage.csv"))
+genes    = pd.read_csv(os.path.join(DATA_DIR, "gene_coords.csv"))
 manifest = pd.read_csv(os.path.join(DATA_DIR, "manifest.csv"))
+
+require_columns(cov, ["Position", "Depth", "sample_id", "dpi"], "coverage.csv")
+require_columns(genes, ["gene", "start", "end"], "gene_coords.csv")
+require_columns(manifest, ["sample_id", "dpi", "replicate"], "manifest.csv")
+
+# Display order for DPI groups, plus a colour for every one of them.
+dpi_order = list(DPI_ORDER) if DPI_ORDER else sorted(cov["dpi"].dropna().unique())
+unconfigured = [d for d in sorted(cov["dpi"].dropna().unique()) if d not in dpi_order]
+if unconfigured:
+    raise ValueError(
+        f"DPI_ORDER does not list every DPI present in coverage.csv: {unconfigured} "
+        f"would be dropped from the figure. Configured: {dpi_order}. "
+        f"Set DPI_ORDER = None to derive it from the data."
+    )
+
+dpi_colors = {
+    d: DPI_COLORS.get(d, OKABE_ITO_CYCLE[i % len(OKABE_ITO_CYCLE)])
+    for i, d in enumerate(dpi_order)
+}
 
 print(f"Coverage:  {len(cov):,} rows · {cov['sample_id'].nunique()} samples")
 print(f"Genes:     {len(genes)} annotated features")
 print(f"Manifest:  {len(manifest)} samples across {manifest['dpi'].nunique()} DPI groups")
+print(f"DPI order: {dpi_order}")
 
 cov.head(5)
 ```
@@ -145,13 +190,14 @@ agg.head(8)
 ```{python}
 #| label: check-dpi-groups
 
-for dpi_val in DPI_ORDER:
+for dpi_val in dpi_order:
     sub = agg[agg["dpi"] == dpi_val]
     n_reps = manifest[manifest["dpi"] == dpi_val]["replicate"].nunique()
+    per_pos = sorted(sub["count"].unique())
     print(
         f"  DPI {dpi_val}: {n_reps} replicates, "
         f"mean depth = {sub['mean'].mean():.0f} ± {sub['sem'].mean():.0f} SEM "
-        f"(n={sub['count'].iloc[0]} replicates per position)"
+        f"({per_pos} replicate(s) per position)"
     )
 ```
 
@@ -192,9 +238,9 @@ for i, (_, gene) in enumerate(genes.iterrows()):
 genome_start = agg["Position"].min()
 genome_end   = agg["Position"].max()
 
-for dpi_val in DPI_ORDER:
+for dpi_val in dpi_order:
     sub = agg[agg["dpi"] == dpi_val].sort_values("Position")
-    color = DPI_COLORS[dpi_val]
+    color = dpi_colors[dpi_val]
     ax.plot(
         sub["Position"],
         sub["mean"],
@@ -220,11 +266,17 @@ ax.set_xlabel("Genomic position (nt)")
 
 if LOG_SCALE:
     ax.set_yscale("log")
-    ax.set_ylabel("Depth (log₁₀ scale)")
-    # Trim y to reasonable log bounds
-    y_min = max(10, agg["mean"].min() * 0.5)
-    y_max = agg["mean"].max() * 1.3
-    ax.set_ylim(y_min, y_max)
+    # Plain "log10": the ₁₀ subscript glyph is missing from Arial and renders as
+    # tofu boxes on the published figure.
+    ax.set_ylabel("Depth (log10 scale)")
+    # Bound the log axis by the data, not by a magic floor: a hardcoded lower
+    # limit silently pushes low-depth positions off the bottom of the chart.
+    positive = agg.loc[agg["mean"] > 0, "mean"]
+    n_zero = int((agg["mean"] <= 0).sum())
+    if n_zero:
+        print(f"Note: {n_zero} position×DPI mean(s) are 0 and cannot be shown "
+              f"on a log axis — switch LOG_SCALE to False to see them.")
+    ax.set_ylim(positive.min() * 0.7, agg["mean"].max() * 1.3)
 else:
     ax.set_ylabel("Sequencing depth")
     ax.set_ylim(0, agg["mean"].max() * 1.15)
@@ -236,9 +288,14 @@ ax.set_title(
     pad=14,
 )
 
+n_per_dpi = manifest.groupby("dpi")["sample_id"].nunique()
+legend_title = "DPI (n = " + ", ".join(
+    f"{d}: {int(n_per_dpi.get(d, 0))}" for d in dpi_order
+) + ")"
+
 ax.legend(
-    title=f"DPI (n={manifest.groupby('dpi')['sample_id'].nunique().to_dict()})",
-    loc="upper right",
+    title=legend_title,
+    loc="lower left",   # upper right sits on top of the depth curves
     frameon=False,
 )
 
@@ -278,4 +335,4 @@ per_dpi
 
 ---
 
-*Analysis complete.* Depth profile saved to `{{OUTPUT_DIR}}/`.
+*Analysis complete.* Depth profile saved to `` `{python} OUTPUT_DIR + "/"` ``.

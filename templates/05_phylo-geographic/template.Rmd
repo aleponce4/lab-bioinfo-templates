@@ -14,7 +14,8 @@ output:
 #
 # Input files:
 S_FASTA    <- "data/S_aligned.fasta"   # Aligned S-segment FASTA
-M_FASTA    <- "data/M_aligned.fasta"   # Aligned M-segment FASTA  (optional)
+M_FASTA    <- "data/M_aligned.fasta"   # Aligned M-segment FASTA  (optional;
+                                       #   set to NULL to skip it entirely)
 TREEFILE   <- "data/S_tree.nwk"        # Newick tree from IQ-TREE or similar
 COORDS_FILE<- "data/coordinates.csv"   # Columns: SampleID, Longitude, Latitude
 METADATA_FILE <- "data/metadata.csv"   # Columns: SampleID, Clade (+ optional extras)
@@ -22,17 +23,31 @@ METADATA_FILE <- "data/metadata.csv"   # Columns: SampleID, Clade (+ optional ex
 # Column names in COORDS_FILE and METADATA_FILE that link to FASTA tip labels.
 SAMPLE_COL <- "SampleID"
 
+# TIP_ID_REGEX: How to recover the SampleID from a tree tip label.
+#   IQ-TREE / RAxML tips routinely carry decoration, e.g.
+#   "Sample_12|Clade_A|2019" or "Sample_12_Chile_2019". This regex is applied
+#   to BOTH the tip labels and the metadata IDs, so the two sides always match
+#   whether or not the decoration is present.
+#   Set to NULL to use tip labels verbatim.
+TIP_ID_REGEX <- "Sample_[0-9]+"
+
 # Columns in METADATA_FILE used for clade coloring.
 CLADE_COL  <- "Clade"
 
 # CLADE_COLORS: Named color vector (Okabe-Ito palette).
 #   Names must match the unique values in METADATA_FILE[[CLADE_COL]].
+#   Clades found in the data but missing here are NOT dropped — they are given
+#   fallback colours and reported, so the pies always sum to the true sample
+#   composition.
 CLADE_COLORS <- c(
   "Clade_A" = "#E69F00",   # Orange
   "Clade_B" = "#56B4E9",   # Sky blue
   "Clade_C" = "#009E73",   # Bluish green
   "Clade_D" = "#0072B2"    # Blue
 )
+
+# CLADE_FALLBACK_COLORS: Used, in order, for clades absent from CLADE_COLORS.
+CLADE_FALLBACK_COLORS <- c("#D55E00", "#CC79A7", "#F0E442", "#999999", "#661100")
 
 # PATHOGEN_NAME: Used in plot titles and axis labels.
 PATHOGEN_NAME <- "Pathogen X"
@@ -91,56 +106,134 @@ sample_data <- coords %>%
 
 cat("Sequences loaded:", length(seqs_S), "\n")
 cat("Samples with coordinates:", nrow(sample_data), "\n")
+
+# Column names are taken from the data, so the documented "+ optional extras"
+# in METADATA_FILE works instead of erroring on a hardcoded col.names length.
 sample_data %>%
   head(10) %>%
   knitr::kable(
     caption   = "Sampling Coordinates and Metadata (First 10 Samples)",
-    col.names = c("Sample ID", "Longitude", "Latitude", "Clade", "Year", "Host")
+    col.names = gsub("_", " ", names(sample_data))
   )
+```
 
-seq_widths <- width(seqs_S)
-ambig_counts <- sapply(as.character(seqs_S), function(s)
-  sum(strsplit(s, "")[[1]] %in% c("N","R","Y","S","W","K","M","B","D","H","V")))
+## Alignment Quality
 
-data.frame(
-  Sequence    = names(seqs_S),
-  Length_bp   = seq_widths,
-  Ambig_Bases = ambig_counts
-) %>%
-  arrange(desc(Ambig_Bases)) %>%
+```{r qc-alignment, message=FALSE}
+# IUPAC degeneracy codes. MAFFT and several other aligners emit lowercase
+# sequence, so the comparison is done on an upper-cased copy — matching only
+# uppercase silently reports zero ambiguities for every such sequence.
+IUPAC_AMBIG <- c("N", "R", "Y", "S", "W", "K", "M", "B", "D", "H", "V")
+
+ambiguity_table <- function(seqs, segment_label) {
+  chars <- strsplit(toupper(as.character(seqs)), "", fixed = TRUE)
+  data.frame(
+    Segment     = segment_label,
+    Sequence    = names(seqs),
+    Length_bp   = as.integer(width(seqs)),
+    N_Bases     = vapply(chars, function(s) sum(s == "N"), integer(1)),
+    Ambig_Bases = vapply(chars, function(s) sum(s %in% IUPAC_AMBIG), integer(1)),
+    Gap_Bases   = vapply(chars, function(s) sum(s == "-"), integer(1)),
+    row.names   = NULL,
+    stringsAsFactors = FALSE
+  )
+}
+
+qc_seq <- ambiguity_table(seqs_S, "S")
+
+# The M segment is optional: include it in the same QC table when configured.
+seqs_M <- NULL
+if (!is.null(M_FASTA) && nzchar(M_FASTA) && file.exists(M_FASTA)) {
+  seqs_M <- readDNAStringSet(M_FASTA)
+  qc_seq <- rbind(qc_seq, ambiguity_table(seqs_M, "M"))
+  cat("M-segment sequences loaded:", length(seqs_M), "\n")
+} else {
+  cat("M segment not analysed (M_FASTA is unset or missing).\n")
+}
+
+qc_seq %>%
+  mutate(Ambig_Pct = 100 * Ambig_Bases / Length_bp) %>%
+  arrange(desc(Ambig_Pct)) %>%
   head(10) %>%
   knitr::kable(
-    caption   = "Sequence Alignment Quality & Ambiguous Base Count",
-    col.names = c("Sequence Header", "Length (bp)", "Ambiguous Bases (N)")
+    caption   = "Sequence Alignment Quality (10 Most Ambiguous Sequences)",
+    col.names = c("Segment", "Sequence Header", "Length (bp)", "N Bases",
+                  "Ambiguous Bases (all IUPAC codes)", "Gaps", "Ambiguous %"),
+    digits    = 2
   )
+
+qc_seq %>%
+  group_by(Segment) %>%
+  summarise(
+    Sequences      = n(),
+    `Alignment bp` = paste(unique(Length_bp), collapse = ", "),
+    `Total ambiguous` = sum(Ambig_Bases),
+    `Mean ambiguous %` = mean(100 * Ambig_Bases / Length_bp),
+    .groups = "drop"
+  ) %>%
+  knitr::kable(caption = "Alignment Summary by Segment", digits = 2)
 ```
 
 # Isolation by Distance (Mantel Test)
 
 ```{r mantel-test, message=FALSE}
+# ── 0. Normalise IDs on BOTH sides ────────────────────────────────────────────
+# The patristic matrix is named by raw tip labels; the geographic matrix by
+# metadata SampleIDs. Applying the extraction to only one side means that the
+# moment tips carry any decoration ("Sample_12|Clade_A|2019") the two name sets
+# stop intersecting, the matrices collapse to 0x0, and mantel() receives empty
+# input. Applying it to both sides is idempotent when there is no decoration.
+extract_sample_id <- function(x) {
+  if (is.null(TIP_ID_REGEX)) return(as.character(x))
+  out <- str_extract(as.character(x), TIP_ID_REGEX)
+  # Anything the regex does not match keeps its original label rather than
+  # becoming NA, so a partial mismatch is visible instead of silent.
+  ifelse(is.na(out), as.character(x), out)
+}
+
 # ── 1. Patristic distance matrix from tree ─────────────────────────────────────
 patristic_mat <- cophenetic.phylo(tree_S)
+rownames(patristic_mat) <- colnames(patristic_mat) <-
+  extract_sample_id(rownames(patristic_mat))
 
 # ── 2. Geographic distance matrix (great-circle, km) ──────────────────────────
-# Match order to tree tips
-tip_ids <- tree_S$tip.label
+sample_data <- sample_data %>%
+  mutate(.sample_id = extract_sample_id(.data[[SAMPLE_COL]]))
 
-# Extract SampleID from tip label (adjust regex to your naming convention)
-tip_sample_ids <- str_extract(tip_ids, "Sample_[0-9]+")
+# Order the coordinates to follow the tree tips, keeping only samples that have
+# both a tip and a coordinate.
+tip_sample_ids <- extract_sample_id(tree_S$tip.label)
 
 coords_ordered <- sample_data %>%
-  filter(get(SAMPLE_COL) %in% tip_sample_ids) %>%
-  slice(match(tip_sample_ids, get(SAMPLE_COL)))
+  filter(.sample_id %in% tip_sample_ids) %>%
+  distinct(.sample_id, .keep_all = TRUE) %>%
+  slice(match(intersect(tip_sample_ids, .sample_id), .sample_id))
 
 geo_mat <- distm(
   cbind(coords_ordered$Longitude, coords_ordered$Latitude),
   fun = distHaversine
 ) / 1000   # → km
 
-rownames(geo_mat) <- colnames(geo_mat) <- coords_ordered[[SAMPLE_COL]]
+rownames(geo_mat) <- colnames(geo_mat) <- coords_ordered$.sample_id
 
 # ── 3. Mantel test ─────────────────────────────────────────────────────────────
 shared  <- intersect(rownames(patristic_mat), rownames(geo_mat))
+
+if (length(shared) < 3) {
+  message("Tip labels: ", paste(head(tree_S$tip.label, 3), collapse = ", "), " ...")
+  message("Metadata IDs: ", paste(head(sample_data[[SAMPLE_COL]], 3), collapse = ", "), " ...")
+  message("TIP_ID_REGEX = ", if (is.null(TIP_ID_REGEX)) "NULL" else TIP_ID_REGEX)
+}
+stopifnot(
+  "Fewer than 3 samples are shared between the tree and the coordinates - check TIP_ID_REGEX" =
+    length(shared) >= 3
+)
+
+n_tree_only <- length(setdiff(rownames(patristic_mat), shared))
+n_geo_only  <- length(setdiff(rownames(geo_mat), shared))
+cat(sprintf("Mantel test on %d samples (%d tree-only, %d coordinate-only excluded)\n",
+            length(shared), n_tree_only, n_geo_only))
+
 pat_sub <- patristic_mat[shared, shared]
 geo_sub <- geo_mat[shared, shared]
 
@@ -200,6 +293,34 @@ pie_data <- sample_data %>%
   tidyr::pivot_wider(names_from = all_of(CLADE_COL), values_from = n, values_fill = 0) %>%
   mutate(radius = 0.4)   # pie radius in degrees; adjust to your map scale
 
+# ── Palette completion ────────────────────────────────────────────────────────
+# Plotting only intersect(names(CLADE_COLORS), names(pie_data)) drops any clade
+# the config forgot to list. The pies then still look correct while no longer
+# representing the true sample composition. Instead: keep every clade in the
+# data and give the unlisted ones fallback colours, loudly.
+clades_present <- sort(unique(as.character(sample_data[[CLADE_COL]])))
+clade_palette  <- setNames(unname(CLADE_COLORS[clades_present]), clades_present)
+
+missing_clades <- clades_present[is.na(clade_palette)]
+if (length(missing_clades) > 0) {
+  clade_palette[missing_clades] <-
+    rep(CLADE_FALLBACK_COLORS, length.out = length(missing_clades))
+  message("Clades present in the data but absent from CLADE_COLORS (assigned ",
+          "fallback colours): ", paste(missing_clades, collapse = ", "))
+}
+
+unused_clades <- setdiff(names(CLADE_COLORS), clades_present)
+if (length(unused_clades) > 0) {
+  message("CLADE_COLORS entries not present in the data (ignored): ",
+          paste(unused_clades, collapse = ", "))
+}
+
+pie_cols <- clades_present
+stopifnot(all(pie_cols %in% names(pie_data)))
+
+# Every sample must be represented by exactly one pie slice.
+stopifnot(sum(as.matrix(pie_data[, pie_cols])) == nrow(sample_data))
+
 # Country polygons
 world <- ne_countries(scale = "medium", returnclass = "sf")
 
@@ -208,10 +329,10 @@ p_spie <- ggplot() +
   geom_scatterpie(
     data    = pie_data,
     aes(x = Longitude, y = Latitude, r = radius),
-    cols    = intersect(names(CLADE_COLORS), names(pie_data)),
+    cols    = pie_cols,
     alpha   = 0.85, color = "black", linewidth = 0.2
   ) +
-  scale_fill_manual(values = CLADE_COLORS, name = "Clade") +
+  scale_fill_manual(values = clade_palette, name = "Clade") +
   coord_sf(xlim = MAP_LON, ylim = MAP_LAT, expand = FALSE) +
   annotation_scale(location = "br", width_hint = 0.25) +
   labs(title = paste(PATHOGEN_NAME, "— Geographic Distribution"),
@@ -240,16 +361,21 @@ print(p_spie)
 # Mantel Correlogram
 
 ```{r mantel-correlogram, message=FALSE, warning=FALSE}
-# Distance class boundaries (km) — adjust to your study area
+# Distance class boundaries (km). Quartiles of the observed pairwise distances
+# give four classes with equal numbers of pairs — a reasonable default for any
+# study area. Replace `probs` (or supply explicit break points) to match yours.
 dist_breaks <- quantile(as.vector(geo_sub[lower.tri(geo_sub)]),
                          probs = seq(0, 1, by = 0.25))
 
-# Mantel correlogram (vegan)
+# Mantel correlogram (vegan). break.pts is what makes the classes above take
+# effect; without it vegan picks its own Sturges-rule classes and dist_breaks
+# is computed for nothing.
 mcor <- mantel.correlog(
-  D.eco  = pat_sub,
-  D.geo  = geo_sub,
-  nperm  = MANTEL_NPERM,
-  cutoff = FALSE
+  D.eco    = pat_sub,
+  D.geo    = geo_sub,
+  break.pts = as.numeric(dist_breaks),
+  nperm    = MANTEL_NPERM,
+  cutoff   = FALSE
 )
 
 mcor_df <- as.data.frame(mcor$mantel.res, check.names = FALSE)

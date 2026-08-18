@@ -27,24 +27,6 @@ PAGES=(
   "templates/14_haplotype-composition/template.qmd"
 )
 
-EXPECTED_OUTPUTS=(
-  "docs/index.html"
-  "docs/templates/01_plaque-assay-violin/template.html"
-  "docs/templates/02_image-infection-dose-response/template.html"
-  "docs/templates/03_multicondition-anova/template.html"
-  "docs/templates/04_magpix-luminex/template.html"
-  "docs/templates/05_phylo-geographic/template.html"
-  "docs/templates/06_go-enrichment/template.html"
-  "docs/templates/07_rnaseq-deseq2/template.html"
-  "docs/templates/08_vcf-mutation-analysis/template.html"
-  "docs/templates/09_wgcna/template.html"
-  "docs/templates/10_rnaseq-tf-causal-network/template.html"
-  "docs/templates/11_variant-entropy-analysis/template.html"
-  "docs/templates/12_coverage-depth-analysis/template.html"
-  "docs/templates/13_selection-pressure/template.html"
-  "docs/templates/14_haplotype-composition/template.html"
-)
-
 usage() {
   cat <<'EOF'
 Usage: bash scripts/ci-preflight.sh [--render-only] [--keep-going] [--page <path>]
@@ -83,22 +65,20 @@ static_preflight() {
 
   # 2. Every simulate_data.R must produce the data file(s) its template.Rmd reads.
   #    We detect the DATA_FILE / DDS_FILE assignment and check the path exists
-  #    relative to the template directory (after data generation has run).
-  #    Skip this sub-check when --render-only is set (data not yet generated).
-  if [[ $RENDER_ONLY -eq 0 ]]; then
-    for rmd in templates/*/template.Rmd; do
-      [[ -f "$rmd" ]] || continue
-      tmpl_dir=$(dirname "$rmd")
-      while IFS= read -r assignment; do
-        data_path=$(echo "$assignment" | sed 's/.*<- *"\(.*\)".*/\1/')
-        full_path="$tmpl_dir/$data_path"
-        if [[ ! -f "$full_path" ]]; then
-          echo "  ERROR: $rmd declares $data_path but $full_path does not exist" >&2
-          errors=$((errors + 1))
-        fi
-      done < <(grep -E '^\s*(DATA_FILE|DDS_FILE)\s*<-\s*"' "$rmd" || true)
-    done
-  fi
+  #    relative to the template directory. This runs unconditionally: the example
+  #    data is committed, so the files are present in a fresh clone.
+  for rmd in templates/*/template.Rmd; do
+    [[ -f "$rmd" ]] || continue
+    tmpl_dir=$(dirname "$rmd")
+    while IFS= read -r assignment; do
+      data_path=$(echo "$assignment" | sed 's/.*<- *"\(.*\)".*/\1/')
+      full_path="$tmpl_dir/$data_path"
+      if [[ ! -f "$full_path" ]]; then
+        echo "  ERROR: $rmd declares $data_path but $full_path does not exist" >&2
+        errors=$((errors + 1))
+      fi
+    done < <(grep -E '^\s*(DATA_FILE|DDS_FILE)\s*<-\s*"' "$rmd" || true)
+  done
 
   if [[ $errors -gt 0 ]]; then
     echo "Static preflight failed with $errors error(s). Fix before rendering." >&2

@@ -10,9 +10,12 @@ on:
 permissions:
   contents: read
 
+# Fast checks only. The full render lives in render-site.yml; this job is meant to
+# fail in ~2 minutes on the mistakes that are cheap to catch without installing the
+# whole R/Bioconductor stack.
 jobs:
   validate:
-    name: Validate Preflight & Data Generators
+    name: Static Checks & Data Generators
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,17 +25,44 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Python dependencies
-        run: pip install pandas scipy matplotlib seaborn scikit-learn vcfpy
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.5"
+          use-public-rspm: true
 
       - name: Run static preflight script
         run: bash scripts/ci-preflight.sh --render-only
 
+      # Parses every R chunk without loading any package, so a syntax error in a
+      # template.Rmd fails here rather than 40 minutes into the render job.
+      - name: Check R templates parse
+        run: Rscript scripts/check_r_syntax.R
+
+      # The five simulate_data.py scripts use only the standard library by design,
+      # so no pip install is needed to run them.
       - name: Test Python synthetic data generators
         run: |
           for script in templates/*/data/simulate_data.py; do
             if [ -f "$script" ]; then
-              echo "Executing $script"
-              python "$script"
+              template_dir=$(dirname "$(dirname "$script")")
+              echo "Executing $script (cwd: $template_dir)"
+              (cd "$template_dir" && python data/simulate_data.py)
             fi
           done
+
+      # Generators are seeded, so regenerating must not change the committed data.
+      - name: Check generated data is committed and deterministic
+        run: |
+          if ! git diff --quiet -- templates; then
+            echo "::error::Regenerating example data changed committed files. Either a"
+            echo "::error::generator is unseeded, or the committed data is stale."
+            git diff --stat -- templates
+            exit 1
+          fi
+          echo "Committed example data matches its generators."
+
+      # Catches the class of bug where a template imports something that
+      # environment.yml never installs.
+      - name: Check Python imports are declared in environment.yml
+        run: python scripts/check_python_deps.py

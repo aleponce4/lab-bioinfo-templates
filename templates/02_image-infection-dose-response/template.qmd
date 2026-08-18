@@ -1,11 +1,12 @@
 ---
 title: "02 · Image Infection + Dose-Response"
-subtitle: "CQ1 image-based antiviral assay: 2-GMM gating, per-plate normalization, co-primary EC50, and outlier masking"
+subtitle: "Image-based antiviral assay: 2-GMM gating, per-plate normalization, co-primary EC50, CC50 and selectivity index"
 description: |
   Analyzes per-cell fluorescence data from image-based infection assays (e.g., CQ1 microscope).
-  Performs 3-step singlet/cell-cycle QC, per-plate two-anchor normalization (Mock/VO), population 2-component GMM gating, 
-  and side-by-side co-primary 4PL dose-response analysis (% Infection and Normalized Intensity) with Prism-style outlier masking.
-categories: [infection, virology, dose-response, microscopy, gmm, hcs]
+  Performs 3-step singlet/cell-cycle QC, per-plate two-anchor normalization (Mock/VO), population 2-component GMM gating,
+  side-by-side co-primary 4PL dose-response analysis (% Infection and Normalized Intensity), and a 4PL cytotoxicity fit
+  reporting CC50 and the selectivity index SI = CC50 / EC50.
+categories: [infection, virology, dose-response, microscopy, gmm, hcs, cytotoxicity]
 ---
 
 ## Overview
@@ -13,18 +14,20 @@ categories: [infection, virology, dose-response, microscopy, gmm, hcs]
 | Item | Details |
 |------|---------|
 | **Input** | Per-cell CSV files (nucleus channel + virus channel) per plate from CQ1 or similar HCS software |
-| **Key packages** | `tidyverse`, `mclust`, `minpack.lm`, `MASS`, `ggridges`, `scales`, `ragg` |
-| **Statistics** | Population 2-GMM Gating · Per-Plate Normalization · Binomial-Weighted 4PL (EC50) · Outlier Masking · Parametric Bootstrap 95% CIs |
-| **Output** | Gating QC · Ridgeline plots · Formatted tables · % Infection & Intensity Dose-Response Curves |
+| **Key packages** | `tidyverse`, `mclust`, `minpack.lm`, `ggridges`, `patchwork`, `scales`, `ragg` |
+| **Statistics** | Population 2-GMM Gating · Per-Plate Normalization · Binomial-Weighted 4PL (EC50) · 4PL Cytotoxicity (CC50) · Selectivity Index · Parametric (log-scale) 95% CIs |
+| **Output** | Gating QC · Ridgeline plots · Formatted tables · % Infection, Intensity and Viability Dose-Response Curves |
 | **Download** | [template.Rmd](template.Rmd) |
 
 ::: {.callout-tip}
-**When to use this template:** You have single-cell or per-well fluorescence data from an image-based antiviral assay across single or multiple plates and want to perform robust 2-GMM gating, per-plate normalization, and co-primary 4PL dose-response analysis.
+**When to use this template:** You have single-cell or per-well fluorescence data from an image-based antiviral assay across single or multiple plates and want to perform robust 2-GMM gating, per-plate normalization, co-primary 4PL dose-response analysis, and a cytotoxicity/selectivity readout.
 :::
 
 ::: {.callout-note}
-All plots use **Arial 8pt** global theme tuned for **4 × 3 inch** publication figures.
-TIFF output at 600 dpi with LZW compression via `ragg`.
+All plots use an **8 pt sans-serif** global theme tuned for compact publication figures.
+TIFF output at `PLOT_DPI` (300 dpi by default) with LZW compression via `ragg`.
+Wells to exclude are declared explicitly in `WELLS_TO_EXCLUDE` / `DOSES_TO_EXCLUDE`;
+there is no automatic outlier masking.
 :::
 
 [Back to Gallery](../../index.html){.btn .btn-outline-secondary}

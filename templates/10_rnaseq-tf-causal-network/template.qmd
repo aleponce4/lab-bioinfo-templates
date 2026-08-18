@@ -1,11 +1,14 @@
 ---
 title: "10 · RNA-seq TF/Causal Network"
-subtitle: "DE-table-first transcription factor activity and causal network template"
+subtitle: "Self-contained toy demo: DE-table-first TF activity and causal network exploration"
 description: |
-  Starts from completed DESeq2 contrast tables. Infers TF activity with CollecTRI/decoupleR-style
-  statistics, checks overlap with a signed OmniPath prior network, prepares optional CARNIVAL inputs,
-  and renders cached/demo causal-network figures by default so the gallery remains lightweight.
-categories: [genomics, transcriptomics, RNA-seq, transcription factor, CARNIVAL, network]
+  A self-contained, offline toy demo of the TF-activity / causal-network workflow. Starts from
+  DESeq2-style contrast tables and scores transcription factors against a small hand-written,
+  CollecTRI-style signed regulon table, checks their overlap with a hand-written, CARNIVAL-style
+  signed prior network, propagates causal sign from a perturbation node, and exports the resulting
+  module networks. Every network is a hardcoded table inside `template.Rmd` — nothing is downloaded
+  and no solver is run, so the whole thing renders anywhere in seconds.
+categories: [genomics, transcriptomics, RNA-seq, transcription factor, network, demo]
 ---
 
 ## Overview
@@ -13,15 +16,28 @@ categories: [genomics, transcriptomics, RNA-seq, transcription factor, CARNIVAL,
 | Item | Details |
 |------|---------|
 | **Input** | DESeq2-style contrast table: `Gene`, `Comparison`, `log2FoldChange`, `padj`, optional `stat` |
-| **Key packages** | `decoupleR`, `OmnipathR`, `CARNIVAL`, `igraph`, `ggplot2`, `pheatmap` |
-| **Statistics** | TF activity score from signed TF-target regulons; PKN overlap; recurrent causal edges; module target coverage |
-| **Output** | TF volcano/heatmap, TF-to-PKN diagnostics, recurrent-edge overview, module-specific causal networks, Cytoscape-ready exports |
+| **Key packages** | `dplyr`, `tidyr`, `readr`, `stringr`, `tibble`, `igraph`, `ggplot2`, `scales` |
+| **Statistics** | Hand-rolled signed-regulon TF activity score (`sum(mor × de_score) / sqrt(scored targets)`, direction from the sign of the raw score); prior-network overlap; causal sign propagation from the perturbation node |
+| **Output** | TF volcano/heatmap, TF-to-prior-network diagnostics, recurrent-edge overview, module-specific causal networks, Cytoscape-ready exports (`.csv`, `.sif`, `.dot`) |
 | **Download** | [template.Rmd](template.Rmd) |
 
-Edit the `## ── USER CONFIGURATION` block at the top of `template.Rmd`. The gallery demo uses
-synthetic DE results and cached toy CARNIVAL-like networks. For real analyses, point `DEG_FILE`
-to your DESeq2 contrast table, set `RUN_CARNIVAL_SOLVER <- TRUE` only after installing a solver,
-and keep `USE_CACHED_CARNIVAL_RESULTS <- TRUE` for reproducible re-renders.
+::: {.callout-important}
+**This is a demo, not a production TF-activity pipeline.** The regulon table, the prior
+knowledge network and the "recurrent CARNIVAL edges" are all small `tribble()`s written
+inline in `template.Rmd`. The template does **not** call `decoupleR`, `OmnipathR` or
+`CARNIVAL`, and it does not download anything — that is what keeps it reproducible offline.
+Its purpose is to demonstrate the *shape* of the workflow and to give you working plotting,
+sign-propagation and Cytoscape-export code to hang a real analysis on.
+
+To do the real thing, swap `toy_collectri()` for a `decoupleR` regulon (e.g. CollecTRI via
+`OmnipathR`), replace the inline `pkn` tribble with a real signed prior network, and replace
+the cached `carnival_edges` with actual `CARNIVAL` solver output. Those packages are not in
+`install_packages.R` precisely because this template never calls them.
+:::
+
+Edit the `## ── USER CONFIGURATION` block at the top of `template.Rmd`. Point `DEG_FILE`
+at your own DESeq2 contrast table to run the demo statistics over real data; the networks
+will still be the bundled toy ones until you replace them.
 
 [← Gallery](../../index.html){.btn .btn-outline-secondary}
 [Download .Rmd](template.Rmd){.btn .btn-primary}

@@ -16,7 +16,7 @@ categories: [transcriptomics, RNA-seq, DESeq2, differential-expression]
 |------|---------|
 | **Input** | Gene counts + metadata or gene/transcript `SummarizedExperiment` RDS files |
 | **Key packages** | `DESeq2`, `SummarizedExperiment`, `ggplot2`, `patchwork`, `pheatmap` |
-| **Statistics** | DESeq2 Wald test · FDR-adjusted p-values (BH) |
+| **Statistics** | DESeq2 Wald test · FDR-adjusted p-values (BH) · `lfcShrink` shrunken fold changes for MA plots and ranking |
 | **Output** | Diagnostics · PCA · Volcano/MA plots · Heatmaps · Bubble/Triangle plots · DEG tables · Analysis bundle |
 | **Download** | [template.Rmd](template.Rmd) |
 

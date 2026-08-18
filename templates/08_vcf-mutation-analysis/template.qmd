@@ -14,12 +14,14 @@ jupyter: python3
 | Item | Details |
 |------|---------|
 | **Input** | Directory of `.vcf` files: `aa_change_{ID}-{Source}_{Segment}_{Threshold}.vcf` |
-| **Key packages** | `vcfpy`, `pandas`, `scipy`, `seaborn`, `matplotlib`, `sklearn` |
-| **Statistics** | Shannon entropy (natural log) · Kruskal–Wallis |
+| **Key packages** | `vcfpy`, `pandas`, `numpy`, `scipy`, `seaborn`, `matplotlib` |
+| **Statistics** | Shannon entropy (natural log) · Kruskal–Wallis with Benjamini–Hochberg FDR |
 | **Output** | Mutation bar charts · entropy heatmaps (SVG) · frequency tables · KW results CSV |
 | **Download** | [template.ipynb](template.ipynb) |
 
 Edit `SEGMENT_CONFIG` to match your pathogen's genome (total length, CDS boundaries, AA count). `TISSUE_TYPES` controls which sources are included in statistical comparisons.
+
+`template.ipynb` is generated from this file with `quarto convert template.qmd` — edit the `.qmd` and re-convert rather than editing the notebook, so the two cannot drift apart.
 
 [← Gallery](../../index.html){.btn .btn-outline-secondary}
 [Download .ipynb](template.ipynb){.btn .btn-primary}
@@ -46,21 +48,25 @@ THRESHOLD_LABEL_MAP = {"5pct": "5%", "2pct": "2%", "1pct": "1%"}
 # Minimum read depth to retain a variant (coverage QC)
 DEPTH_THRESHOLD = 500
 
-# Tissue / source types to include in the analysis
+# Tissue / source types to INCLUDE in the final analysis
+# (all others present in VCF filenames will be loaded but filtered out)
 TISSUE_TYPES = ["Lung", "Saliva", "Urine"]
 
-# Segment geometry — edit to match your pathogen's genome
+# Segment geometry — edit to match your pathogen's genome.
+# The CDS must be codon-aligned: (cds_end - cds_start + 1) == aa_length * 3.
+# That is checked below, because a CDS that is not a whole number of codons
+# means one of the three numbers is wrong.
 SEGMENT_CONFIG = {
     "S": {
-        "length": 1902,
-        "cds_start": 250,
-        "cds_end": 1329,
-        "aa_length": 360,
+        "length": 1902,       # total nucleotide length
+        "cds_start": 250,     # first CDS position (1-based)
+        "cds_end": 1329,      # last CDS position (1-based, inclusive)
+        "aa_length": 360,     # total amino acids in CDS
     },
     "M": {
         "length": 3675,
         "cds_start": 52,
-        "cds_end": 3461,
+        "cds_end": 3456,
         "aa_length": 1135,
     },
 }
@@ -70,13 +76,17 @@ VAF_THRESHOLDS = ["1%", "2%", "5%"]
 
 # Colors and transparency for each VAF threshold in bar charts
 VAF_COLORS = {
-    "5%": "#3594cc",
-    "2%": "#ea801c",
-    "1%": "#a00000",
+    "5%": "#3594cc",   # Blue
+    "2%": "#ea801c",   # Orange
+    "1%": "#a00000",   # Dark red
 }
 VAF_ALPHA = {"5%": 0.3, "2%": 0.6, "1%": 0.9}
 
-# Output directory for SVG plots (relative to this file)
+# Family-wise error rate for the Benjamini–Hochberg correction on the
+# Kruskal–Wallis tests
+FDR_ALPHA = 0.05
+
+# Output directory for SVG plots and derived tables (relative to this file)
 OUTPUT_DIR = "Plots"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -96,9 +106,36 @@ import pandas as pd
 import vcfpy
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import entropy, kruskal
+from scipy.stats import entropy, kruskal, false_discovery_control
 
-warnings.filterwarnings("ignore")
+# Narrow suppression only: seaborn's violinplot still passes `palette` without
+# `hue` internally on some versions. Everything else stays visible on purpose.
+warnings.filterwarnings("ignore", category=FutureWarning, module="seaborn")
+
+# ── CDS geometry sanity check ────────────────────────────────────────────────
+# Mutations_per_100aa and the coding-region filter both assume the CDS is a whole
+# number of codons; a mismatch here means the per-100aa rate is silently wrong.
+for _seg, _cfg in SEGMENT_CONFIG.items():
+    _cds_len = _cfg["cds_end"] - _cfg["cds_start"] + 1
+    assert _cds_len == _cfg["aa_length"] * 3, (
+        f"Segment {_seg}: CDS spans {_cds_len} nt, but aa_length="
+        f"{_cfg['aa_length']} implies {_cfg['aa_length'] * 3} nt. "
+        f"Fix cds_start / cds_end / aa_length in SEGMENT_CONFIG."
+    )
+    assert _cfg["cds_end"] <= _cfg["length"], (
+        f"Segment {_seg}: cds_end ({_cfg['cds_end']}) exceeds the segment "
+        f"length ({_cfg['length']})."
+    )
+    # Cached so the mutation-rate denominators cannot drift from the config.
+    _cfg["cds_length"] = _cds_len
+
+# ── Global plot style ─────────────────────────────────────────────────────────
+# Reproducible SVG output: matplotlib stamps a wall-clock date and randomly
+# generated element IDs into every SVG, so re-rendering an unchanged figure
+# produced a large but meaningless git diff. A fixed salt and a fixed
+# SOURCE_DATE_EPOCH make repeat renders byte-identical.
+os.environ.setdefault("SOURCE_DATE_EPOCH", "1735689600")   # 2025-01-01 UTC
+plt.rcParams["svg.hashsalt"] = "lab-bioinfo-templates"
 
 plt.rcParams.update({
     'axes.titlesize': 12,
@@ -182,6 +219,21 @@ if combined_df.empty:
         f"VCF_FILENAME_PATTERN. Files found: {vcf_files[:5]}"
     )
 
+REQUIRED_COLUMNS = [
+    "Position", "Amino_Acid_Change", "Allelic_Depth_Ref", "Allelic_Depth_Alt",
+    "Total_Depth", "Source", "Segment", "Variant_Threshold", "ID",
+]
+_missing = set(REQUIRED_COLUMNS) - set(combined_df.columns)
+if _missing:
+    raise ValueError(f"Parsed variant table is missing column(s): {sorted(_missing)}")
+
+unknown_segments = sorted(set(combined_df["Segment"]) - set(SEGMENT_CONFIG))
+if unknown_segments:
+    raise ValueError(
+        f"VCF filenames reference segment(s) absent from SEGMENT_CONFIG: "
+        f"{unknown_segments}. Add them, or narrow VCF_FILENAME_PATTERN."
+    )
+
 combined_df.head()
 ```
 
@@ -194,27 +246,32 @@ pre_filter = len(combined_df)
 combined_df = combined_df[combined_df["Total_Depth"] >= DEPTH_THRESHOLD].copy()
 print(f"Retained {len(combined_df)} / {pre_filter} records (depth ≥ {DEPTH_THRESHOLD}x)")
 
-# Fix Allelic_Depth_Ref when reported as 0
+# Fix Allelic_Depth_Ref when reported as 0 (some callers omit it)
 mask = combined_df["Allelic_Depth_Ref"] == 0
 combined_df.loc[mask, "Allelic_Depth_Ref"] = (
     combined_df.loc[mask, "Total_Depth"] - combined_df.loc[mask, "Allelic_Depth_Alt"]
 )
 
-os.makedirs("data", exist_ok=True)
 combined_df["VAF"] = combined_df["Allelic_Depth_Alt"] / combined_df["Total_Depth"]
 
-combined_df.to_csv("data/mutation_df.csv", index=False)
-print("Saved: data/mutation_df.csv")
+# Save the combined dataset. This is a derived table, so it belongs beside the
+# other outputs — data/ holds only the inputs the template reads.
+mutation_table_path = os.path.join(OUTPUT_DIR, "mutation_df.csv")
+combined_df.to_csv(mutation_table_path, index=False)
+print(f"Saved: {mutation_table_path}")
 combined_df.describe()
 ```
 
 ## Mutation Distribution Bar Charts
+
+Each bar spans one variant call position; transparency encodes VAF threshold.
 
 ```{python}
 #| label: mutation-bars
 #| fig-width: 14
 #| fig-height: 3
 
+# Bar widths per segment (in nucleotides)
 bar_widths = {"S": 9.0, "M": 14.0}
 
 for source in TISSUE_TYPES:
@@ -242,7 +299,9 @@ for source in TISSUE_TYPES:
             )
 
         ax.set_xlim(1, cfg["length"])
-        ax.set_ylim(0, 0.55)
+        # No fixed y ceiling: a hardcoded limit clips any variant above it off
+        # the chart without saying so. Let the data set the top.
+        ax.set_ylim(0, max(0.05, src_df["VAF"].max() * 1.1))
         ax.set_xlabel("Genomic position (nt)")
         ax.set_ylabel("Variant allele frequency (VAF)")
         ax.set_title(f"{seg} segment — {source}")
@@ -257,15 +316,18 @@ for source in TISSUE_TYPES:
 
 ## Shannon Entropy
 
+Entropy (natural log base) calculated from reference and alternate allele frequencies.
+
 ```{python}
 #| label: entropy-calc
 
+# Allele frequencies
 combined_df["Freq_Ref"] = combined_df["Allelic_Depth_Ref"] / combined_df["Total_Depth"]
 combined_df["Freq_Alt"] = combined_df["Allelic_Depth_Alt"] / combined_df["Total_Depth"]
 
 def calculate_entropy(row):
     freqs = np.nan_to_num([row["Freq_Ref"], row["Freq_Alt"]], nan=0.0)
-    return entropy(freqs, base=np.e)
+    return entropy(freqs, base=np.e)   # Shannon entropy, natural log
 
 combined_df["Entropy"] = combined_df.apply(calculate_entropy, axis=1)
 print(f"Entropy range: {combined_df['Entropy'].min():.4f} – {combined_df['Entropy'].max():.4f}")
@@ -273,6 +335,8 @@ combined_df[["Position", "Segment", "Source", "Variant_Threshold", "Entropy"]].h
 ```
 
 ## Entropy Heatmaps
+
+Rows = tissue source, columns = genomic position. Colour = mean Shannon entropy.
 
 ```{python}
 #| label: entropy-heatmaps
@@ -285,6 +349,7 @@ for seg in SEGMENT_CONFIG:
         (combined_df["Source"].isin(TISSUE_TYPES))
     ]
 
+    # Pivot: mean entropy per source × position
     pivot = (
         seg_df
         .groupby(["Source", "Position"])["Entropy"]
@@ -318,10 +383,15 @@ for seg in SEGMENT_CONFIG:
 
 ## Mutation Frequency per Sample
 
+Normalised to mutations per 1,000 nt of **CDS** (nucleotide level) and per 100 amino
+acids (non-synonymous only). Both numerators are restricted to coding positions, so
+both denominators are coding lengths.
+
 ```{python}
 #| label: mutation-freq
 
 def filter_coding(df):
+    """Retain only CDS positions for each segment."""
     masks = []
     for seg, cfg in SEGMENT_CONFIG.items():
         m = (
@@ -351,7 +421,10 @@ for (sample_id, source, seg, thresh), grp in analysis_df.groupby(
         "Source":               source,
         "Segment":              seg,
         "Threshold":            thresh,
-        "Mutations_per_1000bp": (n_total / cfg["length"]) * 1000,
+        # Numerator counts CDS variants only (filter_coding above), so the
+        # denominator must be the CDS length — dividing by the full segment
+        # length understates every rate, and by a different factor per segment.
+        "Mutations_per_1000bp": (n_total / cfg["cds_length"]) * 1000,
         "Mutations_per_100aa":  (n_nonsyn / cfg["aa_length"]) * 100,
     })
 
@@ -399,6 +472,12 @@ for seg in SEGMENT_CONFIG:
 
 ## Kruskal–Wallis Tests
 
+Non-parametric comparison of mutation frequencies across tissue types. Up to twelve
+tests are run (three thresholds × two segments × two metrics), so the raw p-values
+are corrected together with Benjamini–Hochberg
+(`scipy.stats.false_discovery_control`). Significance is judged on the corrected
+FDR, not on the raw p-value.
+
 ```{python}
 #| label: kruskal-wallis
 
@@ -421,17 +500,31 @@ for thresh in VAF_THRESHOLDS:
                 continue
             stat, pval = kruskal(*groups)
             kruskal_rows.append({
-                "Threshold":   thresh,
-                "Segment":     seg,
-                "Metric":      metric_label,
-                "Statistic":   round(stat, 4),
-                "p-value":     round(pval, 4),
-                "Significant": pval < 0.05,
+                "Threshold":  thresh,
+                "Segment":    seg,
+                "Metric":     metric_label,
+                "Statistic":  round(stat, 4),
+                "p-value":    pval,
             })
 
 kruskal_df = pd.DataFrame(kruskal_rows)
+
+# ── Benjamini–Hochberg across the whole family of tests run above ────────────
+if len(kruskal_df):
+    kruskal_df["BH_FDR"] = false_discovery_control(
+        kruskal_df["p-value"].to_numpy(), method="bh"
+    )
+    kruskal_df["Significant"] = kruskal_df["BH_FDR"] < FDR_ALPHA
+    kruskal_df["p-value"] = kruskal_df["p-value"].round(4)
+    kruskal_df["BH_FDR"] = kruskal_df["BH_FDR"].round(4)
+    print(f"{len(kruskal_df)} Kruskal–Wallis tests, "
+          f"{int(kruskal_df['Significant'].sum())} significant at BH FDR < {FDR_ALPHA} "
+          f"({int((kruskal_df['p-value'] < 0.05).sum())} would pass an uncorrected "
+          f"p < 0.05).")
+else:
+    print("No Kruskal–Wallis tests could be run (fewer than two groups with n ≥ 2).")
+
 kruskal_df.to_csv(os.path.join(OUTPUT_DIR, "kruskal_results.csv"), index=False)
-print("Kruskal–Wallis results:")
 kruskal_df
 ```
 

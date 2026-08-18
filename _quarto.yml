@@ -82,7 +82,12 @@ format:
     embed-resources: false
 
 execute:
-  freeze: auto
+  # No freeze: the wrapper .qmd files carry no code of their own, and Quarto hashes
+  # only the wrapper — never the template.Rmd child that holds the analysis. A cached
+  # freeze therefore goes stale silently on every .Rmd edit. CI renders page by page,
+  # which bypasses freeze anyway, so nothing is lost by executing every time.
   cache: false
-  warning: false
+  # Warnings stay visible on purpose. Suppressing them hid several cases of ggplot
+  # silently dropping out-of-range rows; if a template warns, fix the template.
+  warning: true
   message: false

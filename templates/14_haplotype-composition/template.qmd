@@ -1,5 +1,5 @@
 ---
-title: "13 · Haplotype Composition"
+title: "14 · Haplotype Composition"
 subtitle: "Stacked bar charts of intra-host haplotype frequencies"
 description: |
   Loads per-sample haplotype-frequency tables and a sample manifest, orders samples
@@ -17,14 +17,16 @@ jupyter: python3
 | **Key packages** | `pandas`, `matplotlib`, `numpy` |
 | **Statistics** | None — descriptive visualisation only |
 | **Output** | Stacked bar chart (PNG · SVG) |
-| **Download** | [template.qmd (GitHub)](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/14_haplotype-composition/template.qmd) |
+| **Download** | [template.qmd](template.qmd) |
 
 Edit `ROUTE_ORDER` to control the left-to-right ordering of route groups. Edit `DPI_ORDER`
-to control the sort order of DPI values within each route. The `Okabe-Ito` palette is
-colourblind-safe by default; assign explicit colours in `HAPLOTYPE_COLORS` to override.
+to control the sort order of DPI values within each route. Any route, DPI or replicate
+value found in the manifest but missing from these lists raises an error rather than
+being silently dropped from the figure. The `Okabe-Ito` palette is colourblind-safe by
+default; assign explicit colours in `HAPLOTYPE_COLORS` to override.
 
 [← Gallery](../../index.html){.btn .btn-outline-secondary}
-[Download .qmd](https://github.com/aleponce4/lab-bioinfo-templates/blob/main/templates/14_haplotype-composition/template.qmd){.btn .btn-primary}
+[Download .qmd](template.qmd){.btn .btn-primary}
 
 ---
 
@@ -39,8 +41,10 @@ colourblind-safe by default; assign explicit colours in `HAPLOTYPE_COLORS` to ov
 HAPLOTYPE_CSV = "data/haplotype_frequencies.csv"
 MANIFEST_CSV  = "data/manifest.csv"
 
-# Control sample ordering
-ROUTE_ORDER   = ["Oral", "Intranasal", "Intraperitoneal", "Control"]
+# Control sample ordering. Every value present in the manifest must appear in the
+# corresponding list, or the guard in "Prepare Data" raises — set a list to None to
+# derive the order from the data instead.
+ROUTE_ORDER   = ["Intranasal", "Subcutaneous"]
 DPI_ORDER     = None          # list of ints (e.g. [1, 3, 5]) or None for numeric sort
 REPLICATE_ORDER = None        # list or None for natural sort
 
@@ -55,6 +59,9 @@ OKABE_ITO = [
 
 # Override specific haplotype colours (key = haplotype name, value = hex colour)
 HAPLOTYPE_COLORS = {}   # e.g. {"Wild-type": "#000000", "H1": "#E69F00"}
+
+# Tolerance on "haplotype frequencies sum to 1.0 per sample" (warning only)
+STACK_TOTAL_TOL = 0.01
 
 # Bar and layout
 BAR_WIDTH      = 0.85
@@ -72,20 +79,27 @@ OUTPUT_DIR = "outputs"
 #| label: setup
 
 import os
-import math
+import warnings
+from itertools import cycle
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.lines import Line2D
-from itertools import cycle
+from matplotlib.transforms import blended_transform_factory
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ── Publication styling ──────────────────────────────────────────────────────
+# Reproducible SVG output: matplotlib stamps a wall-clock date and randomly
+# generated element IDs into every SVG, so re-rendering an unchanged figure
+# produced a large but meaningless git diff. A fixed salt and a fixed
+# SOURCE_DATE_EPOCH make repeat renders byte-identical.
+os.environ.setdefault("SOURCE_DATE_EPOCH", "1735689600")   # 2025-01-01 UTC
+plt.rcParams["svg.hashsalt"] = "lab-bioinfo-templates"
+
 plt.rcParams.update({
-    "font.family":     "Arial",
+    "font.family":     "sans-serif",
+    "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
     "font.size":       8,
     "axes.titlesize":  10,
     "axes.labelsize":  9,
@@ -115,8 +129,24 @@ print(f"Figures will be saved to: {os.path.abspath(OUTPUT_DIR)}")
 ```{python}
 #| label: load-data
 
+def require_columns(df, required, name):
+    """Fail loudly if an input table is missing a column the analysis depends on."""
+    missing = set(required) - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"{name} is missing required column(s): {sorted(missing)}. "
+            f"Found: {list(df.columns)}"
+        )
+
 freq_df = pd.read_csv(HAPLOTYPE_CSV)
 manifest_df = pd.read_csv(MANIFEST_CSV)
+
+require_columns(freq_df, ["sample_id", "haplotype", "frequency"], HAPLOTYPE_CSV)
+require_columns(manifest_df, ["sample_id", "route", "dpi", "replicate"], MANIFEST_CSV)
+
+if manifest_df["sample_id"].duplicated().any():
+    dupes = manifest_df.loc[manifest_df["sample_id"].duplicated(), "sample_id"].tolist()
+    raise ValueError(f"{MANIFEST_CSV} has duplicate sample_id rows: {sorted(set(dupes))}")
 
 print(f"Haplotype frequencies: {freq_df.shape[0]} rows, {freq_df.shape[1]} columns")
 print(f"  Columns: {list(freq_df.columns)}")
@@ -131,12 +161,38 @@ freq_df.head()
 ```{python}
 #| label: prepare-data
 
-df = freq_df.merge(manifest_df, on="sample_id", how="left")
+df = freq_df.merge(manifest_df, on="sample_id", how="left", validate="many_to_one")
+
+# Every frequency row must have found its manifest entry.
+unmatched = sorted(df.loc[df["route"].isna(), "sample_id"].unique())
+if unmatched:
+    raise ValueError(
+        f"{len(unmatched)} sample_id(s) in {HAPLOTYPE_CSV} have no row in "
+        f"{MANIFEST_CSV}: {unmatched}"
+    )
 
 # ── Order samples: route → DPI → replicate ───────────────────────────────────
 route_order   = ROUTE_ORDER if ROUTE_ORDER else sorted(df["route"].dropna().unique())
 dpi_order     = DPI_ORDER if DPI_ORDER else sorted(df["dpi"].dropna().unique())
 repl_order    = REPLICATE_ORDER if REPLICATE_ORDER else sorted(df["replicate"].dropna().unique())
+
+# Guard: pd.Categorical turns any value outside `categories` into NaN, which would
+# drop those samples from the sort, the brackets and (silently) the figure. Refuse
+# to continue instead.
+for col, order, cfg_name in [
+    ("route",     route_order, "ROUTE_ORDER"),
+    ("dpi",       dpi_order,   "DPI_ORDER"),
+    ("replicate", repl_order,  "REPLICATE_ORDER"),
+]:
+    observed = set(df[col].dropna().unique())
+    unconfigured = sorted(observed - set(order), key=str)
+    if unconfigured:
+        raise ValueError(
+            f"{cfg_name} does not list every '{col}' value present in {MANIFEST_CSV}: "
+            f"{unconfigured} would be dropped from the figure. "
+            f"Configured: {list(order)}. Add the missing value(s), or set "
+            f"{cfg_name} = None to derive the order from the data."
+        )
 
 df["route"]     = pd.Categorical(df["route"],     categories=route_order,   ordered=True)
 df["dpi"]       = pd.Categorical(df["dpi"],       categories=dpi_order,     ordered=True)
@@ -194,23 +250,42 @@ n_samples = len(sample_list)
 fig, ax = plt.subplots(figsize=(max(8, n_samples * 0.5), 5))
 
 # ── Draw stacked bars ────────────────────────────────────────────────────────
+# Wide matrix: rows = sample (in display order), columns = haplotype.
+freq_matrix = (
+    df.pivot_table(index="sample_id", columns="haplotype", values="frequency",
+                   aggfunc="sum", fill_value=0.0)
+      .reindex(index=sample_list, columns=ordered_haplotypes, fill_value=0.0)
+)
+
 bar_positions = np.arange(n_samples)
+bottom = np.zeros(n_samples)   # running stack height — without this the bars overlay
 
 for h in ordered_haplotypes:
-    freqs = []
-    for sid in sample_list:
-        row = df[(df["sample_id"] == sid) & (df["haplotype"] == h)]
-        freqs.append(row["frequency"].values[0] if len(row) > 0 else 0.0)
-
+    freqs = freq_matrix[h].to_numpy(dtype=float)
     ax.bar(
         bar_positions,
         freqs,
         BAR_WIDTH,
+        bottom=bottom,
         label=h,
         color=haplotype_colour_map[h],
         edgecolor="white",
         linewidth=0.3,
         zorder=3,
+    )
+    bottom += freqs
+
+# Frequencies are expected to be compositional (one sample = 1.0). Warn rather than
+# fail so partial haplotype sets still plot, but never let a bar run off the axis.
+stack_totals = freq_matrix.sum(axis=1)
+print(f"Stack totals per sample: min {stack_totals.min():.4f}, "
+      f"max {stack_totals.max():.4f}")
+off = stack_totals[(stack_totals - 1.0).abs() > STACK_TOTAL_TOL]
+if len(off):
+    warnings.warn(
+        f"{len(off)} sample(s) have haplotype frequencies that do not sum to 1.0 "
+        f"(tolerance {STACK_TOTAL_TOL}): {off.round(4).to_dict()}",
+        stacklevel=2,
     )
 
 # ── X-axis labels ────────────────────────────────────────────────────────────
@@ -220,7 +295,13 @@ ax.set_xlim(-0.6, n_samples - 0.4)
 
 # ── Axis styling ─────────────────────────────────────────────────────────────
 ax.set_ylabel("Haplotype frequency")
-ax.set_ylim(0, 1.05)
+# Frequencies are normalised to sum to 1.0 per sample, so the axis stops at 1.0.
+# The group brackets are drawn above the axes in figure-relative coordinates
+# (see below) rather than by inflating the limit, which would put a "1.2" tick
+# on an axis that cannot exceed 1.0.
+y_top = max(1.0, float(stack_totals.max()))
+ax.set_ylim(0, y_top)
+ax.set_yticks(np.linspace(0, 1.0, 5))
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
 
@@ -242,17 +323,19 @@ ax.legend(
 sample_meta = sample_order.reset_index(drop=True)
 
 # Build mapping: bar index → (route, dpi)
-bar_info = list(zip(sample_meta["route"].astype(str), sample_meta["dpi"].astype(int)))
+bar_info = list(zip(sample_meta["route"].astype(str), sample_meta["dpi"].tolist()))
 
 # --- Route brackets (top level) ---
 route_groups = {}
 for i, (route, dpi) in enumerate(bar_info):
     route_groups.setdefault(route, []).append(i)
 
-bracket_y_top    = 1.08
-bracket_y_dpi    = 1.11
-bracket_y_route  = 1.16
-tick_height      = 0.03
+# Bracket geometry in *axes fraction* on y (1.0 = top of the plotting area) and
+# data coordinates on x, so the data y-limit stays at 0–1.
+bracket_trans   = blended_transform_factory(ax.transData, ax.transAxes)
+bracket_y_dpi   = 1.03
+bracket_y_route = 1.11
+tick_height     = 0.025
 
 # Find contiguous route blocks
 route_ranges = []
@@ -268,9 +351,10 @@ for route, start, end in route_ranges:
     x0, x1 = start - 0.45, end + 0.45
     bracket_y = bracket_y_route
     ax.plot([x0, x0, x1, x1], [bracket_y, bracket_y + tick_height, bracket_y + tick_height, bracket_y],
-            color="black", linewidth=0.8, clip_on=False)
+            color="black", linewidth=0.8, clip_on=False, transform=bracket_trans)
     ax.text((x0 + x1) / 2, bracket_y + tick_height + 0.01, route,
-            ha="center", va="bottom", fontsize=8, fontweight="bold", clip_on=False)
+            ha="center", va="bottom", fontsize=8, fontweight="bold", clip_on=False,
+            transform=bracket_trans)
 
 # --- DPI sub-brackets ---
 dpi_groups = {}
@@ -287,14 +371,13 @@ for route in route_order:
         x0, x1 = start - 0.4, end + 0.4
         bracket_y = bracket_y_dpi
         ax.plot([x0, x0, x1, x1], [bracket_y, bracket_y + tick_height, bracket_y + tick_height, bracket_y],
-                color="grey", linewidth=0.6, clip_on=False)
+                color="grey", linewidth=0.6, clip_on=False, transform=bracket_trans)
         ax.text((x0 + x1) / 2, bracket_y + tick_height + 0.005, str(dpi_val),
-                ha="center", va="bottom", fontsize=7, color="grey", clip_on=False)
+                ha="center", va="bottom", fontsize=7, color="grey", clip_on=False,
+                transform=bracket_trans)
 
-# ── Adjust top margin for brackets ───────────────────────────────────────────
-ax.set_ylim(0, bracket_y_route + tick_height + 0.08)
-
-plt.subplots_adjust(right=0.82, top=0.90)
+# ── Leave room above the axes for the brackets (they sit outside it) ─────────
+plt.subplots_adjust(right=0.82, top=0.84)
 plt.show()
 ```
 

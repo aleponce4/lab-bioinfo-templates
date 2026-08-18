@@ -2,11 +2,13 @@
 title: "04 · MagPix / Luminex Multiplex"
 subtitle: "2×2 factorial cytokine analysis with FDR correction and four plot types"
 description: |
-  Analyzes multiplex immunoassay (MagPix/Luminex) data from a 2×2 factorial
-  design (e.g., disease × treatment). Handles censored values (< LoD) via
-  LoD/√2 substitution, flags outliers (3×IQR), fits per-analyte two-way ANOVA,
-  computes emmeans contrasts with BH-FDR, and produces a heatmap plus four
-  per-analyte plot types (dot, bar, violin, box).
+  Analyzes multiplex immunoassay (MagPix/Luminex) data from a factorial
+  design (2×2 by default, e.g., disease × treatment). Handles left-censored
+  values (< LoD) via LoD/√2 substitution and right-censored values (> ULoQ)
+  explicitly, removes standard/blank/background wells, flags outliers (3×IQR),
+  fits per-analyte two-way ANOVA, computes emmeans contrasts with BH-FDR
+  applied within each model term, and produces a heatmap plus four per-analyte
+  plot types (dot, bar, violin, box).
 categories: [immunology, luminex, ANOVA, multiplex]
 ---
 

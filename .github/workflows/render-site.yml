@@ -98,8 +98,12 @@ jobs:
           fi
 
       # ── 5. Python packages ────────────────────────────────────────────────────
+      # Installed from environment.yml rather than a second hardcoded list, so the
+      # render environment cannot drift from the one the README tells users to create.
       - name: Install Python packages
-        run: pip install jupyter vcfpy pandas scipy seaborn matplotlib scikit-learn matplotlib-venn
+        run: |
+          pip install jupyter
+          pip install $(python scripts/check_python_deps.py --pip-list)
 
       # ── 6. Synthetic Python data ─────────────────────────────────────────────
       - name: Generate synthetic Python data
@@ -124,7 +128,7 @@ jobs:
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
-          version: "1.5.57"
+          version: "1.9.30"
 
       # ── 8. Render site ───────────────────────────────────────────────────────
       - name: Render Quarto site

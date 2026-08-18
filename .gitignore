@@ -1,7 +1,16 @@
 /.quarto/
 **/*.quarto_ipynb
+*.tif
 *.tiff
 *.pdf
+
+# Quarto execution cache. Not committed: it is keyed on the wrapper template.qmd
+# only, so it goes stale silently whenever the template.Rmd child changes.
+_freeze/
+
+# Quarto/knitr render intermediates (a couple of these had been committed by accident)
+*.rmarkdown
+templates/*/template_files/
 
 # Local developer scratch space — never commit
 scratch/

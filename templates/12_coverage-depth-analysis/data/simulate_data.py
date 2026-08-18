@@ -5,14 +5,15 @@ Simulate genome coverage depth data for template 12:
   - data/manifest.csv        — sample metadata
 """
 
-import csv, random, math, os
+import csv
+import os
+import random
 
 SEED = 42
 random.seed(SEED)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.dirname(SCRIPT_DIR)
-os.chdir(TEMPLATE_DIR)
 DATA_DIR = os.path.join(TEMPLATE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -28,6 +29,8 @@ DPI_REPS = {1: 3, 3: 3, 5: 3}
 # log-scale depth plot spans a few orders of magnitude — not measurements from any dataset.
 DPI_BASE_DEPTH = {1: 100, 3: 50000, 5: 60000}
 AMPLICON_DROPS = [(2000, 2200), (4300, 4450), (7000, 7150)]
+# Width (nt) of the coverage taper at each genome terminus.
+TERMINAL_TAPER = 30.0
 
 
 def generate():
@@ -48,10 +51,10 @@ def generate():
                         depth *= random.uniform(0.08, 0.35)
                         
                 # Terminal drop-offs at genome 5' and 3' ends
-                if pos <= 30:
-                    depth *= (pos / 30.0) ** 1.5
-                elif pos >= 11420:
-                    depth *= ((11447 - pos + 1) / 28.0) ** 1.5
+                if pos <= TERMINAL_TAPER:
+                    depth *= (pos / TERMINAL_TAPER) ** 1.5
+                elif pos > GENOME_LEN - TERMINAL_TAPER:
+                    depth *= ((GENOME_LEN - pos + 1) / TERMINAL_TAPER) ** 1.5
                     
                 depth = max(0, int(round(depth)))
                 rows.append({

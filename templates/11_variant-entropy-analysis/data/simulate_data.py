@@ -89,7 +89,7 @@ def make_truth_variant(sample_id, dpi_val, rep, pos):
         "dpi": dpi_val,
         "replicate": rep,
         "tissue": TISSUE,
-        "CHROM": "VEEV",
+        "CHROM": "PathogenX",
         "POS": pos,
         "REF": ref,
         "ALT": alt,

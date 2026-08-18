@@ -58,7 +58,7 @@ def generate():
                     
                 depth = max(0, int(round(depth)))
                 rows.append({
-                    "CHROM": "VEEV",
+                    "CHROM": "PathogenX",
                     "Position": pos,
                     "Depth": depth,
                     "sample_id": sample_id,

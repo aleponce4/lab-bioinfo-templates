@@ -80,14 +80,14 @@ VIRAL_FEATURE_CONFIG <- list(
   grouping_column = "group",
   facet_column = "tissue",
   feature_patterns = c(
-    VEEV_genome = "^VEEV_genome$",
-    VEEV_49S = "^VEEV_49S$",
-    VEEV_26S = "^VEEV_26S$"
+    Pathogen_genome = "^Pathogen_genome$",
+    Pathogen_gRNA = "^Pathogen_gRNA$",
+    Pathogen_sgRNA = "^Pathogen_sgRNA$"
   ),
   feature_lengths_bp = c(
-    VEEV_genome = 11446,
-    VEEV_49S = 11446,
-    VEEV_26S = 3880
+    Pathogen_genome = 11500,
+    Pathogen_gRNA = 11500,
+    Pathogen_sgRNA = 3900
   ),
   # Added to every value before the log10 axis transform, so zero-count samples
   # stay on the plot without being reported as a measured background level.

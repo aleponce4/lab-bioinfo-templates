@@ -1,6 +1,0 @@
-JAK1	activates	IRF1
-PIK3CA	inhibits	KLF2
-PERTURBATION	activates	JAK1
-PERTURBATION	activates	PIK3CA
-IRF1	activates	ICAM1
-KLF2	inhibits	ICAM1

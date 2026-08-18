@@ -1,7 +1,0 @@
-JAK1	activates	STAT1
-JAK1	activates	IRF1
-PERTURBATION	activates	JAK1
-STAT1	activates	IFIT1
-STAT1	activates	CXCL10
-IRF1	activates	IFIT1
-IRF1	activates	CXCL10

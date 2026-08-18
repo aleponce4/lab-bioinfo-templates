@@ -125,8 +125,8 @@ for (i in seq_len(nrow(metadata))) {
 storage.mode(gene_counts) <- "integer"
 
 # 5. Simulate viral features (transcript counts)
-viral_features <- c("VEEV_genome", "VEEV_49S", "VEEV_26S")
-viral_lengths <- c(VEEV_genome = 11446, VEEV_49S = 11446, VEEV_26S = 3880)
+viral_features <- c("Pathogen_genome", "Pathogen_gRNA", "Pathogen_sgRNA")
+viral_lengths <- c(Pathogen_genome = 11500, Pathogen_gRNA = 11500, Pathogen_sgRNA = 3900)
 
 transcript_counts <- sapply(seq_len(nrow(metadata)), function(i) {
   sample_row <- metadata[i, ]
@@ -137,9 +137,9 @@ transcript_counts <- sapply(seq_len(nrow(metadata)), function(i) {
   }
 
   c(
-    VEEV_genome = rnbinom(1, mu = base_signal, size = 12),
-    VEEV_49S = rnbinom(1, mu = base_signal * 0.9, size = 12),
-    VEEV_26S = rnbinom(1, mu = base_signal * 1.7, size = 12)
+    Pathogen_genome = rnbinom(1, mu = base_signal, size = 12),
+    Pathogen_gRNA = rnbinom(1, mu = base_signal * 0.9, size = 12),
+    Pathogen_sgRNA = rnbinom(1, mu = base_signal * 1.7, size = 12)
   )
 })
 colnames(transcript_counts) <- sample_ids

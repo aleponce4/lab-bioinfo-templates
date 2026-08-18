@@ -1,5 +1,0 @@
-node,node_type,predicted_activity,log2FoldChange,padj,significant,fill_color,border_color
-KLF2,TF,-1,-1.9037,0.003536,TRUE,#1F5EA8,#006D2C
-PERTURBATION,perturbation,1,NA,NA,NA,#E08A1E,#424242
-PIK3CA,intermediate,1,-0.1812,0.6772,FALSE,#E08A1E,#006D2C
-THBD,gene,-1,-1.9981,6.566e-4,TRUE,#C0D1E7,#424242

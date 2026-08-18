@@ -1,3 +1,0 @@
-model_id,n_samples,n_genes,design
-Brain,8,3531,~pair_id + group
-Lung,8,3531,~pair_id + group

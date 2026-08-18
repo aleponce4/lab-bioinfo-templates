@@ -1,5 +1,0 @@
-digraph causal_network {
-  graph [rankdir=LR, fontname=Helvetica];
-  node [fontname=Helvetica];
-  edge [fontname=Helvetica];
-}

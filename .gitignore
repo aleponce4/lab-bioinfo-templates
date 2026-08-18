@@ -18,3 +18,12 @@ __pycache__/
 
 # Quarto build output (rendered + published to gh-pages by CI)
 docs/
+
+# Template outputs. Every template regenerates these on render, and nothing reads
+# them back as an input, so they are not committed: it keeps inputs and outputs
+# distinguishable in a template folder and keeps ~25 MB of churn out of history.
+templates/*/Plots/
+templates/*/outputs/
+templates/*/Summary_files/
+templates/*/Gene_sets/
+templates/*/WGCNA_data/

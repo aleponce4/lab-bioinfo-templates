@@ -59,11 +59,16 @@ GENOME_LENGTH = 11447
 # Output directory for plots
 OUTPUT_DIR = "outputs"
 
-# Sliding-window size for entropy curves (genomic positions)
-WINDOW_SIZE = 200
+# Sliding-window size for entropy curves (genomic positions).
+# Pick this against your variant density, not for its own sake: the window has to hold
+# enough variants for the windowed sum to mean anything. At ~115 variants per sample over
+# an 11.4 kb genome, a 200 nt window holds ~2 variants and the curve is pure noise; 1000 nt
+# holds ~10 and the regional structure becomes visible.
+WINDOW_SIZE = 1000
 
-# Step between successive entropy windows (nt). 1 = maximum smoothness.
-WINDOW_STEP = 1
+# Step between successive entropy windows (nt). Smaller is smoother and slower; anything
+# well below WINDOW_SIZE gives a continuous-looking curve.
+WINDOW_STEP = 25
 
 # ─────────────────────────────────────────────────────────────────────────────
 ```
@@ -243,7 +248,7 @@ class_styles = {
     "intergenic":     {"marker": "^", "s": 16, "edgecolors": "black", "linewidths": 0.3},
 }
 
-gene_colors = plt.cm.Set3(np.linspace(0, 1, len(gene_coords)))
+from matplotlib.lines import Line2D
 
 for caller in CALLERS:
     fig, ax = plt.subplots(figsize=(14, 5), constrained_layout=True)
@@ -263,30 +268,57 @@ for caller in CALLERS:
                 edgecolors=style["edgecolors"],
                 linewidths=style["linewidths"],
                 alpha=0.7,
-                label=f"{DPI_LABELS[dpi]} — {vclass}" if dpi == DPI_ORDER[0] else "",
                 zorder=2,
             )
 
-    # Gene boundary spans
-    for (_, gene_row), gc in zip(gene_coords.iterrows(), gene_colors):
-        ax.axvspan(
-            gene_row["start"], gene_row["end"],
-            alpha=0.08, color=gc, zorder=0,
-            label=gene_row["gene"],
+    # Gene annotation: alternating grey bands with the names above the axis, matching
+    # templates 11's entropy panel and 12. Colour is reserved for DPI here.
+    for i, (_, gene_row) in enumerate(gene_coords.iterrows()):
+        if i % 2 == 0:
+            ax.axvspan(gene_row["start"], gene_row["end"],
+                       alpha=0.04, color="grey", zorder=0)
+        ax.axvline(gene_row["start"], color="grey", linestyle="--",
+                   linewidth=0.5, alpha=0.5, zorder=0)
+        ax.axvline(gene_row["end"], color="grey", linestyle="--",
+                   linewidth=0.5, alpha=0.5, zorder=0)
+        ax.annotate(
+            gene_row["gene"],
+            xy=((gene_row["start"] + gene_row["end"]) / 2, 1.02),
+            xycoords=("data", "axes fraction"),
+            ha="center", va="bottom", fontsize=7,
+            fontstyle="italic", color="grey",
         )
 
     ax.set_yscale("log")
     ax.set_ylabel("Allele Frequency (log scale)")
     ax.set_xlabel("Genomic Position (nt)")
-    ax.set_title(f"Variant Frequency — {caller}")
+    ax.set_title(f"Variant Frequency — {caller}", pad=18)  # clear the gene labels
     ax.set_xlim(1, GENOME_LENGTH)
 
-    # Deduplicated legend
-    handles, labels = ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys(),
-              loc="upper left", fontsize=7, ncol=2,
-              frameon=False)
+    # Two legends, because the plot encodes two independent things: colour is the
+    # timepoint and marker is the variant class. Labelling only the first DPI (as this
+    # did before) left the other DPIs' colours unexplained. Both sit outside the axes
+    # so they cannot cover data points.
+    dpi_handles = [
+        Line2D([], [], linestyle="none", marker="o", markersize=6,
+               markerfacecolor=DPI_COLORS[d], markeredgecolor="black",
+               markeredgewidth=0.3, label=DPI_LABELS[d])
+        for d in DPI_ORDER
+    ]
+    class_handles = [
+        Line2D([], [], linestyle="none", marker=style["marker"], markersize=6,
+               markerfacecolor="lightgrey", markeredgecolor="black",
+               markeredgewidth=0.3, label=vclass)
+        for vclass, style in class_styles.items()
+    ]
+
+    leg1 = ax.legend(handles=dpi_handles, title="Timepoint", fontsize=7,
+                     title_fontsize=7, frameon=False, loc="upper left",
+                     bbox_to_anchor=(1.005, 1.0))
+    ax.add_artist(leg1)
+    ax.legend(handles=class_handles, title="Variant class", fontsize=7,
+              title_fontsize=7, frameon=False, loc="upper left",
+              bbox_to_anchor=(1.005, 0.62))
 
     out_svg = os.path.join(OUTPUT_DIR, f"variant_scatter_{caller}.svg")
     out_png = os.path.join(OUTPUT_DIR, f"variant_scatter_{caller}.png")
@@ -320,39 +352,57 @@ def shannon_entropy(af_values):
     return -(vals * np.log(vals + 1e-300) + ref_freq * np.log(ref_freq + 1e-300))
 
 
-def sliding_entropy(frame):
-    """Mean ± SEM of per-variant entropy in windows of WINDOW_SIZE nt.
+def windowed_entropy_density(frame):
+    """Windowed Shannon-entropy density for ONE sample, in nats per kb.
 
-    Window i covers positions [start, start + WINDOW_SIZE - 1] inclusive and is
-    plotted at its true midpoint, so every position from 1 to GENOME_LENGTH is
-    covered by at least one window. Running sums make the step-1 slide cheap.
+    Each window is scored by the SUM of its variants' entropies, normalised to a
+    per-kb rate. Summing (rather than averaging) is what makes this track intra-host
+    diversity: a timepoint that carries more polymorphic sites scores higher, whereas a
+    mean over variants is roughly flat no matter how many there are.
+
+    A window with no variants scores 0 — genuinely zero diversity, not missing data — so
+    the curve stays continuous instead of being interpolated across dropped windows.
     """
     ent_sum = np.zeros(GENOME_LENGTH + 1)   # 1-based, index 0 unused
-    ent_sq  = np.zeros(GENOME_LENGTH + 1)
-    counts  = np.zeros(GENOME_LENGTH + 1)
 
     pos = frame["POS"].to_numpy(dtype=int)
     ent = shannon_entropy(frame["AF"].to_numpy(dtype=float))
     np.add.at(ent_sum, pos, ent)
-    np.add.at(ent_sq,  pos, ent ** 2)
-    np.add.at(counts,  pos, 1.0)
 
     c_sum = np.concatenate([[0.0], np.cumsum(ent_sum)])
-    c_sq  = np.concatenate([[0.0], np.cumsum(ent_sq)])
-    c_n   = np.concatenate([[0.0], np.cumsum(counts)])
 
     starts = np.arange(1, GENOME_LENGTH - WINDOW_SIZE + 2, WINDOW_STEP)
-    ends   = starts + WINDOW_SIZE - 1
-    n   = c_n[ends]   - c_n[starts - 1]
-    s   = c_sum[ends] - c_sum[starts - 1]
-    q   = c_sq[ends]  - c_sq[starts - 1]
+    ends = starts + WINDOW_SIZE - 1
+    total = c_sum[ends] - c_sum[starts - 1]
 
-    usable = n >= 2
-    mean = s[usable] / n[usable]
-    # Sample variance from the running sums, floored at 0 against rounding noise.
-    var  = np.maximum((q[usable] - n[usable] * mean ** 2) / (n[usable] - 1), 0.0)
-    sem  = np.sqrt(var / n[usable])
-    centers = (starts[usable] + ends[usable]) / 2.0
+    centers = (starts + ends) / 2.0
+    density = total * 1000.0 / WINDOW_SIZE
+    return centers, density
+
+
+def entropy_curve_across_replicates(frame):
+    """Mean +/- SEM of the windowed entropy density ACROSS replicate samples.
+
+    The band therefore shows between-animal spread at each position, which is the
+    quantity worth seeing. (Computing a SEM across the handful of variants inside a
+    single window instead says nothing and swamps the plot.)
+    """
+    sample_ids = sorted(frame["sample_id"].unique())
+    curves = []
+    centers = None
+    for sid in sample_ids:
+        centers, density = windowed_entropy_density(frame[frame["sample_id"] == sid])
+        curves.append(density)
+
+    if not curves:
+        return np.array([]), np.array([]), np.array([])
+
+    stacked = np.vstack(curves)
+    mean = stacked.mean(axis=0)
+    if stacked.shape[0] > 1:
+        sem = stacked.std(axis=0, ddof=1) / np.sqrt(stacked.shape[0])
+    else:
+        sem = np.zeros_like(mean)
     return centers, mean, sem
 
 
@@ -369,7 +419,7 @@ for ax, caller in zip(axes, CALLERS):
         sub = caller_vars[caller_vars["dpi"] == dpi]
         if sub.empty:
             continue
-        x_pos, y_mean, y_sem = sliding_entropy(sub)
+        x_pos, y_mean, y_sem = entropy_curve_across_replicates(sub)
         if len(x_pos) == 0:
             continue
         ax.plot(x_pos, y_mean, color=DPI_COLORS[dpi], linewidth=1.2,
@@ -377,17 +427,34 @@ for ax, caller in zip(axes, CALLERS):
         ax.fill_between(x_pos, y_mean - y_sem, y_mean + y_sem,
                         color=DPI_COLORS[dpi], alpha=SEM_ALPHA, linewidth=0)
 
-    for (_, gene_row), gc in zip(gene_coords.iterrows(), gene_colors):
-        ax.axvspan(gene_row["start"], gene_row["end"],
-                   alpha=0.08, color=gc, zorder=0)
+    # Gene annotation, matching template 12: alternating grey bands plus boundary
+    # rules, with the gene names above the top axis. A per-gene rainbow reads as
+    # decoration and competes with the DPI colours, which carry the actual signal.
+    for i, (_, gene_row) in enumerate(gene_coords.iterrows()):
+        if i % 2 == 0:
+            ax.axvspan(gene_row["start"], gene_row["end"],
+                       alpha=0.04, color="grey", zorder=0)
+        ax.axvline(gene_row["start"], color="grey", linestyle="--",
+                   linewidth=0.5, alpha=0.5, zorder=0)
+        ax.axvline(gene_row["end"], color="grey", linestyle="--",
+                   linewidth=0.5, alpha=0.5, zorder=0)
+        ax.annotate(
+            gene_row["gene"],
+            xy=((gene_row["start"] + gene_row["end"]) / 2, 1.02),
+            xycoords=("data", "axes fraction"),
+            ha="center", va="bottom", fontsize=7,
+            fontstyle="italic", color="grey",
+        )
 
     ax.set_xlim(1, GENOME_LENGTH)
-    ax.set_ylabel("Shannon Entropy (nat)")
-    ax.set_title(f"{caller} — sliding window = {WINDOW_SIZE} nt")
+    ax.set_ylabel("Shannon entropy (nats per kb)")
+    ax.set_title(f"{caller} — {WINDOW_SIZE} nt sliding window, mean ± SEM across replicates",
+                 pad=18)  # clear the gene labels
     ax.legend(loc="upper right", frameon=False)
 
 axes[-1].set_xlabel("Genomic Position (nt)")
-fig.suptitle("Genome-Wide Shannon Entropy by Caller and DPI")
+ax.set_ylim(bottom=0)
+fig.suptitle("Genome-Wide Intra-Host Diversity by Caller and DPI")
 
 out_svg = os.path.join(OUTPUT_DIR, "entropy_curves.svg")
 out_png = os.path.join(OUTPUT_DIR, "entropy_curves.png")

@@ -6,6 +6,7 @@ Simulate genome coverage depth data for template 12:
 """
 
 import csv
+import math
 import os
 import random
 
@@ -25,9 +26,17 @@ GENES = {
 }
 
 DPI_REPS = {1: 3, 3: 3, 5: 3}
-# Invented base depth scales per timepoint. Round placeholder numbers, chosen only so the
-# log-scale depth plot spans a few orders of magnitude — not measurements from any dataset.
-DPI_BASE_DEPTH = {1: 100, 3: 50000, 5: 60000}
+# Invented base depth scales per timepoint — placeholder numbers, not measurements.
+# They rise with DPI because viral load rises, so a fixed sequencing effort yields more
+# on-target reads later. Kept within one order of magnitude: real timepoints differ a few
+# fold, not a few hundred fold.
+DPI_BASE_DEPTH = {1: 8000, 3: 22000, 5: 45000}
+# Coverage is autocorrelated along the genome (fragments span many positions), so depth is
+# drawn as a smooth multiplicative field plus per-position noise rather than independent
+# draws at every base.
+FIELD_SCALE = 250.0   # nt; correlation length of the smooth component
+FIELD_SD = 0.35       # log-space amplitude of the smooth component
+POS_NOISE_SD = 0.12   # log-space per-position jitter
 AMPLICON_DROPS = [(2000, 2200), (4300, 4450), (7000, 7150)]
 # Width (nt) of the coverage taper at each genome terminus.
 TERMINAL_TAPER = 30.0
@@ -39,11 +48,25 @@ def generate():
         base_depth = DPI_BASE_DEPTH[dpi_val]
         for rep in range(1, n_reps + 1):
             sample_id = f"DPI{dpi_val}_R{rep}_Lung"
+
+            # Smooth multiplicative field: a random value every FIELD_SCALE nt, linearly
+            # interpolated between anchors. This gives coverage its characteristic gentle
+            # undulation instead of independent per-base noise.
+            n_anchors = int(GENOME_LEN / FIELD_SCALE) + 2
+            anchors = [random.gauss(0.0, FIELD_SD) for _ in range(n_anchors)]
+
             # Simulate genome coverage with synthetic terminal drop-offs, subgenomic elevation, amplicon dropouts
             for pos in range(1, GENOME_LEN + 1):
                 # 3' structural gene subgenomic mRNA elevation (26S RNA)
                 subgenomic_mult = 1.8 if pos > 7500 else 1.0
-                depth = base_depth * subgenomic_mult * random.lognormvariate(0, 0.25)
+
+                a_idx = (pos - 1) / FIELD_SCALE
+                lo = int(a_idx)
+                frac = a_idx - lo
+                field = anchors[lo] * (1.0 - frac) + anchors[lo + 1] * frac
+
+                depth = (base_depth * subgenomic_mult
+                         * math.exp(field + random.gauss(0.0, POS_NOISE_SD)))
                 
                 # Amplicon dropout regions
                 for ds, de in AMPLICON_DROPS:

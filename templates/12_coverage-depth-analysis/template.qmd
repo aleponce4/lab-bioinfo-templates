@@ -276,7 +276,11 @@ if LOG_SCALE:
     if n_zero:
         print(f"Note: {n_zero} position×DPI mean(s) are 0 and cannot be shown "
               f"on a log axis — switch LOG_SCALE to False to see them.")
-    ax.set_ylim(positive.min() * 0.7, agg["mean"].max() * 1.3)
+    # The terminal tapers drive depth toward zero at both genome ends. Bounding the
+    # axis by the outright minimum would hand half the plot to those few bases, so
+    # bound by a low percentile and let the tapers run off the bottom.
+    floor = max(positive.quantile(0.001) * 0.5, positive.min() * 0.7)
+    ax.set_ylim(floor, agg["mean"].max() * 1.3)
 else:
     ax.set_ylabel("Sequencing depth")
     ax.set_ylim(0, agg["mean"].max() * 1.15)
@@ -289,9 +293,9 @@ ax.set_title(
 )
 
 n_per_dpi = manifest.groupby("dpi")["sample_id"].nunique()
-legend_title = "DPI (n = " + ", ".join(
-    f"{d}: {int(n_per_dpi.get(d, 0))}" for d in dpi_order
-) + ")"
+legend_title = "Days post-infection\n" + ", ".join(
+    f"DPI {d}: n={int(n_per_dpi.get(d, 0))}" for d in dpi_order
+)
 
 ax.legend(
     title=legend_title,

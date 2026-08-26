@@ -1,0 +1,489 @@
+---
+title: "GO Enrichment Analysis"
+author: "Alejandro Ponce-Flores"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# DEG_FILE: CSV file with differential expression results.
+#   Required columns: Gene, Comparison, log2FoldChange, padj
+#   One row per gene per comparison.
+#
+DEG_FILE <- "data/deg_results.csv"
+
+# ORG_DB: Bioconductor annotation package for your species.
+#   Must have an entry in KEGG_ORGANISM_CODES below, otherwise the KEGG
+#   section stops with an error rather than silently querying another species.
+ORG_DB   <- "org.Mm.eg.db"
+SPECIES  <- "Mus musculus"   # used in plot subtitles
+
+# KEGG_ORGANISM_CODES: OrgDb package -> KEGG three-letter organism code.
+#   Add your species here if it is missing (see https://rest.kegg.jp/list/organism).
+KEGG_ORGANISM_CODES <- c(
+  "org.Hs.eg.db" = "hsa",   # human
+  "org.Mm.eg.db" = "mmu",   # mouse
+  "org.Rn.eg.db" = "rno",   # rat
+  "org.Dm.eg.db" = "dme",   # fruit fly
+  "org.Dr.eg.db" = "dre",   # zebrafish
+  "org.Ce.eg.db" = "cel",   # C. elegans
+  "org.Sc.sgd.db" = "sce",  # budding yeast
+  "org.Gg.eg.db" = "gga",   # chicken
+  "org.Bt.eg.db" = "bta",   # cow
+  "org.Ss.eg.db" = "ssc",   # pig
+  "org.Cf.eg.db" = "cfa",   # dog
+  "org.Mmu.eg.db" = "mcc",  # rhesus macaque
+  "org.At.tair.db" = "ath"  # Arabidopsis
+)
+
+# FDR_THRESHOLD: Significance threshold for identifying DEGs.
+FDR_THRESHOLD   <- 0.05
+
+# LFC_THRESHOLD: |log2FoldChange| cutoff for bubble plots and enrichment.
+LFC_THRESHOLD   <- 1.5
+
+# ENRICHMENT_FDR: FDR cutoff for reporting enriched terms.
+ENRICHMENT_FDR  <- 0.05
+
+# MIN_GENE_SET / MAX_GENE_SET: Gene set size limits for enrichment.
+MIN_GENE_SET    <- 10
+MAX_GENE_SET    <- 500
+
+# COMPARISONS_ORDER: Factor order for the x-axis of bubble plots.
+#   Must match the "Comparison" values in DEG_FILE.
+#   NULL = use alphabetical order.
+COMPARISONS_ORDER <- NULL   # e.g., c("Condition_A", "Condition_B", "Condition_C")
+
+# COMPARISON_LABELS: Human-readable x-axis labels (same length as COMPARISONS_ORDER).
+#   NULL = use raw comparison names.
+COMPARISON_LABELS <- NULL   # e.g., c("Group A vs Ctrl", "Group B vs Ctrl", ...)
+
+# GENE_SETS: Named list of character vectors for bubble-plot gene sets.
+#   Each element is one panel / pathway.
+#   Replace these with your gene lists of interest.
+GENE_SETS <- list(
+  Pathway_A = c("Stat1", "Stat2", "Irf7", "Isg15", "Ifit1",
+                "Ifit3", "Mx1", "Oas1a"),
+  Pathway_B = c("Mki67", "Top2a", "Cdk1", "Ccnb1", "Ccnb2",
+                "Aurkb", "Bub1", "Ube2c"),
+  Pathway_C = c("Il6", "Cxcl10", "Ccl2", "Nfkbia", "Socs3",
+                "Jun", "Fos", "Icam1")
+)
+
+# OUTPUT_DIR: Where to save plots and data exports.
+OUTPUT_DIR <- "Plots"
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+# tidyverse attaches ggplot2, dplyr, readr, stringr, tidyr and purrr, so
+# loading those individually as well only adds noise and masking messages.
+library(tidyverse)
+library(clusterProfiler)
+library(enrichplot)
+library(RColorBrewer)
+library(viridis)
+library(svglite)
+library(patchwork)
+library(scales)
+
+org_db <- get(ORG_DB, envir = asNamespace(ORG_DB))
+
+# Resolve the KEGG organism code up front, so an unsupported OrgDb fails here
+# with a clear message instead of running enrichment against the wrong species.
+if (!ORG_DB %in% names(KEGG_ORGANISM_CODES)) {
+  stop("No KEGG organism code configured for ORG_DB = '", ORG_DB, "'.\n",
+       "  Add it to KEGG_ORGANISM_CODES in the user-configuration block.\n",
+       "  Currently configured: ",
+       paste(names(KEGG_ORGANISM_CODES), collapse = ", "))
+}
+KEGG_ORGANISM <- unname(KEGG_ORGANISM_CODES[[ORG_DB]])
+message("ORG_DB = ", ORG_DB, " -> KEGG organism = ", KEGG_ORGANISM)
+
+# Filenames must never contain characters that are illegal or awkward on a
+# filesystem or in a URL. Comparison labels are user-supplied free text
+# (COMPARISON_LABELS explicitly supports things like "Group A vs Ctrl"), so
+# every path AND every <img src> below is built from the sanitized form.
+sanitize_filename <- function(x) {
+  gsub("^_+|_+$", "", gsub("[^A-Za-z0-9_.-]+", "_", as.character(x)))
+}
+
+dir.create(file.path(OUTPUT_DIR, "Bubble_Plots"),    recursive = TRUE, showWarnings = FALSE)
+dir.create(file.path(OUTPUT_DIR, "Enrichment"),      recursive = TRUE, showWarnings = FALSE)
+dir.create(file.path(OUTPUT_DIR, "Pathway_Heatmaps"),recursive = TRUE, showWarnings = FALSE)
+```
+
+# Load Data
+
+```{r load-data, message=FALSE}
+deg_all <- read_csv(DEG_FILE, show_col_types = FALSE)
+
+# Set factor levels for comparisons
+if (!is.null(COMPARISONS_ORDER)) {
+  deg_all <- deg_all %>%
+    mutate(Comparison = factor(Comparison, levels = COMPARISONS_ORDER,
+                               labels = if (!is.null(COMPARISON_LABELS)) COMPARISON_LABELS
+                                        else COMPARISONS_ORDER))
+} else {
+  deg_all <- deg_all %>% mutate(Comparison = factor(Comparison))
+}
+
+# Mark significant genes.
+# padj == 0 (underflow in the upstream DE test) must not become NA: that would
+# render the MOST significant genes in the plot's na.value grey. Floor at the
+# smallest representable double instead, as template 07 does.
+deg_all <- deg_all %>%
+  mutate(
+    padj_plot   = pmax(dplyr::coalesce(padj, 1), .Machine$double.xmin),
+    log_padj    = -log10(padj_plot),
+    significant = !is.na(padj) & padj < FDR_THRESHOLD & abs(log2FoldChange) >= LFC_THRESHOLD
+  )
+
+deg_summary <- deg_all %>%
+  group_by(Comparison) %>%
+  summarise(
+    `Total Genes`   = n_distinct(Gene),
+    `Significant DEGs` = sum(significant, na.rm = TRUE),
+    `Upregulated`   = sum(significant & log2FoldChange >= LFC_THRESHOLD, na.rm = TRUE),
+    `Downregulated` = sum(significant & log2FoldChange <= -LFC_THRESHOLD, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+deg_summary %>%
+  knitr::kable(
+    caption   = sprintf(
+      "Differential Expression Summary per Comparison (|Log2FC| >= %s & FDR < %s)",
+      format(LFC_THRESHOLD), format(FDR_THRESHOLD)),
+    col.names = c("Comparison", "Total Genes", "Significant DEGs", "Upregulated", "Downregulated"),
+    format.args = list(big.mark = ",")
+  )
+```
+
+# Bubble Plots (Gene Set Visualization)
+
+```{r bubble-carousel-data, fig.height=8, fig.width=8, message=FALSE, warning=FALSE, echo=FALSE}
+make_bubble_plot <- function(pathway_name, genes, data) {
+  pdata <- data %>%
+    filter(Gene %in% genes) %>%
+    mutate(
+      lfc_masked    = ifelse(significant, log2FoldChange, 0),
+      color_group   = ifelse(significant, "significant", "nonsignificant"),
+      Gene          = factor(Gene, levels = rev(genes))
+    )
+
+  sig <- filter(pdata, color_group == "significant")
+  size_max <- if (nrow(sig) > 0) {
+    max(LFC_THRESHOLD + 0.5, ceiling(max(abs(sig$log2FoldChange), na.rm = TRUE)))
+  } else LFC_THRESHOLD + 0.5
+  color_max <- if (nrow(sig) > 0) {
+    max(1, ceiling(max(sig$log_padj, na.rm = TRUE)))
+  } else 1
+
+  ggplot() +
+    geom_point(
+      data = filter(pdata, color_group == "nonsignificant"),
+      aes(x = Comparison, y = Gene),
+      size = 1.5, color = "darkgrey", alpha = 0.5
+    ) +
+    geom_point(
+      data = filter(pdata, color_group == "significant"),
+      aes(x = Comparison, y = Gene,
+          size = abs(log2FoldChange), color = log_padj),
+      alpha = 0.8
+    ) +
+    # Scale limits are derived from the data, not hardcoded. Fixed limits of
+    # c(1.5, 12) / c(0, 20) put every bubble in the bottom fifth of both
+    # scales for typical data, and scale_size_continuous() DROPS rather than
+    # clips out-of-range points unless oob = squish is set. Same pattern as
+    # template 07.
+    # scale_size_continuous() does not expose `oob`, so the scale is built
+    # directly; without squishing, a gene outside the limits is DROPPED from
+    # the plot rather than drawn at the edge of the scale.
+    continuous_scale(
+      aesthetics = "size",
+      palette    = scales::area_pal(c(2, 10)),
+      name       = expression("|Log"[2] * "FC|"),
+      limits     = c(LFC_THRESHOLD, size_max),
+      oob        = scales::squish,
+      guide      = "legend"
+    ) +
+    scale_color_viridis_c(
+      option    = "plasma",
+      direction = -1,
+      name      = "-log10(FDR)",
+      limits    = c(0, color_max),
+      oob       = scales::squish
+    ) +
+    scale_y_discrete(position = "right") +
+    theme_bw() +
+    theme(
+      plot.title   = element_text(size = 18, face = "bold", hjust = 0.5, family = "sans"),
+      axis.title.x = element_text(size = 16, family = "sans"),
+      axis.title.y = element_text(size = 16, family = "sans"),
+      axis.text.x  = element_text(size = 14, angle = 45, hjust = 1,
+                                  face = "bold", family = "sans"),
+      axis.text.y  = element_text(size = 14, face = "italic", family = "sans"),
+      legend.title = element_text(size = 12, family = "sans"),
+      legend.text  = element_text(size = 10, family = "sans"),
+      legend.key.size   = unit(0.4, "cm"),
+      legend.spacing.y  = unit(0.2, "cm"),
+      legend.position   = "left",
+      panel.grid.major  = element_blank(),
+      panel.grid.minor  = element_blank()
+    ) +
+    guides(
+      size  = guide_legend(override.aes = list(shape = 21, color = "darkgrey",
+                                               fill = "#ae96bf", alpha = 0.8)),
+      color = guide_colorbar(barwidth = 1, barheight = 8)
+    ) +
+    labs(title = pathway_name, x = "", y = "")
+}
+
+bubble_names <- names(GENE_SETS)
+# Display label -> on-disk stem. Both the ggsave() paths and the <img src>
+# attributes in the next chunk read from this, so they cannot drift apart.
+bubble_files <- setNames(sanitize_filename(bubble_names), bubble_names)
+stopifnot(!any(duplicated(bubble_files)))
+
+for (nm in bubble_names) {
+  p  <- make_bubble_plot(nm, GENE_SETS[[nm]], deg_all)
+  ggsave(file.path(OUTPUT_DIR, "Bubble_Plots", paste0(bubble_files[[nm]], ".png")),
+         plot = p, width = 8, height = 8, dpi = 150)
+  ggsave(file.path(OUTPUT_DIR, "Bubble_Plots", paste0(bubble_files[[nm]], ".svg")),
+         plot = p, device = "svg", width = 8, height = 8)
+}
+```
+
+```{r bubble-carousel-html, echo=FALSE, results='asis'}
+html <- c('<div id="bubble-carousel" class="carousel slide" data-bs-ride="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+'  <div class="carousel-indicators">')
+for (i in seq_along(bubble_names)) {
+  active <- if(i == 1) ' class="active" aria-current="true"' else ''
+  html <- c(html, sprintf('    <button type="button" data-bs-target="#bubble-carousel" data-bs-slide-to="%d"%s></button>', i-1, active))
+}
+html <- c(html, '  </div>', '  <div class="carousel-inner">')
+for (i in seq_along(bubble_names)) {
+  nm <- bubble_names[i]
+  active <- if(i == 1) ' active' else ''
+  html <- c(html, sprintf('    <div class="carousel-item%s">', active),
+            sprintf('      <img src="%s/Bubble_Plots/%s.png" class="d-block w-100" alt="%s">',
+                    OUTPUT_DIR, bubble_files[[nm]], nm),
+            sprintf('      <div class="carousel-caption d-none d-md-block"><p style="background:rgba(0,0,0,0.55);display:inline-block;padding:4px 12px;border-radius:4px;">%s</p></div>', nm),
+            '    </div>')
+}
+html <- c(html, '  </div>',
+'  <button class="carousel-control-prev" type="button" data-bs-target="#bubble-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span></button>',
+'  <button class="carousel-control-next" type="button" data-bs-target="#bubble-carousel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span></button>',
+'</div>')
+knitr::asis_output(paste(html, collapse = "\n"))
+```
+
+# Data Export (Wide Format)
+
+```{r export-wide}
+dir.create(file.path(OUTPUT_DIR, "Pathway_Heatmaps"), showWarnings = FALSE, recursive = TRUE)
+
+for (nm in names(GENE_SETS)) {
+  safe_name <- bubble_files[[nm]]
+
+  wide_lfc <- deg_all %>%
+    filter(Gene %in% GENE_SETS[[nm]]) %>%
+    mutate(lfc_masked = ifelse(significant, log2FoldChange, 0)) %>%
+    select(Gene, Comparison, lfc_masked) %>%
+    tidyr::pivot_wider(names_from = Comparison, values_from = lfc_masked, values_fill = 0)
+
+  write_csv(wide_lfc, file.path(OUTPUT_DIR, "Pathway_Heatmaps",
+                                 paste0("GraphPad_", safe_name, ".csv")))
+}
+message("Exported wide-format CSVs to ", file.path(OUTPUT_DIR, "Pathway_Heatmaps"))
+```
+
+# GO Enrichment Analysis
+
+```{r go-universe, message=FALSE}
+# ── Background gene set (universe) ────────────────────────────────────────────
+# Without `universe=`, clusterProfiler uses every annotated gene in the OrgDb
+# (tens of thousands) as the background for a few hundred tested genes. That is
+# the classic GO error: it systematically inflates every enrichment p-value.
+# The correct background is the set of genes that were actually TESTED —
+# i.e. everything present in DEG_FILE, significant or not.
+universe_ids <- tryCatch(
+  bitr(unique(deg_all$Gene), fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org_db),
+  error = function(e) NULL
+)
+if (is.null(universe_ids) || nrow(universe_ids) == 0) {
+  stop("Could not map any gene symbol in DEG_FILE to an ENTREZID via ", ORG_DB,
+       " - check that ORG_DB matches the species of your DEG table.")
+}
+GENE_UNIVERSE <- unique(universe_ids$ENTREZID)
+
+cat(sprintf("Background universe: %d of %d tested symbols mapped to Entrez IDs.\n",
+            length(GENE_UNIVERSE), n_distinct(deg_all$Gene)))
+```
+
+```{r go-carousel-data, message=FALSE, warning=FALSE, echo=FALSE}
+run_go_enrichment <- function(comp_name, deg_data, ont = "BP") {
+  sig_genes <- deg_data %>%
+    filter(Comparison == comp_name, significant) %>%
+    pull(Gene) %>%
+    unique()
+  if (length(sig_genes) < 5) { message("Skipping ", comp_name, " — fewer than 5 significant genes."); return(NULL) }
+  gene_ids <- tryCatch(
+    bitr(sig_genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org_db),
+    error = function(e) NULL
+  )
+  if (is.null(gene_ids) || nrow(gene_ids) == 0) return(NULL)
+  gene_ids <- gene_ids %>% distinct(ENTREZID, .keep_all = TRUE)
+  ego <- enrichGO(gene = gene_ids$ENTREZID, OrgDb = org_db, ont = ont,
+    universe = GENE_UNIVERSE,
+    pAdjustMethod = "BH", pvalueCutoff = ENRICHMENT_FDR, qvalueCutoff = ENRICHMENT_FDR,
+    minGSSize = MIN_GENE_SET, maxGSSize = MAX_GENE_SET, readable = TRUE)
+  list(ego = ego, comparison = comp_name)
+}
+
+comparisons_vec <- levels(deg_all$Comparison)
+go_results <- Filter(Negate(is.null), lapply(comparisons_vec, run_go_enrichment, deg_data = deg_all))
+names(go_results) <- sapply(go_results, `[[`, "comparison")
+
+# go_comps must be built AS the images are written, not before the loop:
+# comparisons that yield zero enriched terms are skipped here, and a carousel
+# built from the pre-loop list would emit <img> tags for files never created.
+go_comps <- character(0)
+go_files <- character(0)
+for (comp in names(go_results)) {
+  ego <- go_results[[comp]]$ego
+  if (is.null(ego) || nrow(as.data.frame(ego)) == 0) {
+    message("No GO terms passed the FDR cutoff for ", comp, " — omitted from the carousel.")
+    next
+  }
+  safe_comp <- sanitize_filename(comp)
+  p_dot <- dotplot(ego, showCategory = 20) +
+    labs(title = paste("GO (BP) Enrichment:", comp)) +
+    theme_bw() + theme(axis.text.y = element_text(size = 10),
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  ggsave(file.path(OUTPUT_DIR, "Enrichment", paste0("GO_", safe_comp, ".png")),
+         plot = p_dot, width = 8, height = 6, dpi = 150)
+  ggsave(file.path(OUTPUT_DIR, "Enrichment", paste0("GO_dotplot_", safe_comp, ".svg")),
+         plot = p_dot, device = "svg", width = 8, height = 6)
+  write_csv(as.data.frame(ego),
+            file.path(OUTPUT_DIR, "Enrichment", paste0("GO_results_", safe_comp, ".csv")))
+  go_comps <- c(go_comps, comp)
+  go_files <- c(go_files, safe_comp)
+}
+names(go_files) <- go_comps
+```
+
+```{r go-carousel-html, echo=FALSE, results='asis'}
+if (length(go_comps) > 1) {
+  html <- c('<div id="go-carousel" class="carousel slide go-carousel" data-bs-ride="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+  '  <div class="carousel-indicators">')
+  for (i in seq_along(go_comps)) {
+    active <- if(i == 1) ' class="active" aria-current="true"' else ''
+    html <- c(html, sprintf('    <button type="button" data-bs-target="#go-carousel" data-bs-slide-to="%d"%s></button>', i-1, active))
+  }
+  html <- c(html, '  </div>', '  <div class="carousel-inner">')
+  for (i in seq_along(go_comps)) {
+    comp <- go_comps[i]
+    active <- if(i == 1) ' active' else ''
+    html <- c(html, sprintf('    <div class="carousel-item%s">', active),
+              sprintf('      <img src="%s/Enrichment/GO_%s.png" class="d-block w-100" alt="%s">',
+                      OUTPUT_DIR, go_files[[comp]], comp),
+              sprintf('      <div class="carousel-caption d-none d-md-block"><p style="background:rgba(0,0,0,0.55);display:inline-block;padding:4px 12px;border-radius:4px;">%s</p></div>', comp),
+              '    </div>')
+  }
+  html <- c(html, '  </div>',
+  '  <button class="carousel-control-prev" type="button" data-bs-target="#go-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span></button>',
+  '  <button class="carousel-control-next" type="button" data-bs-target="#go-carousel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span></button>',
+  '</div>')
+  knitr::asis_output(paste(html, collapse = "\n"))
+} else if (length(go_comps) == 1) {
+  cat(sprintf('<img src="%s/Enrichment/GO_%s.png" class="d-block w-100" alt="GO: %s">\n',
+              OUTPUT_DIR, go_files[[go_comps[1]]], go_comps[1]))
+} else {
+  cat("_No comparison produced GO terms passing the enrichment FDR cutoff._\n")
+}
+```
+
+# KEGG Pathway Enrichment
+
+```{r kegg-carousel-data, message=FALSE, warning=FALSE, echo=FALSE}
+run_kegg_enrichment <- function(comp_name, deg_data) {
+  sig_genes <- deg_data %>% filter(Comparison == comp_name, significant) %>% pull(Gene) %>% unique()
+  if (length(sig_genes) < 5) return(NULL)
+  gene_ids <- tryCatch(bitr(sig_genes, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org_db), error = function(e) NULL)
+  if (is.null(gene_ids) || nrow(gene_ids) == 0) return(NULL)
+  gene_ids <- gene_ids %>% distinct(ENTREZID, .keep_all = TRUE)
+  # Same background as GO, and the same gene-set size limits — previously
+  # MIN_GENE_SET/MAX_GENE_SET silently applied to GO only. KEGG_ORGANISM is
+  # resolved from an explicit lookup table in the setup chunk.
+  kk <- tryCatch(enrichKEGG(gene = gene_ids$ENTREZID,
+    organism = KEGG_ORGANISM,
+    universe = GENE_UNIVERSE,
+    minGSSize = MIN_GENE_SET, maxGSSize = MAX_GENE_SET,
+    pAdjustMethod = "BH", pvalueCutoff = ENRICHMENT_FDR), error = function(e) NULL)
+  if (is.null(kk) || nrow(as.data.frame(kk)) == 0) return(NULL)
+  list(kk = kk, comparison = comp_name)
+}
+
+kegg_results <- Filter(Negate(is.null), lapply(comparisons_vec, run_kegg_enrichment, deg_data = deg_all))
+names(kegg_results) <- sapply(kegg_results, `[[`, "comparison")
+
+kegg_comps <- names(kegg_results)
+kegg_files <- setNames(sanitize_filename(kegg_comps), kegg_comps)
+for (comp in kegg_comps) {
+  kk <- kegg_results[[comp]]$kk
+  safe_comp <- kegg_files[[comp]]
+  p_kegg <- dotplot(kk, showCategory = 20) +
+    labs(title = paste("KEGG Enrichment:", comp)) +
+    theme_bw() + theme(axis.text.y = element_text(size = 10),
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+      panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  ggsave(file.path(OUTPUT_DIR, "Enrichment", paste0("KEGG_", safe_comp, ".png")),
+         plot = p_kegg, width = 8, height = 6, dpi = 150)
+  ggsave(file.path(OUTPUT_DIR, "Enrichment", paste0("KEGG_dotplot_", safe_comp, ".svg")),
+         plot = p_kegg, device = "svg", width = 8, height = 6)
+  write_csv(as.data.frame(kk),
+            file.path(OUTPUT_DIR, "Enrichment", paste0("KEGG_results_", safe_comp, ".csv")))
+}
+```
+
+```{r kegg-carousel-html, echo=FALSE, results='asis'}
+if (length(kegg_comps) > 1) {
+  html <- c('<div id="kegg-carousel" class="carousel slide go-carousel" data-bs-ride="false" style="background:#f8f8f8;border-radius:6px;padding:10px;">',
+  '  <div class="carousel-indicators">')
+  for (i in seq_along(kegg_comps)) {
+    active <- if(i == 1) ' class="active" aria-current="true"' else ''
+    html <- c(html, sprintf('    <button type="button" data-bs-target="#kegg-carousel" data-bs-slide-to="%d"%s></button>', i-1, active))
+  }
+  html <- c(html, '  </div>', '  <div class="carousel-inner">')
+  for (i in seq_along(kegg_comps)) {
+    comp <- kegg_comps[i]
+    active <- if(i == 1) ' active' else ''
+    html <- c(html, sprintf('    <div class="carousel-item%s">', active),
+              sprintf('      <img src="%s/Enrichment/KEGG_%s.png" class="d-block w-100" alt="%s">',
+                      OUTPUT_DIR, kegg_files[[comp]], comp),
+              sprintf('      <div class="carousel-caption d-none d-md-block"><p style="background:rgba(0,0,0,0.55);display:inline-block;padding:4px 12px;border-radius:4px;">%s</p></div>', comp),
+              '    </div>')
+  }
+  html <- c(html, '  </div>',
+  '  <button class="carousel-control-prev" type="button" data-bs-target="#kegg-carousel" data-bs-slide="prev"><span class="carousel-control-prev-icon" aria-hidden="true"></span></button>',
+  '  <button class="carousel-control-next" type="button" data-bs-target="#kegg-carousel" data-bs-slide="next"><span class="carousel-control-next-icon" aria-hidden="true"></span></button>',
+  '</div>')
+  knitr::asis_output(paste(html, collapse = "\n"))
+} else if (length(kegg_comps) == 1) {
+  cat(sprintf('<img src="%s/Enrichment/KEGG_%s.png" class="d-block w-100" alt="KEGG: %s">\n',
+              OUTPUT_DIR, kegg_files[[kegg_comps[1]]], kegg_comps[1]))
+} else {
+  cat("_No comparison produced KEGG pathways passing the enrichment FDR cutoff._\n")
+}
+```

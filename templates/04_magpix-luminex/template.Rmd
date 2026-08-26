@@ -1,0 +1,591 @@
+---
+title: "MagPix / Luminex Multiplex Cytokine Analysis"
+author: "Alejandro Ponce-Flores"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# DATA_FILE: Path to your MagPix/Luminex export CSV.
+#   Required columns (in addition to analyte columns):
+#   - "Location"     : well identifier (e.g., "A1")
+#   - "Sample"       : sample name — used to derive Factor1 and Factor2
+#   - "Original_ID"  : original sample ID (can be same as Sample)
+#   - "Total Events" : bead event count (for QC)
+#
+DATA_FILE <- "data/luminex_data.csv"
+
+# NON_ANALYTE_COLS: Columns that are NOT cytokine measurements.
+#   All other columns will be treated as analytes.
+NON_ANALYTE_COLS <- c("Location", "Sample", "Original_ID", "Total Events")
+
+# FACTOR1_LEVELS / FACTOR2_LEVELS: Level labels for the two experimental
+#   factors. Each label is matched as a *literal substring* (not a regex)
+#   against the Sample column, so labels containing "+", "(" or "." are safe.
+#   Element [1] is the reference / control level of that factor.
+#
+#   Example: Sample = "Disease_Drug_1"
+#     "Disease" is found in Sample → Factor1 = "Disease"
+#     "Drug"    is found in Sample → Factor2 = "Drug"
+#
+#   A sample matching *no* level of a factor is assigned NA and dropped
+#   (with a count reported) rather than being folded into the control.
+#
+FACTOR1_LEVELS <- c("PBS", "Disease")     # [1] = reference / control level
+FACTOR2_LEVELS <- c("Vehicle", "Drug")    # [1] = reference / control level
+
+# NON_SAMPLE_PATTERNS: Literal substrings identifying non-biological wells that
+#   Luminex exports routinely carry (standards, blanks, background). Rows whose
+#   Sample matches any of these are removed before modelling.
+NON_SAMPLE_PATTERNS <- c("Standard", "Blank", "Background", "Control Bead")
+
+# EXCLUDE_OUTLIERS: Tukey 3xIQR outliers are always *flagged* and tabulated.
+#   Set to TRUE to also drop them from the models; FALSE keeps them (default —
+#   deleting Luminex wells on a distributional rule alone is rarely justified).
+EXCLUDE_OUTLIERS <- FALSE
+
+# OKABE_ITO: Colorblind-safe palette keyed by group label.
+#   Names follow the "<Factor1>+<Factor2>" convention. Groups not listed here
+#   are filled automatically from the Okabe-Ito sequence, so a design larger
+#   than 2x2 still plots.
+OKABE_ITO <- c(
+  "PBS+Vehicle"      = "#0072B2",   # Blue
+  "PBS+Drug"         = "#E69F00",   # Orange
+  "Disease+Vehicle"  = "#009E73",   # Bluish green
+  "Disease+Drug"     = "#D55E00"    # Vermilion
+)
+
+# CONTRAST_ORDER / CONTRAST_LABELS: Define which emmeans contrasts appear in
+#   the heatmap (order matters for the y-axis) and their display labels.
+#   Adjust if your Factor levels produce different contrast names.
+CONTRAST_ORDER <- c(
+  paste0(FACTOR2_LEVELS[2], " - ", FACTOR2_LEVELS[1], ", ", FACTOR1_LEVELS[1]),
+  paste0(FACTOR2_LEVELS[2], " - ", FACTOR2_LEVELS[1], ", ", FACTOR1_LEVELS[2]),
+  paste0(FACTOR1_LEVELS[2], " - ", FACTOR1_LEVELS[1], ", ", FACTOR2_LEVELS[1]),
+  paste0(FACTOR1_LEVELS[2], " - ", FACTOR1_LEVELS[1], ", ", FACTOR2_LEVELS[2])
+)
+CONTRAST_LABELS <- c(
+  paste0("Drug (", FACTOR1_LEVELS[1], ")"),
+  paste0("Drug (", FACTOR1_LEVELS[2], ")"),
+  paste0(FACTOR1_LEVELS[2], " (", FACTOR2_LEVELS[1], ")"),
+  paste0(FACTOR1_LEVELS[2], " (", FACTOR2_LEVELS[2], ")")
+)
+
+# OUTPUT_DIR: Folder where per-analyte plots are saved.
+OUTPUT_DIR <- "Plots"
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# MagPix / Luminex Best Practices
+
+- **Bead counts:** ≥35 per analyte (≥50 ideal). Re-export with bead counts if missing.
+- **Left-censoring ("< LoD"):** Do not treat as zero. Replace with **LoD/√2**.
+- **Right-censoring ("> ULoQ"):** Equally important and usually ignored. `parse_number("> 10000")`
+  returns `10000`, which enters the model as an exact measurement. Here such values are substituted
+  at the **ULoQ itself** and flagged; the resulting effect estimates are *attenuated* (conservative),
+  which is stated wherever the censoring rate is non-trivial.
+- **QC/outliers:** Flag wells using **Tukey 3×IQR** on the log10 scale. Flagging is not the same as
+  excluding — this template flags and tabulates them, and only drops them if `EXCLUDE_OUTLIERS`
+  is set to `TRUE`.
+- **Non-sample wells:** Standards, blanks and background rows must be removed *before* modelling,
+  not silently folded into the control group.
+- **Design:** factorial (2×2 by default) — model on **log10(concentration)**, test main effects and
+  interaction. Level counts are derived from the config, so a 2×3 design works unchanged.
+- **Multiple analytes:** Correct FDR **within each model term**, across analytes (BH). The intercept
+  is not a hypothesis of interest and is excluded from the correction family. Report fold-changes
+  as 10^β.
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(stringr)
+library(broom)
+library(emmeans)
+library(ggpubr)
+library(ggbeeswarm)
+library(scales)
+library(forcats)
+```
+
+```{r make-output-dirs, include=FALSE}
+# Every figure produced by this template is written to OUTPUT_DIR/Heatmaps.
+dir.create(file.path(OUTPUT_DIR, "Heatmaps"), recursive = TRUE, showWarnings = FALSE)
+```
+
+# Load Data
+
+```{r load-data, message=FALSE}
+raw <- read_csv(DATA_FILE, show_col_types = FALSE)
+
+analyte_cols <- setdiff(names(raw), NON_ANALYTE_COLS)
+raw <- raw %>% mutate(across(all_of(analyte_cols), as.character))
+
+n_wells_in <- nrow(raw)
+
+# ── 1. Remove non-biological wells (standards, blanks, background) ────────────
+# Matched as literal substrings, case-insensitively, so a pattern containing
+# regex metacharacters is safe.
+if (length(NON_SAMPLE_PATTERNS) > 0) {
+  is_non_sample <- Reduce(
+    `|`,
+    lapply(NON_SAMPLE_PATTERNS,
+           function(p) str_detect(raw$Sample, fixed(p, ignore_case = TRUE)))
+  )
+} else {
+  is_non_sample <- rep(FALSE, nrow(raw))
+}
+n_non_sample <- sum(is_non_sample)
+raw <- raw[!is_non_sample, , drop = FALSE]
+
+# ── 2. Long format, censoring handling, factor assignment ────────────────────
+# Left-censored  ("< x") → substitute LoD/sqrt(2).
+# Right-censored ("> x") → substitute the ULoQ itself; the estimate is then a
+#   conservative lower bound rather than a point measurement.
+# A sample matching no level of a factor gets NA (never the control level).
+# For a factor with more than two levels, add one `str_detect(...) ~ level`
+# line per extra level, most specific first.
+dat_long <- raw %>%
+  pivot_longer(all_of(analyte_cols), names_to = "Analyte", values_to = "raw_value") %>%
+  mutate(
+    below_lod   = str_detect(raw_value, "^\\s*<"),
+    above_uloq  = str_detect(raw_value, "^\\s*>"),
+    censored    = below_lod | above_uloq,
+    lod         = if_else(below_lod,  parse_number(raw_value), NA_real_),
+    uloq        = if_else(above_uloq, parse_number(raw_value), NA_real_),
+    value       = case_when(
+      below_lod  ~ lod / sqrt(2),
+      above_uloq ~ uloq,
+      TRUE       ~ parse_number(raw_value)
+    ),
+    log10_value = log10(value),
+    Factor1     = case_when(
+      str_detect(Sample, fixed(FACTOR1_LEVELS[2])) ~ FACTOR1_LEVELS[2],
+      str_detect(Sample, fixed(FACTOR1_LEVELS[1])) ~ FACTOR1_LEVELS[1],
+      TRUE                                         ~ NA_character_
+    ),
+    Factor2     = case_when(
+      str_detect(Sample, fixed(FACTOR2_LEVELS[2])) ~ FACTOR2_LEVELS[2],
+      str_detect(Sample, fixed(FACTOR2_LEVELS[1])) ~ FACTOR2_LEVELS[1],
+      TRUE                                         ~ NA_character_
+    )
+  )
+
+# ── 3. Drop rows whose design assignment is unknown, and say how many ────────
+unassigned <- dat_long %>% filter(is.na(Factor1) | is.na(Factor2))
+n_unassigned_rows    <- nrow(unassigned)
+unassigned_samples   <- sort(unique(unassigned$Sample))
+
+dat_long <- dat_long %>%
+  filter(!is.na(Factor1), !is.na(Factor2)) %>%
+  mutate(
+    Factor1 = factor(Factor1, levels = FACTOR1_LEVELS),
+    Factor2 = factor(Factor2, levels = FACTOR2_LEVELS),
+    Group   = factor(
+      paste0(Factor1, "+", Factor2),
+      # Derived from the configured level counts — works for any n x m design.
+      levels = paste0(
+        rep(FACTOR1_LEVELS, each  = length(FACTOR2_LEVELS)),
+        "+",
+        rep(FACTOR2_LEVELS, times = length(FACTOR1_LEVELS))
+      )
+    )
+  )
+
+stopifnot(nrow(dat_long) > 0)
+
+cat(sprintf(
+  paste0("Wells read: %d\n",
+         "  removed as non-sample (standard/blank/background): %d\n",
+         "Measurement rows after reshaping: %d\n",
+         "  removed — Sample matched no level of Factor1/Factor2: %d (%d sample%s)\n",
+         "Rows retained for analysis: %d\n"),
+  n_wells_in, n_non_sample,
+  n_unassigned_rows + nrow(dat_long),
+  n_unassigned_rows, length(unassigned_samples),
+  if (length(unassigned_samples) == 1) "" else "s",
+  nrow(dat_long)
+))
+if (length(unassigned_samples) > 0) {
+  cat("Unassigned samples: ", paste(unassigned_samples, collapse = ", "), "\n", sep = "")
+}
+```
+
+# QC
+
+## Censoring Rate per Analyte
+
+```{r qc-censoring}
+qc_censor <- dat_long %>%
+  group_by(Analyte) %>%
+  summarise(
+    n            = n(),
+    below_n      = sum(below_lod),
+    below_pct    = 100 * below_n / n,
+    above_n      = sum(above_uloq),
+    above_pct    = 100 * above_n / n,
+    total_pct    = 100 * sum(censored) / n,
+    .groups      = "drop"
+  ) %>%
+  arrange(desc(total_pct))
+
+qc_censor %>%
+  knitr::kable(
+    caption   = "Censoring Rate per Analyte (Below LoD and Above ULoQ)",
+    col.names = c("Analyte", "Total Samples",
+                  "< LoD Count", "< LoD %",
+                  "> ULoQ Count", "> ULoQ %",
+                  "Any Censoring %"),
+    digits    = 1
+  )
+```
+
+> **Guidance:** Analytes with >50% censoring warrant Tobit regression as a sensitivity
+> check. The standard substitution (LoD/√2) used here is appropriate for <30% left-censoring.
+> Right-censored values are substituted at the ULoQ, which **attenuates** any effect involving
+> them — treat those estimates as conservative lower bounds, and re-run the affected analytes
+> at a higher dilution rather than reporting the substituted value as a measurement.
+
+```{r qc-censoring-note, results='asis', echo=FALSE}
+worst_above <- qc_censor %>% filter(above_pct > 0) %>% arrange(desc(above_pct))
+if (nrow(worst_above) > 0) {
+  cat(sprintf(
+    "> **Note:** %d analyte(s) contain values above the upper limit of quantification (max %.1f%%: %s). Their effect estimates are attenuated.\n",
+    nrow(worst_above), worst_above$above_pct[1], worst_above$Analyte[1]
+  ))
+}
+```
+
+## Outliers (Tukey 3×IQR on log10 scale)
+
+```{r qc-outliers}
+fences <- dat_long %>%
+  group_by(Analyte) %>%
+  summarise(
+    q1    = quantile(log10_value, 0.25, na.rm = TRUE),
+    q3    = quantile(log10_value, 0.75, na.rm = TRUE),
+    iqr   = IQR(log10_value, na.rm = TRUE),
+    lower = q1 - 3 * iqr,
+    upper = q3 + 3 * iqr,
+    .groups = "drop"
+  )
+
+dat_long <- dat_long %>%
+  left_join(fences, by = "Analyte") %>%
+  mutate(
+    Outlier = if_else(
+      !is.na(log10_value) & (log10_value < lower | log10_value > upper),
+      "Yes", "No"
+    )
+  ) %>%
+  select(-q1, -q3, -iqr, -lower, -upper)
+
+outlier_tbl <- dat_long %>%
+  filter(Outlier == "Yes") %>%
+  count(Analyte, name = "outlier_n") %>%
+  arrange(desc(outlier_n))
+
+outlier_tbl %>%
+  knitr::kable(
+    caption   = "Wells Flagged as Outliers (Tukey 3xIQR on log10 scale)",
+    col.names = c("Analyte", "Flagged Wells")
+  )
+
+# Flagging and excluding are separate decisions — EXCLUDE_OUTLIERS controls the
+# second one, so the code and the text above cannot drift apart.
+n_outliers <- sum(dat_long$Outlier == "Yes")
+if (isTRUE(EXCLUDE_OUTLIERS)) {
+  dat_long <- dat_long %>% filter(Outlier != "Yes")
+  cat(sprintf("EXCLUDE_OUTLIERS = TRUE: %d flagged well-measurements removed from all models.\n",
+              n_outliers))
+} else {
+  cat(sprintf("EXCLUDE_OUTLIERS = FALSE: %d flagged well-measurements are reported above but RETAINED in all models.\n",
+              n_outliers))
+}
+```
+
+# Two-Way ANOVA (per Analyte)
+
+```{r anova}
+effect_map <- c(
+  setNames(
+    paste0(FACTOR1_LEVELS[2], " vs ", FACTOR1_LEVELS[1]),
+    paste0("Factor1", FACTOR1_LEVELS[2])
+  ),
+  setNames(
+    paste0(FACTOR2_LEVELS[2], " vs ", FACTOR2_LEVELS[1]),
+    paste0("Factor2", FACTOR2_LEVELS[2])
+  ),
+  setNames(
+    "Interaction",
+    paste0("Factor1", FACTOR1_LEVELS[2], ":Factor2", FACTOR2_LEVELS[2])
+  )
+)
+
+# The correction family is "this model term, across all analytes". The
+# intercept tests "mean log10 concentration = 0", which is never a hypothesis of
+# interest, is always astronomically significant, and would both inflate m and
+# occupy the top ranks — so it is dropped before correcting.
+res_lm <- dat_long %>%
+  group_by(Analyte) %>%
+  group_modify(~ {
+    m <- lm(log10_value ~ Factor1 * Factor2, data = .x)
+    broom::tidy(m)
+  }) %>%
+  ungroup() %>%
+  filter(term != "(Intercept)") %>%
+  group_by(term) %>%
+  mutate(adj.p = p.adjust(p.value, method = "BH")) %>%
+  ungroup() %>%
+  mutate(
+    effect      = coalesce(unname(effect_map[term]), term),
+    fold_change = 10^estimate
+  ) %>%
+  arrange(Analyte, effect)
+
+res_lm %>%
+  head(20) %>%
+  select(Analyte, term, estimate, std.error, statistic, p.value, effect, adj.p, fold_change) %>%
+  knitr::kable(
+    caption     = "Two-Way ANOVA Model Summary (First 20 Effects; intercepts excluded, BH within each term)",
+    col.names   = c("Analyte", "Term", "Estimate", "Std Error", "Statistic", "Raw p", "Effect", "FDR adj. p", "Fold Change"),
+    digits      = 4
+  )
+readr::write_csv(res_lm, file.path(OUTPUT_DIR, "model_LM_results.csv"))
+```
+
+# Post-Hoc Contrasts (emmeans)
+
+```{r emmeans}
+group_levels <- levels(dat_long$Group)
+
+emm_contrasts <- dat_long %>%
+  group_by(Analyte) %>%
+  group_modify(~ {
+    m   <- lm(log10_value ~ Factor1 * Factor2, data = .x)
+    emm <- emmeans(m, ~ Factor1 * Factor2)
+
+    drug_effects    <- contrast(emm, method = "revpairwise", by = "Factor1", infer = TRUE)
+    disease_effects <- contrast(emm, method = "revpairwise", by = "Factor2", infer = TRUE)
+    interaction_eff <- contrast(emm, interaction = c("revpairwise", "revpairwise"), infer = TRUE)
+
+    s <- bind_rows(
+      as.data.frame(drug_effects),
+      as.data.frame(disease_effects),
+      as.data.frame(interaction_eff)
+    )
+    s_tidy <- s %>%
+      mutate(
+        unique_contrast = case_when(
+          !is.na(Factor1) ~ paste(contrast, Factor1, sep = ", "),
+          !is.na(Factor2) ~ paste(contrast, Factor2, sep = ", "),
+          TRUE            ~ contrast
+        )
+      )
+
+    tibble(
+      contrast       = s_tidy$unique_contrast,
+      estimate_log10 = s_tidy$estimate,
+      SE             = s_tidy$SE,
+      df             = s_tidy$df,
+      t              = s_tidy$t.ratio,
+      p              = s_tidy$p.value,
+      fold_change    = 10^s_tidy$estimate,
+      lower_FC       = 10^s_tidy$lower.CL,
+      upper_FC       = 10^s_tidy$upper.CL
+    )
+  }) %>%
+  ungroup() %>%
+  # Same family definition as the model table above: correct across analytes
+  # within each contrast, not across every analyte-by-contrast cell at once.
+  group_by(contrast) %>%
+  mutate(p_adj = p.adjust(p, method = "BH")) %>%
+  ungroup() %>%
+  arrange(contrast, p_adj)
+
+emm_contrasts %>%
+  head(20) %>%
+  knitr::kable(
+    caption     = "emmeans Post-Hoc Contrasts & Fold Changes (First 20 Comparisons)",
+    col.names   = c("Analyte", "Contrast", "Log10 Est.", "SE", "df", "t ratio", "Raw p", "Fold Change", "Lower FC", "Upper FC", "FDR adj. p"),
+    digits      = 4
+  )
+readr::write_csv(emm_contrasts, file.path(OUTPUT_DIR, "emmeans_contrasts_foldchanges.csv"))
+```
+
+# Visualization
+
+## Effect Size Heatmap
+
+```{r heatmap, fig.width=6, fig.height=4}
+heatmap_data <- emm_contrasts %>%
+  filter(!is.na(contrast)) %>%
+  mutate(
+    log2_FC      = log2(fold_change),
+    log2_FC_plot = if_else(p_adj < 0.05, log2_FC, 0),
+    Analyte      = factor(Analyte, levels = sort(unique(Analyte))),
+    contrast_disp = factor(contrast,
+                           levels = CONTRAST_ORDER,
+                           labels = CONTRAST_LABELS)
+  ) %>%
+  filter(!is.na(contrast_disp))
+
+lim <- max(abs(heatmap_data$log2_FC_plot), na.rm = TRUE)
+lim <- max(lim, 1)
+
+p_heat <- ggplot(heatmap_data,
+                 aes(x = contrast_disp, y = Analyte, fill = log2_FC_plot)) +
+  geom_tile(color = "grey85", linewidth = 0.2) +
+  scale_fill_gradient2(
+    low      = "#3B4CC0",
+    mid      = "white",
+    high     = "#D55E00",
+    midpoint = 0,
+    limits   = c(-lim, lim),
+    breaks   = pretty_breaks(n = 5),
+    labels   = label_number(accuracy = 0.1)
+  ) +
+  scale_y_discrete(expand = expansion(mult = c(0.01, 0.05))) +
+  labs(
+    x       = NULL,
+    y       = NULL,
+    fill    = "Log\u2082 Fold Change",
+    title   = "Analyte-wise Effects of Treatments",
+    caption = "Non-significant tiles masked to 0 (FDR < 0.05)"
+  ) +
+  theme_bw(base_size = 13, base_family = "sans") +
+  theme(
+    legend.position  = "right",
+    legend.direction = "vertical",
+    legend.title     = element_text(size = 11),
+    legend.key.width = unit(12, "pt"),
+    axis.text.x      = element_text(angle = 30, hjust = 1, face = "bold"),
+    axis.text.y      = element_text(size = 11, lineheight = 1.3, face = "bold"),
+    axis.ticks       = element_blank(),
+    axis.line        = element_blank(),
+    plot.title       = element_text(size = 14, face = "bold", margin = margin(b = 6)),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+ggsave(file.path(OUTPUT_DIR, "Heatmaps", "heatmap.tiff"),
+       plot = p_heat, width = 6, height = 4, dpi = 600,
+       device = "tiff", compression = "lzw")
+print(p_heat)
+```
+
+# Per-Analyte Visualization Gallery {.tabset .tabset-fade}
+
+```{r plot-helpers-faceted, message=FALSE, warning=FALSE}
+# The gallery figures below show the data; the significance testing lives in the
+# emmeans table above. No per-panel brackets are drawn, so no per-analyte
+# contrasts are computed here.
+
+# Complete the palette for any group the config does not name, so a design
+# other than 2x2 does not fail on a missing colour.
+OKABE_ITO_SEQ <- c("#0072B2", "#E69F00", "#009E73", "#D55E00",
+                   "#CC79A7", "#56B4E9", "#F0E442", "#999999")
+group_levels_all <- levels(dat_long$Group)
+GROUP_COLORS <- setNames(OKABE_ITO[group_levels_all], group_levels_all)
+if (any(is.na(GROUP_COLORS))) {
+  GROUP_COLORS[is.na(GROUP_COLORS)] <-
+    rep(OKABE_ITO_SEQ, length.out = sum(is.na(GROUP_COLORS)))
+}
+
+make_faceted_plot <- function(plot_dat, plot_type = c("dot", "bar", "violin", "box")) {
+  plot_type <- match.arg(plot_type)
+  
+  p <- ggplot(plot_dat, aes(x = Group, y = log10_value)) +
+    scale_color_manual(values = GROUP_COLORS) +
+    scale_y_continuous(breaks = pretty_breaks(5), labels = math_format(10^.x)) +
+    labs(y = "log\u2081\u2080 concentration (pg/mL)", x = NULL) +
+    theme_bw(base_size = 11, base_family = "sans") +
+    theme(
+      legend.position = "none",
+      axis.line       = element_line(linewidth = 0.6),
+      axis.ticks      = element_line(linewidth = 0.6),
+      axis.text.x = element_text(angle = 30, hjust = 1, size = 9),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      strip.text = element_text(face = "bold", size = 10),
+      strip.background = element_rect(fill = "grey95", color = "grey70")
+    )
+  
+  # `fill` is only mapped by the bar/violin/box variants; adding the fill scale
+  # unconditionally makes ggplot warn about a scale with no matching data.
+  if (plot_type != "dot") {
+    p <- p + scale_fill_manual(values = GROUP_COLORS)
+  }
+
+  if (plot_type == "dot") {
+    p <- p +
+      geom_quasirandom(aes(color = Group), width = 0.15, alpha = 0.8, size = 1.5) +
+      stat_summary(fun.data = mean_cl_normal, geom = "errorbar",
+                   width = 0.18, linewidth = 0.4)
+  } else if (plot_type == "bar") {
+    p <- p +
+      stat_summary(aes(fill = Group), fun = mean, geom = "col",
+                   width = 0.6, alpha = 0.45, color = NA) +
+      geom_quasirandom(aes(color = Group), width = 0.15, size = 1.5, alpha = 0.9) +
+      stat_summary(fun.data = mean_cl_normal, geom = "errorbar",
+                   width = 0.18, linewidth = 0.5)
+  } else if (plot_type == "violin") {
+    p <- p +
+      geom_violin(aes(fill = Group, color = Group),
+                  width = 0.8, alpha = 0.15, trim = FALSE, linewidth = 0.6) +
+      geom_quasirandom(aes(color = Group), width = 0.15, size = 1.5, alpha = 0.9)
+  } else if (plot_type == "box") {
+    p <- p +
+      geom_boxplot(aes(fill = Group, color = Group),
+                   width = 0.6, alpha = 0.15, outlier.shape = NA, linewidth = 0.6) +
+      geom_quasirandom(aes(color = Group), width = 0.15, size = 1.5, alpha = 0.9)
+  }
+  
+  p + facet_wrap(~Analyte, scales = "free_y", ncol = 4)
+}
+
+write_plot <- function(p, name) {
+  ggsave(file.path(OUTPUT_DIR, name),
+         plot = p, width = 14, height = 8, dpi = 600,
+         device = "tiff", compression = "lzw")
+}
+```
+
+## Dot Plots
+
+```{r dot-gal, fig.width=14, fig.height=8, message=FALSE, warning=FALSE}
+p_dot <- make_faceted_plot(dat_long, "dot")
+write_plot(p_dot, "Heatmaps/gallery_dotplots.tiff")
+print(p_dot)
+```
+
+## Bar Plots
+
+```{r bar-gal, fig.width=14, fig.height=8, message=FALSE, warning=FALSE}
+p_bar <- make_faceted_plot(dat_long, "bar")
+write_plot(p_bar, "Heatmaps/gallery_barplots.tiff")
+print(p_bar)
+```
+
+## Violin Plots
+
+```{r viol-gal, fig.width=14, fig.height=8, message=FALSE, warning=FALSE}
+p_viol <- make_faceted_plot(dat_long, "violin")
+write_plot(p_viol, "Heatmaps/gallery_violinplots.tiff")
+print(p_viol)
+```
+
+## Box Plots
+
+```{r box-gal, fig.width=14, fig.height=8, message=FALSE, warning=FALSE}
+p_box <- make_faceted_plot(dat_long, "box")
+write_plot(p_box, "Heatmaps/gallery_boxplots.tiff")
+print(p_box)
+```

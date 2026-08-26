@@ -1,0 +1,613 @@
+---
+title: "Plaque Assay + Violin Plots — Viral Titer Analysis"
+author: "Alejandro Ponce-Flores"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: cerulean
+    toc: true
+    number_sections: true
+    code_folding: hide
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r knitr-opts, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width  = 6,
+  fig.height = 4,
+  dpi        = 600,
+  fig.align  = "center"
+)
+```
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# DATA_FILE: Path to your CSV file with plaque assay data.
+#   Expected columns (rename yours to match, or update the rename() call below):
+#   - "Mouse ID"              : animal/sample identifier
+#   - "Group"                 : group label (e.g., "Group 1", "Group 2")
+#   - "Virus"                 : virus or mock label used in sample
+#   - "# plaques counted R1"  : plaque count replicate 1
+#   - "# plaques counted R2"  : plaque count replicate 2
+#   - "Average plaques from duplicate wells in a 12-well plate"
+#   - "Plated 10e-1 to 10e-6 dilution"
+#   - "Total Volume (ml)"
+#   - "pfu/mL right-side lung homogenate"  : calculated viral titer
+#
+DATA_FILE <- "data/titer_data.csv"
+
+# EXCLUDE_PATTERN: Regex to drop rows you do not want (e.g., backtitrations).
+#   Set to NULL to keep all rows.
+EXCLUDE_PATTERN <- NULL   # e.g., "backtitration"
+
+# GROUP_MAP: Named character vector mapping your "Group N" labels to
+#   human-readable short names used in all plots and tables.
+#   Keys  = values in the "Group" column of your CSV.
+#   Values = display names (shown on plot axes).
+#
+#   NOTE: for the shipped demo data this mapping is asserted against the
+#   simulator (data/simulate_data.R defines the same Group -> label pairs in
+#   GROUP_DEFS). Every group present in the CSV must appear as a key here —
+#   the template stops with an error otherwise, rather than silently dropping
+#   unmapped animals from the plots and the ANOVA.
+GROUP_MAP <- c(
+  "Group 1" = "Mock + Compound A",
+  "Group 2" = "Mock + Compound B",
+  "Group 3" = "Compound A",
+  "Group 4" = "Compound B",
+  "Group 5" = "Drug X",
+  "Group 6" = "Compound A + Drug X",
+  "Group 7" = "Compound B + Drug X",
+  "Group 8" = "Vehicle"
+)
+
+# GROUP_ORDER: Display order on the x-axis. Must contain the same strings
+#   as the values of GROUP_MAP.
+GROUP_ORDER <- c(
+  "Mock + Compound A",
+  "Mock + Compound B",
+  "Vehicle",
+  "Drug X",
+  "Compound A",
+  "Compound A + Drug X",
+  "Compound B",
+  "Compound B + Drug X"
+)
+
+# PALETTE_GROUPS: Fill color for each group in the full violin plot.
+#   Names must match the values of GROUP_MAP / GROUP_ORDER.
+PALETTE_GROUPS <- c(
+  "Mock + Compound A"    = "grey85",
+  "Mock + Compound B"    = "grey70",
+  "Vehicle"              = "grey40",
+  "Drug X"               = "#984ea3",
+  "Compound A"           = "#74add1",
+  "Compound B"           = "#4575b4",
+  "Compound A + Drug X"  = "#66c2a5",
+  "Compound B + Drug X"  = "#238b45"
+)
+
+# MERGE_MAP: Optionally collapse related groups for the combined-group plot.
+#   Keys = ShortGroup values; Values = merged display name.
+#   Groups not listed here are kept as-is.
+MERGE_MAP <- c(
+  "Mock + Compound A"    = "Mock",
+  "Mock + Compound B"    = "Mock",
+  "Compound A"           = "Inhibitor",
+  "Compound B"           = "Inhibitor",
+  "Compound A + Drug X"  = "Drug + Inhibitor",
+  "Compound B + Drug X"  = "Drug + Inhibitor",
+  "Vehicle"              = "Vehicle",
+  "Drug X"               = "Drug X"
+)
+
+# MERGE_ORDER: Display order for the combined-group violin plot.
+MERGE_ORDER <- c("Mock", "Vehicle", "Drug X", "Inhibitor", "Drug + Inhibitor")
+
+# PALETTE_MERGED: Fill colors for the combined-group violin plot.
+PALETTE_MERGED <- c(
+  "Mock"            = "grey80",
+  "Vehicle"         = "grey40",
+  "Drug X"          = "#984ea3",
+  "Inhibitor"       = "#4575b4",
+  "Drug + Inhibitor"= "#238b45"
+)
+
+# COMPARISONS: Pairs of merged groups to test with stat_compare_means().
+#   Each element is a length-2 character vector of MERGE_ORDER values.
+COMPARISONS <- list(
+  c("Drug X", "Inhibitor"),
+  c("Drug X", "Drug + Inhibitor"),
+  c("Inhibitor", "Drug + Inhibitor")
+)
+
+# TITER_COL: Column name in your CSV that holds the computed titer value.
+TITER_COL <- "pfu/mL right-side lung homogenate"
+
+# PSEUDOCOUNT: Added to the titer before log10 so that true zeros (below the
+#   limit of detection) survive both the statistics AND the log-scaled figures.
+#   Use the same value everywhere — never log10() a raw titer.
+PSEUDOCOUNT <- 1
+
+# ALPHA: Significance threshold used for assumption checks and for deciding
+#   which Tukey comparisons get a bracket on the final figure.
+ALPHA <- 0.05
+
+# LOA_MULTIPLIER: Width of the replicate limits of agreement, in SDs of the
+#   replicate difference (1.96 = 95% LoA).
+LOA_MULTIPLIER <- 1.96
+
+# OUTPUT_DIR: Where figures are written. Created if it does not exist.
+OUTPUT_DIR <- "Plots"
+
+# Figure export settings (applied to every ggsave() call below).
+FIG_WIDTH  <- 8      # inches
+FIG_HEIGHT <- 5      # inches
+FIG_DPI    <- 600
+
+# VIOLIN_BW: Kernel bandwidth for geom_violin, on the log10 scale.
+#   Increase for smoother violins, decrease for more detail.
+VIOLIN_BW <- 0.15
+
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# Setup
+
+## Libraries
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(readr)
+library(dplyr)
+library(janitor)
+library(stringr)
+library(ggplot2)
+library(scales)
+library(rstatix)
+library(car)
+library(ggpubr)
+library(gt)
+library(broom)
+```
+
+## Load Data
+
+```{r load-data, message=FALSE, warning=FALSE}
+if (!file.exists(DATA_FILE)) {
+  stop("DATA_FILE not found: '", DATA_FILE, "'. ",
+       "Run `Rscript data/simulate_data.R` from the template directory to ",
+       "regenerate the demo data, or point DATA_FILE at your own CSV.")
+}
+
+df <- read_csv(DATA_FILE)
+
+# ── Input validation ─────────────────────────────────────────────────────────
+# Fail loudly and early rather than producing plots from a partially parsed
+# file. Every column renamed in the next chunk must exist.
+REQUIRED_COLS <- c(
+  "Mouse ID", "Group",
+  "# plaques counted R1", "# plaques counted R2",
+  "Average plaques from duplicate wells in a 12-well plate",
+  "Plated 10e-1 to 10e-6 dilution", "Total Volume (ml)",
+  TITER_COL
+)
+missing_cols <- setdiff(REQUIRED_COLS, names(df))
+if (length(missing_cols) > 0) {
+  stop("DATA_FILE is missing required column(s): ",
+       paste(sQuote(missing_cols), collapse = ", "),
+       ". Rename your columns to match, or edit REQUIRED_COLS and the ",
+       "rename() call in the next chunk.")
+}
+
+# Every group in the data must be mapped, or it silently disappears from the
+# figures and the ANOVA when factor(levels = GROUP_ORDER) turns it into NA.
+unmapped_groups <- setdiff(unique(df$Group), names(GROUP_MAP))
+if (length(unmapped_groups) > 0) {
+  stop("Group value(s) present in the data but absent from GROUP_MAP: ",
+       paste(sQuote(unmapped_groups), collapse = ", "),
+       ". Add them to GROUP_MAP (and to GROUP_ORDER / PALETTE_GROUPS / MERGE_MAP).")
+}
+stopifnot(all(unique(df$Group) %in% names(GROUP_MAP)))
+
+# The display vocabularies must agree with each other too.
+stopifnot(
+  all(GROUP_MAP   %in% GROUP_ORDER),
+  all(GROUP_ORDER %in% GROUP_MAP),
+  all(GROUP_ORDER %in% names(PALETTE_GROUPS)),
+  all(GROUP_ORDER %in% names(MERGE_MAP)),
+  all(MERGE_MAP   %in% MERGE_ORDER),
+  all(MERGE_ORDER %in% names(PALETTE_MERGED)),
+  all(unlist(COMPARISONS) %in% MERGE_ORDER)
+)
+
+dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
+```
+
+## Clean and Organize
+
+```{r clean}
+df_clean <- df %>%
+  { if (!is.null(EXCLUDE_PATTERN)) filter(., !str_detect(Group, EXCLUDE_PATTERN)) else . } %>%
+  rename(
+    MouseID    = `Mouse ID`,
+    Plaques_R1 = `# plaques counted R1`,
+    Plaques_R2 = `# plaques counted R2`,
+    AvgPlaques = `Average plaques from duplicate wells in a 12-well plate`,
+    Dilution   = `Plated 10e-1 to 10e-6 dilution`,
+    Volume_mL  = `Total Volume (ml)`,
+    Titer      = all_of(TITER_COL)
+  ) %>%
+  mutate(
+    ShortGroup  = coalesce(unname(GROUP_MAP[Group]), Group),
+    MergedGroup = coalesce(unname(MERGE_MAP[ShortGroup]), ShortGroup),
+    ShortGroup  = factor(ShortGroup, levels = GROUP_ORDER),
+    MergedGroup = factor(MergedGroup, levels = MERGE_ORDER),
+    mean_plaques  = (Plaques_R1 + Plaques_R2) / 2,
+    diff_plaques  = Plaques_R1 - Plaques_R2,
+    # Titer_pseudo is what every log-scaled FIGURE plots, and logTiter is what
+    # every TEST uses. Both carry the same pseudocount, so figure n == test n
+    # and animals at the limit of detection (Titer == 0) are never dropped.
+    Titer_pseudo  = Titer + PSEUDOCOUNT,
+    logTiter      = log10(Titer + PSEUDOCOUNT)
+  )
+
+# The GROUP_MAP / MERGE_MAP checks above guarantee every row is mapped; assert
+# the factor conversion did not introduce NAs anyway (e.g. from a stray level).
+stopifnot(
+  !any(is.na(df_clean$ShortGroup)),
+  !any(is.na(df_clean$MergedGroup))
+)
+
+# ── Limit of Agreement (LoA) ─────────────────────────────────────────────────
+loa_stats <- df_clean %>%
+  summarise(
+    bias    = mean(diff_plaques, na.rm = TRUE),
+    sd_diff = sd(diff_plaques, na.rm = TRUE)
+  )
+loa_upper <- loa_stats$bias + LOA_MULTIPLIER * loa_stats$sd_diff
+loa_lower <- loa_stats$bias - LOA_MULTIPLIER * loa_stats$sd_diff
+
+df_clean <- df_clean %>%
+  mutate(
+    flag_bad_replicate = diff_plaques < loa_lower | diff_plaques > loa_upper
+  )
+```
+
+# Check Replicates
+
+```{r replicate-check}
+labeled_points <- filter(df_clean, flag_bad_replicate)
+
+print(
+  ggplot(df_clean, aes(x = Plaques_R1, y = Plaques_R2, color = flag_bad_replicate)) +
+    geom_point(size = 2) +
+    geom_abline(slope = 1, intercept = 0, color = "grey40") +
+    geom_text(
+      data    = labeled_points,
+      mapping = aes(
+        x = Plaques_R1,
+        y = Plaques_R2,
+        label = as.character(MouseID)
+      ),
+      nudge_y = 1, size = 3, color = "orange", inherit.aes = FALSE
+    ) +
+    scale_color_manual(values = c("black", "orange"), labels = c("OK", "Outside LoA")) +
+    labs(
+      x     = "Plaques counted (Replicate 1)",
+      y     = "Plaques counted (Replicate 2)",
+      color = "Flagged",
+      title = paste0("Replicate Agreement (", LOA_MULTIPLIER,
+                     " × SD Limits of Agreement)")
+    ) +
+    theme_bw() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+)
+```
+
+Data points outside the LoA are flagged in orange. Review these samples before proceeding.
+
+# Plots
+
+## Full Group Violin Plot
+
+```{r violin-full, message=FALSE, warning=FALSE}
+p_full <- ggplot(df_clean, aes(x = ShortGroup, y = Titer_pseudo, fill = ShortGroup)) +
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black", bw = VIOLIN_BW) +
+  stat_summary(
+    fun.data = mean_sdl,
+    fun.args = list(mult = 1),
+    geom = "pointrange", color = "black", size = 0.8, alpha = 0.9, shape = 22
+  ) +
+  geom_jitter(width = 0.18, size = 1, alpha = 0.60) +
+  scale_fill_manual(values = PALETTE_GROUPS, guide = "none") +
+  scale_y_log10(labels = scales::label_scientific()) +
+  labs(
+    x       = "Group",
+    y       = paste0("Viral Titer + ", PSEUDOCOUNT, " (pfu/mL, log scale)"),
+    title   = "Viral Titers by Group",
+    caption = paste0("Black bars indicate mean \u00b1 1 SD. Titers are plotted as ",
+                     "Titer + ", PSEUDOCOUNT,
+                     " so that animals at the limit of detection remain visible.")
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    axis.text.x      = element_text(angle = 30, hjust = 1),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+ggsave(file.path(OUTPUT_DIR, "Viral_Titer_By_Group.tiff"), plot = p_full,
+       width = FIG_WIDTH, height = FIG_HEIGHT, units = "in", dpi = FIG_DPI,
+       compression = "lzw")
+print(p_full)
+```
+
+## Combined Group Violin Plot
+
+```{r violin-merged, message=FALSE, warning=FALSE}
+p_merged <- ggplot(df_clean, aes(x = MergedGroup, y = Titer_pseudo, fill = MergedGroup)) +
+  geom_violin(trim = FALSE, alpha = 0.45, color = "black", bw = VIOLIN_BW) +
+  geom_jitter(width = 0.18, size = 1, alpha = 0.60) +
+  scale_fill_manual(values = PALETTE_MERGED, guide = "none") +
+  scale_y_log10(labels = scales::label_scientific()) +
+  labs(
+    x     = "Group",
+    y     = paste0("Viral Titer + ", PSEUDOCOUNT, " (pfu/mL, log scale)"),
+    title = "Viral Titers by Combined Group"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    axis.text.x      = element_text(angle = 30, hjust = 1),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+ggsave(file.path(OUTPUT_DIR, "Viral_Titer_By_MergedGroup.tiff"), plot = p_merged,
+       width = FIG_WIDTH, height = FIG_HEIGHT, units = "in", dpi = FIG_DPI,
+       compression = "lzw")
+print(p_merged)
+```
+
+# Significance Testing
+
+## Assumption Checks
+
+```{r assumptions}
+# shapiro_test() errors on any group with fewer than 3 non-missing values, and
+# is undefined for a group with zero variance — drop both before testing and
+# report which groups were skipped instead of failing the render.
+shapiro_input <- df_clean %>%
+  filter(!is.na(logTiter)) %>%
+  group_by(ShortGroup) %>%
+  filter(dplyr::n() >= 3, sd(logTiter, na.rm = TRUE) > 0) %>%
+  ungroup()
+
+skipped_groups <- setdiff(
+  as.character(unique(df_clean$ShortGroup)),
+  as.character(unique(shapiro_input$ShortGroup))
+)
+
+shapiro_res <- shapiro_input %>%
+  group_by(ShortGroup) %>%
+  shapiro_test(logTiter)
+
+shapiro_res %>%
+  dplyr::select(Group = ShortGroup, `Statistic (W)` = statistic, `p-value` = p) %>%
+  knitr::kable(caption = "Shapiro-Wilk Normality Test by Group", digits = 4)
+
+if (length(skipped_groups) > 0) {
+  cat("Groups skipped (n < 3 or zero variance on the log scale): ",
+      paste(skipped_groups, collapse = ", "), "\n", sep = "")
+}
+
+lev_res <- leveneTest(logTiter ~ ShortGroup, data = df_clean)
+lev_df  <- data.frame(
+  `Source` = c("Group", "Residuals"),
+  `Df`     = lev_res$Df,
+  `F value` = c(lev_res$`F value`[1], NA),
+  `Pr(>F)` = c(lev_res$`Pr(>F)`[1], NA),
+  check.names = FALSE
+)
+knitr::kable(lev_df, caption = "Levene's Test for Homogeneity of Variance", digits = 4)
+```
+
+```{r assumption-verdict}
+# Act on the two tables above rather than just printing them: state the verdict
+# explicitly, and run Welch's ANOVA as a robustness check whenever the
+# equal-variance assumption behind the classical aov()/Tukey below is rejected.
+normality_ok  <- nrow(shapiro_res) == 0 || all(shapiro_res$p >= ALPHA)
+levene_p      <- lev_res$`Pr(>F)`[1]
+variances_ok  <- is.na(levene_p) || levene_p >= ALPHA
+
+cat(sprintf(
+  "Normality (Shapiro-Wilk, per group, alpha = %.2f): %s\n",
+  ALPHA,
+  if (normality_ok) "not rejected in any group"
+  else paste0("REJECTED in: ",
+              paste(shapiro_res$ShortGroup[shapiro_res$p < ALPHA], collapse = ", "))
+))
+cat(sprintf(
+  "Homogeneity of variance (Levene, alpha = %.2f): %s (p = %s)\n",
+  ALPHA,
+  if (variances_ok) "not rejected" else "REJECTED",
+  format.pval(levene_p, digits = 3)
+))
+
+if (!variances_ok) {
+  cat("\nLevene's test is significant, so the classical ANOVA + Tukey HSD below",
+      "assume more than the data support. Welch's one-way ANOVA, which does not",
+      "assume equal variances, is reported here as the robustness check:\n\n")
+  welch_full <- oneway.test(logTiter ~ ShortGroup, data = df_clean, var.equal = FALSE)
+  print(welch_full)
+  cat("\nIf the two disagree, prefer the Welch result and switch the pairwise",
+      "comparisons to Games-Howell (rstatix::games_howell_test).\n")
+} else {
+  cat("\nEqual variances are a reasonable assumption, so the classical one-way",
+      "ANOVA with Tukey HSD below is the appropriate test.\n")
+}
+```
+
+## One-Way ANOVA — All Groups
+
+```{r anova-full}
+fit_full <- aov(logTiter ~ ShortGroup, data = df_clean)
+
+tidy(fit_full) %>%
+  gt() %>%
+  tab_header(title = "ANOVA: log\u2081\u2080(Titer) by Group") %>%
+  fmt_number(columns = c(statistic, p.value), decimals = 3) %>%
+  cols_label(term = "Source", df = "df", sumsq = "Sum Sq",
+             meansq = "Mean Sq", statistic = "F value", p.value = "Pr(>F)")
+
+tukey_raw <- TukeyHSD(fit_full, conf.level = 0.95)$ShortGroup
+tukey_tbl <- as.data.frame(tukey_raw)
+tukey_tbl$comparison <- rownames(tukey_tbl)
+rownames(tukey_tbl) <- NULL
+tukey_tbl <- tukey_tbl[, c("comparison", "diff", "lwr", "upr", "p adj")]
+names(tukey_tbl)[5] <- "p_adj"
+
+tukey_tbl %>%
+  gt() %>%
+  tab_header(title = "Tukey HSD: Pairwise Comparisons") %>%
+  fmt_number(columns = c(diff, lwr, upr, p_adj), decimals = 3) %>%
+  cols_label(comparison = "Comparison", diff = "Difference",
+             lwr = "Lower CI", upr = "Upper CI", p_adj = "Adjusted p")
+```
+
+## One-Way ANOVA — Combined Groups
+
+```{r anova-merged}
+fit_merged <- aov(logTiter ~ MergedGroup, data = df_clean)
+
+tidy(fit_merged) %>%
+  gt() %>%
+  tab_header(title = "ANOVA: log\u2081\u2080(Titer) by Merged Group") %>%
+  fmt_number(columns = c(statistic, p.value), decimals = 3) %>%
+  cols_label(term = "Source", df = "df", sumsq = "Sum Sq",
+             meansq = "Mean Sq", statistic = "F value", p.value = "Pr(>F)")
+
+tukey_m_raw <- TukeyHSD(fit_merged, conf.level = 0.95)$MergedGroup
+tukey_m_tbl <- as.data.frame(tukey_m_raw)
+tukey_m_tbl$comparison <- rownames(tukey_m_tbl)
+rownames(tukey_m_tbl) <- NULL
+tukey_m_tbl <- tukey_m_tbl[, c("comparison", "diff", "lwr", "upr", "p adj")]
+names(tukey_m_tbl)[5] <- "p_adj"
+
+tukey_m_tbl %>%
+  gt() %>%
+  tab_header(title = "Tukey HSD: Merged Group Pairwise Comparisons") %>%
+  fmt_number(columns = c(diff, lwr, upr, p_adj), decimals = 3) %>%
+  cols_label(comparison = "Comparison", diff = "Difference",
+             lwr = "Lower CI", upr = "Upper CI", p_adj = "Adjusted p")
+```
+
+# Violin Plot with Significance Brackets
+
+The brackets below carry the **Tukey HSD adjusted p-values from the merged-group
+ANOVA above** — the same multiplicity correction as the table, rather than a
+second, uncorrected set of pairwise t-tests. Comparisons that are not
+significant at `alpha` are omitted.
+
+```{r violin-sig, fig.height=5.5, fig.width=6, message=FALSE, warning=FALSE}
+df_plot <- df_clean %>% filter(!is.na(Titer) & Titer >= 0)
+
+# ── Pull the Tukey adjusted p-value for each configured comparison ───────────
+# TukeyHSD names its rows "B-A"; look the pair up in either orientation so the
+# brackets can never disagree with the table printed above.
+tukey_p_lookup <- setNames(tukey_m_tbl$p_adj, tukey_m_tbl$comparison)
+
+tukey_p_for <- function(g1, g2) {
+  for (key in c(paste0(g1, "-", g2), paste0(g2, "-", g1))) {
+    if (key %in% names(tukey_p_lookup)) return(unname(tukey_p_lookup[[key]]))
+  }
+  NA_real_
+}
+
+p_signif_label <- function(p) {
+  dplyr::case_when(
+    is.na(p)    ~ NA_character_,
+    p <= 1e-4   ~ "****",
+    p <= 1e-3   ~ "***",
+    p <= 1e-2   ~ "**",
+    p <= 0.05   ~ "*",
+    TRUE        ~ "ns"
+  )
+}
+
+# Bracket heights are given on the raw (untransformed) titer scale because
+# scale_y_log10() transforms them along with the data.
+y_top   <- max(df_plot$Titer_pseudo, na.rm = TRUE)
+sig_tbl <- do.call(rbind, lapply(COMPARISONS, function(cmp) {
+  data.frame(
+    group1 = cmp[1],
+    group2 = cmp[2],
+    p_adj  = tukey_p_for(cmp[1], cmp[2]),
+    stringsAsFactors = FALSE
+  )
+}))
+sig_tbl$label <- p_signif_label(sig_tbl$p_adj)
+sig_tbl <- sig_tbl[!is.na(sig_tbl$p_adj) & sig_tbl$p_adj < ALPHA, , drop = FALSE]
+if (nrow(sig_tbl) > 0) {
+  sig_tbl$y.position <- y_top * 3 * (2.6 ^ (seq_len(nrow(sig_tbl)) - 1))
+}
+
+p_combined <- ggplot(df_plot, aes(x = MergedGroup, y = Titer_pseudo, fill = MergedGroup)) +
+  geom_violin(trim = FALSE, alpha = 0.45, color = "black", bw = VIOLIN_BW) +
+  geom_jitter(width = 0.18, size = 1, alpha = 0.60) +
+  scale_fill_manual(values = PALETTE_MERGED, guide = "none") +
+  scale_y_log10(labels = scales::label_scientific()) +
+  expand_limits(y = y_top * if (nrow(sig_tbl) > 0) 3 * 2.6 ^ nrow(sig_tbl) else 5) +
+  labs(
+    x       = "Group",
+    y       = paste0("Viral Titer + ", PSEUDOCOUNT, " (pfu/mL, log scale)"),
+    title   = "Viral Titers by Combined Group",
+    caption = paste0("Brackets show Tukey HSD adjusted p-values (alpha = ",
+                     ALPHA, "); non-significant comparisons are not drawn.")
+  ) +
+  theme_bw(base_size = 13) +
+  theme(
+    axis.text.x      = element_text(angle = 30, hjust = 1),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+if (nrow(sig_tbl) > 0) {
+  p_combined <- p_combined +
+    ggpubr::stat_pvalue_manual(
+      sig_tbl,
+      label        = "label",
+      size         = 5,
+      bracket.size = 0.6
+    )
+}
+
+ggsave(file.path(OUTPUT_DIR, "Viral_Titer_CombinedGroups_sig.tiff"), plot = p_combined,
+       width = FIG_WIDTH, height = FIG_HEIGHT + 0.5, units = "in", dpi = FIG_DPI,
+       compression = "lzw")
+print(p_combined)
+```
+
+```{r violin-sig-table}
+sig_report <- do.call(rbind, lapply(COMPARISONS, function(cmp) {
+  p <- tukey_p_for(cmp[1], cmp[2])
+  data.frame(
+    Comparison     = paste(cmp[1], "vs", cmp[2]),
+    `Tukey adj. p` = p,
+    Significance   = p_signif_label(p),
+    Bracket        = if (!is.na(p) && p < ALPHA) "drawn" else "omitted (ns)",
+    check.names    = FALSE,
+    stringsAsFactors = FALSE
+  )
+}))
+knitr::kable(
+  sig_report,
+  caption = "Configured comparisons and the Tukey HSD adjusted p-values used for the brackets",
+  digits  = 4
+)
+```

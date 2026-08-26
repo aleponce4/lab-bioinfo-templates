@@ -1,0 +1,1455 @@
+---
+title: "Image-Based Infection + Dose-Response Analysis"
+author: "Alejandro Ponce-Flores"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+<style>
+.main-container table, table.table {
+  border: 1.5px solid #2c3e50 !important;
+  border-collapse: collapse !important;
+  margin-top: 12px;
+  margin-bottom: 24px;
+  width: 100%;
+}
+.main-container th, .main-container td, table.table th, table.table td {
+  border: 1px solid #bdc3c7 !important;
+  padding: 8px 12px !important;
+}
+.main-container th, table.table th {
+  background-color: #ecf0f1 !important;
+  border-bottom: 2px solid #2c3e50 !important;
+  color: #2c3e50;
+  font-weight: bold;
+}
+.main-container tr:nth-child(even), table.table tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+.main-container tr:hover, table.table tr:hover {
+  background-color: #eaf2f8;
+}
+</style>
+
+```{r user-config, message=FALSE, warning=FALSE}
+## ── USER CONFIGURATION ──────────────────────────────────────────────────────
+#
+# Input files (CQ1 per-cell CSV exports, one per channel):
+NUCLEUS_FILE <- "data/nucleus.csv"   # DAPI / nuclear channel
+VIRUS_FILE   <- "data/virus.csv"     # Virus / reporter channel
+
+# Column names in NUCLEUS_FILE / VIRUS_FILE.
+#   These are AUTHORITATIVE: if a name below is present in the file it is used.
+#   Autodetection by pattern is a fallback for when it is not, and it stops with
+#   an error if the pattern is ambiguous (HCS exports routinely carry several
+#   "Area" columns) rather than silently taking the first match.
+NUCLEUS_DAPI_COL       <- "(nucleus) MeanIntensity CH1"
+NUCLEUS_AREA_COL       <- "(nucleus) Area"
+NUCLEUS_SPHERICITY_COL <- "(nucleus) Sphericity"
+VIRUS_INTENSITY_COL    <- "(Virus) MeanIntensity CH2"
+
+# REQUIRE_SPHERICITY: Sphericity drives the doublet-discrimination gate. When
+#   TRUE (recommended) a missing Sphericity column is a hard error. When FALSE
+#   the doublet step is SKIPPED and clearly reported as skipped \u2014 it is never
+#   faked by assigning every object a perfect sphericity of 1.0, which would
+#   make the gate a silent no-op while still printing the QC panel.
+REQUIRE_SPHERICITY <- TRUE
+
+# Study labels
+VIRUS_NAME    <- "Virus"
+COMPOUND_NAME <- "Compound"
+DOSE_UNIT     <- "\u00b5M"
+
+# Cell gating thresholds
+AREA_MIN        <- 30     # floor to retain pyknotic nuclei
+AREA_MAX        <- 700    # ceiling to exclude clumps (3+ merged nuclei)
+INTENSITY_MIN   <- 300    # DAPI intensity floor
+# CIRCULARITY_MIN: Sphericity cutoff separating single nuclei from doublets and
+#   segmentation debris. Real nuclear sphericity runs ~0.7-1.0 for singlets, so
+#   a cutoff far below that range retains essentially everything and turns this
+#   step into a no-op. Inspect the "Doublet & Shape Discrimination" panel below
+#   and put the line in the valley between the two modes.
+CIRCULARITY_MIN <- 0.75
+
+# MAHALANOBIS_LEVEL: Confidence level for the cell-cycle / DNA-content gate.
+MAHALANOBIS_LEVEL <- 0.95
+
+# GATE_REFERENCE_TREATMENTS: Which wells define the "normal" DNA-content
+#   distribution the Mahalanobis gate is fitted on. Fitting on ALL wells lets
+#   cytotoxic high-dose wells shift the ellipse that decides which of their own
+#   cells to keep \u2014 a feedback loop. Untreated / mock wells are the right
+#   reference. Set to NULL to fall back to pooling every singlet.
+GATE_REFERENCE_TREATMENTS <- c("Mock", "Mock+Ab")
+
+# MIN_GATE_REFERENCE_CELLS: If the reference population has fewer cells than
+#   this, the gate falls back to all singlets (with a visible warning).
+MIN_GATE_REFERENCE_CELLS <- 200
+
+# WELL_NAME_REGEX / WELL_NAME_REPLACEMENT: Normalizes plate well names to the
+#   "<row><col>" form used by PLATE_MAP (e.g. "b-03" -> "B3"). The row class
+#   covers A-P and the column 1-24, so 96-, 384- and 1536-well plates all work.
+#   Any well that fails to normalize is reported, not silently discarded.
+WELL_NAME_REGEX       <- "^([A-P])-?0*([1-9][0-9]?).*$"
+WELL_NAME_REPLACEMENT <- "\\1\\2"
+
+# Well-level QC
+# MIN_CELLS_PER_WELL: Wells with fewer recovered nuclei than this are EXCLUDED
+#   from the dose-response fits (their percent-infection estimate is too noisy
+#   to weight sensibly). They remain in the per-well table, marked as excluded.
+MIN_CELLS_PER_WELL   <- 50
+# PRECISION_WARN_CELLS: Wells below this are flagged "Low Precision" in the
+#   table but still contribute to the fits.
+PRECISION_WARN_CELLS <- 200
+
+# Dose-response fitting
+# ZERO_DOSE_TICK_DIVISOR: The zero-dose control has no place on a log axis; it
+#   is drawn at min(positive dose) / this divisor.
+ZERO_DOSE_TICK_DIVISOR <- 10
+# INCLUDE_ZERO_DOSE_IN_FIT: Whether the zero-dose (Virus Only) control enters
+#   the 4PL regression as if it were a real dose at that fictitious tick.
+#   FALSE (default) is correct: the plotted tick position is an artifact of the
+#   log axis, and feeding it to the model pulls the `top` asymptote and shifts
+#   EC50. The control is still plotted, and still anchors the normalization.
+INCLUDE_ZERO_DOSE_IN_FIT <- FALSE
+# EC50_CI_DRAWS: Number of parametric draws used for the EC50/CC50 confidence
+#   interval (see ec50_ci_parametric() below).
+EC50_CI_DRAWS <- 2000
+# LOG_TICK_DOSE_COUNT: Above this many DISTINCT doses, the x axis switches from
+#   one break per dose to decade breaks.
+LOG_TICK_DOSE_COUNT <- 6
+
+# Reproducibility: single seed for every stochastic step in this template
+# (the balanced GMM training sample and the parametric CI draws).
+RANDOM_SEED <- 42
+
+# Output
+OUTPUT_DIR <- "Plots"
+PLOT_DPI   <- 300
+
+# Data Exclusions
+DOSES_TO_EXCLUDE <- integer(0)   # e.g., c(0.75)
+WELLS_TO_EXCLUDE <- character(0) # e.g., c("C3", "E4")
+
+# ── Plate map ─────────────────────────────────────────────────────────────────
+# Edit this tribble to match your actual well layout.
+# Treatment options:
+#   "Mock"             — uninfected, no drug (absolute negative control)
+#   "Mock+Ab"          — uninfected + neutralizing Ab (gate reference)
+#   "Virus Only"       — infected, no drug (positive control for infection)
+#   "Toxicity Control" — drug only, no virus (for CC50)
+#   "Virus + Compound" — infected + drug (experimental)
+#
+PLATE_MAP <- tibble::tribble(
+  ~WellName,  ~Treatment,          ~Concentration_uM,
+  "C3",  "Mock",             NA,
+  "C4",  "Mock",             NA,
+  "C5",  "Mock",             NA,
+  "C6",  "Mock",             NA,
+  "C11", "Mock+Ab",          NA,
+  "C7",  "Virus Only",        0,
+  "C8",  "Virus Only",        0,
+  "D1",  "Toxicity Control",  0.01,
+  "D2",  "Toxicity Control",  0.1,
+  "D3",  "Toxicity Control",  0.5,
+  "D4",  "Toxicity Control",  1,
+  "D5",  "Toxicity Control",  2,
+  "D6",  "Toxicity Control",  4,
+  "D7",  "Toxicity Control",  8,
+  "D8",  "Toxicity Control",  12,
+  "D9",  "Toxicity Control",  16,
+  "D10", "Toxicity Control",  20,
+  "D11", "Toxicity Control",  30,
+  "D12", "Toxicity Control",  50,
+  "E1",  "Virus + Compound",  0.01,
+  "E2",  "Virus + Compound",  0.1,
+  "E3",  "Virus + Compound",  0.5,
+  "E4",  "Virus + Compound",  1,
+  "E5",  "Virus + Compound",  2,
+  "E6",  "Virus + Compound",  4,
+  "E7",  "Virus + Compound",  8,
+  "E8",  "Virus + Compound",  12,
+  "E9",  "Virus + Compound",  16,
+  "E10", "Virus + Compound",  20,
+  "E11", "Virus + Compound",  30,
+  "E12", "Virus + Compound",  50,
+  "F1",  "Virus + Compound",  0.01,
+  "F2",  "Virus + Compound",  0.1,
+  "F3",  "Virus + Compound",  0.5,
+  "F4",  "Virus + Compound",  1,
+  "F5",  "Virus + Compound",  2,
+  "F6",  "Virus + Compound",  4,
+  "F7",  "Virus + Compound",  8,
+  "F8",  "Virus + Compound",  12,
+  "F9",  "Virus + Compound",  16,
+  "F10", "Virus + Compound",  20,
+  "F11", "Virus + Compound",  30,
+  "F12", "Virus + Compound",  50
+)
+## ────────────────────────────────────────────────────────────────────────────
+```
+
+# Setup
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(knitr)
+library(scales)
+library(ggridges)
+library(ggpubr)
+library(RColorBrewer)
+library(gtools)
+library(grid)
+library(ragg)
+library(patchwork)
+library(mclust)
+library(minpack.lm)
+# NOTE: MASS is deliberately NOT loaded. library(MASS) masks dplyr::select(),
+# which is what forced the defensive `dplyr::` prefixes scattered through this
+# file. Nothing here needs it: the EC50 confidence interval is drawn from a
+# univariate normal on the log scale (see ec50_ci_parametric() below).
+```
+
+```{r global-theme}
+base_family <- "sans"
+
+theme_set(
+  theme_bw(base_size = 8, base_family = base_family) +
+    theme(
+      plot.title   = element_text(face = "bold", size = 10, margin = margin(b = 4)),
+      axis.title   = element_text(face = "bold", size = 9),
+      axis.text    = element_text(size = 8),
+      legend.title = element_text(size = 8),
+      legend.text  = element_text(size = 8),
+      axis.line    = element_line(linewidth = 0.6),
+      axis.ticks   = element_line(linewidth = 0.6),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+)
+
+update_geom_defaults("text",     list(size = 8 / ggplot2::.pt))
+update_geom_defaults("label",    list(size = 8 / ggplot2::.pt))
+update_geom_defaults("point",    list(size = 1.8))
+update_geom_defaults("errorbar", list(linewidth = 0.5))
+update_geom_defaults("line",     list(linewidth = 0.9))
+
+dir.create(OUTPUT_DIR, showWarnings = FALSE, recursive = TRUE)
+```
+
+# Load & Annotate Data
+
+```{r load-data, message=FALSE}
+# ── Column resolution: the configured name WINS; the pattern is a fallback ────
+# An ambiguous pattern is an error, not a coin flip. HCS exports routinely carry
+# several columns matching "Area", and silently taking the first one produces a
+# plausible-looking analysis of the wrong measurement.
+resolve_column <- function(df, configured, pattern, what, file_label,
+                           required = TRUE) {
+  if (!is.null(configured) && configured %in% names(df)) return(configured)
+
+  hits <- names(df)[grepl(pattern, names(df), ignore.case = TRUE)]
+  if (length(hits) == 1L) {
+    message("Column for ", what, " not found as ", sQuote(configured),
+            " in ", file_label, "; using autodetected ", sQuote(hits), ".")
+    return(hits)
+  }
+  if (length(hits) > 1L) {
+    stop("Ambiguous autodetection for ", what, " in ", file_label, ": ",
+         paste(sQuote(hits), collapse = ", "),
+         ". Set the exact column name in the USER CONFIGURATION block.")
+  }
+  if (required) {
+    stop("No column for ", what, " in ", file_label,
+         ". Looked for ", sQuote(configured), " and for /", pattern, "/. ",
+         "Available columns: ", paste(sQuote(names(df)), collapse = ", "))
+  }
+  NA_character_
+}
+
+process_plate_files <- function(nucleus_file, virus_file) {
+  for (f in c(nucleus_file, virus_file)) {
+    if (!file.exists(f)) {
+      stop("Input file not found: ", sQuote(f),
+           ". Run `Rscript data/simulate_data.R` from the template directory ",
+           "to regenerate the demo data, or point the config at your own export.")
+    }
+  }
+
+  df_nuclei <- read_csv(nucleus_file, show_col_types = FALSE)
+  df_virus  <- read_csv(virus_file,   show_col_types = FALSE)
+
+  key_cols <- c("WellName", "FieldIndex", "ObjectNumber")
+  for (nm in c("nucleus", "virus")) {
+    d <- if (nm == "nucleus") df_nuclei else df_virus
+    miss <- setdiff(key_cols, names(d))
+    if (length(miss) > 0) {
+      stop("The ", nm, " export is missing the object key column(s): ",
+           paste(sQuote(miss), collapse = ", "),
+           ". These are needed to match nuclei to the reporter channel.")
+    }
+  }
+
+  dapi_col <- resolve_column(df_nuclei, NUCLEUS_DAPI_COL,
+                             "MeanIntensity.*CH1", "nuclear DAPI intensity",
+                             "NUCLEUS_FILE")
+  area_col <- resolve_column(df_nuclei, NUCLEUS_AREA_COL,
+                             "(Area|Volume)", "nuclear area / volume",
+                             "NUCLEUS_FILE")
+  sphericity_col <- resolve_column(df_nuclei, NUCLEUS_SPHERICITY_COL,
+                                   "Sphericity", "nuclear sphericity",
+                                   "NUCLEUS_FILE", required = REQUIRE_SPHERICITY)
+  virus_col <- resolve_column(df_virus, VIRUS_INTENSITY_COL,
+                              "MeanIntensity.*CH2", "virus reporter intensity",
+                              "VIRUS_FILE")
+
+  nuclei_clean <- df_nuclei %>%
+    dplyr::select(
+      WellName, FieldIndex, ObjectNumber,
+      dapi_intensity = all_of(dapi_col),
+      Area           = all_of(area_col)
+    )
+
+  # A missing Sphericity column means the doublet gate CANNOT run. Record that
+  # honestly (NA) instead of substituting 1.0, which would silently pass every
+  # object through a gate the report claims was applied.
+  has_sphericity <- !is.na(sphericity_col)
+  nuclei_clean$Sphericity <- if (has_sphericity) {
+    df_nuclei[[sphericity_col]]
+  } else {
+    NA_real_
+  }
+  attr(nuclei_clean, "has_sphericity") <- has_sphericity
+
+  nuclei_clean <- nuclei_clean %>%
+    dplyr::mutate(integrated_intensity = Area * dapi_intensity)
+
+  virus_clean <- df_virus %>%
+    dplyr::select(
+      WellName, FieldIndex, ObjectNumber,
+      virus_intensity = all_of(virus_col)
+    )
+
+  out <- nuclei_clean %>%
+    dplyr::left_join(virus_clean, by = key_cols) %>%
+    dplyr::mutate(
+      WellName_std = str_replace(str_to_upper(WellName),
+                                 WELL_NAME_REGEX, WELL_NAME_REPLACEMENT)
+    )
+  attr(out, "has_sphericity") <- has_sphericity
+  out
+}
+
+master_df      <- process_plate_files(NUCLEUS_FILE, VIRUS_FILE)
+HAS_SPHERICITY <- isTRUE(attr(master_df, "has_sphericity"))
+
+# ── Well-name normalization + plate-map join diagnostics ─────────────────────
+# Both of these used to fail silently. A well name the regex cannot parse comes
+# through unchanged, misses the PLATE_MAP join, and is then deleted by
+# filter(!is.na(Treatment)) — on a 384-well plate that was every single cell.
+unparsed_wells <- master_df %>%
+  dplyr::filter(!str_detect(str_to_upper(WellName), WELL_NAME_REGEX)) %>%
+  dplyr::distinct(WellName) %>%
+  dplyr::pull(WellName)
+
+if (length(unparsed_wells) > 0) {
+  stop(length(unparsed_wells), " well name(s) could not be normalized by ",
+       "WELL_NAME_REGEX (", WELL_NAME_REGEX, "): ",
+       paste(sQuote(head(unparsed_wells, 10)), collapse = ", "),
+       if (length(unparsed_wells) > 10) ", ..." else "",
+       ". Adjust WELL_NAME_REGEX / WELL_NAME_REPLACEMENT in the config.")
+}
+
+unmapped <- master_df %>%
+  dplyr::filter(!WellName_std %in% PLATE_MAP$WellName) %>%
+  dplyr::count(WellName_std, name = "cells")
+
+if (nrow(unmapped) > 0) {
+  warning(sum(unmapped$cells), " cell(s) in ", nrow(unmapped),
+          " well(s) are absent from PLATE_MAP and will be dropped: ",
+          paste(unmapped$WellName_std, collapse = ", "))
+}
+
+missing_from_data <- setdiff(PLATE_MAP$WellName, unique(master_df$WellName_std))
+if (length(missing_from_data) > 0) {
+  warning("PLATE_MAP lists well(s) with no cells in the data: ",
+          paste(missing_from_data, collapse = ", "))
+}
+if (length(intersect(PLATE_MAP$WellName, unique(master_df$WellName_std))) == 0) {
+  stop("No well in PLATE_MAP matches any normalized well name in the data. ",
+       "Normalized names look like: ",
+       paste(sQuote(head(unique(master_df$WellName_std), 5)), collapse = ", "),
+       "; PLATE_MAP expects: ",
+       paste(sQuote(head(PLATE_MAP$WellName, 5)), collapse = ", "))
+}
+stopifnot(!any(duplicated(PLATE_MAP$WellName)))
+
+master_df_raw_annotated <- master_df %>%
+  dplyr::left_join(PLATE_MAP, by = c("WellName_std" = "WellName")) %>%
+  dplyr::filter(!is.na(Treatment))
+
+master_df_annotated <- master_df_raw_annotated %>%
+  dplyr::filter(!WellName_std %in% WELLS_TO_EXCLUDE) %>%
+  { if (length(DOSES_TO_EXCLUDE) > 0)
+      dplyr::filter(., !Concentration_uM %in% DOSES_TO_EXCLUDE)
+    else . }
+
+tibble::tibble(
+  Stage = c("Objects in export",
+            "Mapped to PLATE_MAP",
+            "After WELLS_TO_EXCLUDE / DOSES_TO_EXCLUDE"),
+  Cells = c(nrow(master_df), nrow(master_df_raw_annotated), nrow(master_df_annotated))
+) %>%
+  knitr::kable(caption = "Cell accounting from raw export to annotated dataset",
+               format.args = list(big.mark = ","))
+```
+
+# Cell Gating (3-Step Cytometric QC Pipeline)
+
+```{r gating-plot, fig.height=4, fig.width=9, warning=FALSE, message=FALSE}
+# --- Step 1: Size / intensity pre-gate --------------------------------------
+# AREA_MIN keeps pyknotic nuclei; AREA_MAX removes clumps of 3+ merged nuclei
+# (previously documented but never actually applied).
+master_df_pre <- master_df_annotated %>%
+  dplyr::filter(Area > AREA_MIN, Area < AREA_MAX, dapi_intensity > INTENSITY_MIN)
+
+if (nrow(master_df_pre) == 0) {
+  stop("The Step 1 pre-gate removed every cell. Check AREA_MIN (", AREA_MIN,
+       "), AREA_MAX (", AREA_MAX, ") and INTENSITY_MIN (", INTENSITY_MIN,
+       ") against the units of your export.")
+}
+
+# --- Step 2: Sphericity-based doublet discrimination -------------------------
+sphericity_cutoff <- CIRCULARITY_MIN
+
+if (HAS_SPHERICITY) {
+  master_df_pre <- master_df_pre %>%
+    dplyr::mutate(Is_Singlet = Sphericity > sphericity_cutoff)
+
+  p_doublets <- ggplot(master_df_pre, aes(x = Area, y = Sphericity)) +
+    geom_bin2d(bins = 200) +
+    scale_fill_gradientn(colors = c("navy", "deepskyblue", "green", "yellow", "red"), trans = "log10", name = "Cells") +
+    geom_hline(yintercept = sphericity_cutoff, color = "black", linetype = "dashed", linewidth = 1) +
+    labs(
+      title = "Doublet & Shape Discrimination",
+      subtitle = paste0("Single cells sit above the Sphericity cut (",
+                        sphericity_cutoff, ", dashed line)"),
+      x = "Nuclear Volume / Area (pixels²)", y = "Sphericity"
+    ) +
+    theme_bw(base_size = 8) +
+    theme(legend.position = "none")
+} else {
+  # No Sphericity column: the step is skipped, and the report says so instead
+  # of drawing a panel implying a gate that never ran.
+  master_df_pre <- master_df_pre %>% dplyr::mutate(Is_Singlet = TRUE)
+
+  p_doublets <- ggplot() +
+    annotate("text", x = 0, y = 0, size = 3, lineheight = 1.2,
+             label = paste("Step 2 SKIPPED\n\nNo Sphericity column in the export,",
+                           "\nso doublets could not be discriminated.",
+                           "\nEvery object is treated as a singlet.")) +
+    theme_void()
+}
+
+# --- Step 3: DNA-content (cell cycle) gate -----------------------------------
+master_df_singlets <- master_df_pre %>% dplyr::filter(Is_Singlet)
+
+cc_vars <- c("Area", "integrated_intensity")
+
+# Fit the ellipse on UNTREATED reference wells only. Pooling every singlet lets
+# cytotoxic high-dose wells shift the very ellipse that decides which of their
+# own cells to keep.
+gate_ref <- if (!is.null(GATE_REFERENCE_TREATMENTS)) {
+  master_df_singlets %>% dplyr::filter(Treatment %in% GATE_REFERENCE_TREATMENTS)
+} else {
+  master_df_singlets[0, ]
+}
+
+if (nrow(gate_ref) < MIN_GATE_REFERENCE_CELLS) {
+  warning("Only ", nrow(gate_ref), " cell(s) in GATE_REFERENCE_TREATMENTS (",
+          paste(GATE_REFERENCE_TREATMENTS, collapse = ", "),
+          "); need at least ", MIN_GATE_REFERENCE_CELLS,
+          ". Falling back to pooling all singlets, which lets treated wells ",
+          "influence their own gate.")
+  gate_ref <- master_df_singlets
+  gate_ref_label <- "all singlets (fallback)"
+} else {
+  gate_ref_label <- paste(GATE_REFERENCE_TREATMENTS, collapse = " + ")
+}
+
+center     <- colMeans(as.data.frame(gate_ref)[, cc_vars])
+cov_mat    <- cov(as.data.frame(gate_ref)[, cc_vars])
+chi_cutoff <- qchisq(MAHALANOBIS_LEVEL, df = length(cc_vars))
+
+master_df_pre <- master_df_pre %>%
+  dplyr::mutate(
+    dist_cc = if_else(Is_Singlet,
+                      mahalanobis(cbind(Area, integrated_intensity), center = center, cov = cov_mat),
+                      NA_real_),
+    Keep_Cell = Is_Singlet & (dist_cc <= chi_cutoff)
+  )
+
+# The ellipse is drawn from the reference population, so it is the same one the
+# gate uses. Note that a bivariate-normal contour on a bimodal DNA distribution
+# clips part of the G2/M mode — that is a known limitation of this gate, not an
+# accident, so the subtitle says so rather than claiming G2/M is retained.
+ellipse_pts <- {
+  ang  <- seq(0, 2 * pi, length.out = 200)
+  chol_c <- chol(cov_mat)
+  circ <- cbind(cos(ang), sin(ang)) * sqrt(chi_cutoff)
+  pts  <- circ %*% chol_c
+  tibble::tibble(Area = pts[, 1] + center[["Area"]],
+                 integrated_intensity = pts[, 2] + center[["integrated_intensity"]])
+}
+
+p_cycle <- ggplot(master_df_singlets, aes(x = Area, y = integrated_intensity)) +
+  geom_bin2d(bins = 200) +
+  scale_fill_gradientn(colors = c("navy", "deepskyblue", "green", "yellow", "red"), trans = "log10", name = "Cells") +
+  geom_path(data = ellipse_pts, aes(x = Area, y = integrated_intensity),
+            inherit.aes = FALSE, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_y_continuous(labels = scales::label_scientific()) +
+  labs(
+    title = "Cell Cycle & Quality Control",
+    subtitle = paste0(MAHALANOBIS_LEVEL * 100, "% Mahalanobis contour fitted on ",
+                      gate_ref_label,
+                      "\n(a normal contour on a bimodal DNA distribution clips part of the G2/M mode)"),
+    x = "Nuclear Volume / Area (pixels²)", y = "Integrated Intensity (Total DNA, a.u.)"
+  ) +
+  theme_bw(base_size = 8) +
+  theme(legend.position = "right")
+
+# Display side-by-side using Patchwork
+qc_plates_plot <- p_doublets + p_cycle
+print(qc_plates_plot)
+
+ggsave(file.path(OUTPUT_DIR, "nuclear_gating_qc.tiff"), qc_plates_plot,
+       width = 9, height = 4, units = "in", dpi = PLOT_DPI,
+       compression = "lzw", device = ragg::agg_tiff)
+
+master_df_gated <- master_df_pre %>% dplyr::filter(Keep_Cell)
+
+if (nrow(master_df_gated) == 0) {
+  stop("No cells survived the 3-step gate. Review CIRCULARITY_MIN (",
+       CIRCULARITY_MIN, ") and MAHALANOBIS_LEVEL (", MAHALANOBIS_LEVEL,
+       ") against the QC panels above.")
+}
+```
+
+```{r apply-gate}
+step_counts <- tibble::tibble(
+  Step  = c("0. Annotated cells",
+            paste0("1. Area in (", AREA_MIN, ", ", AREA_MAX, ") & DAPI > ", INTENSITY_MIN),
+            if (HAS_SPHERICITY) paste0("2. Sphericity > ", CIRCULARITY_MIN)
+            else "2. Sphericity gate SKIPPED (column absent)",
+            paste0("3. Within ", MAHALANOBIS_LEVEL * 100, "% DNA-content contour")),
+  Cells = c(nrow(master_df_annotated), nrow(master_df_pre),
+            nrow(master_df_singlets), nrow(master_df_gated))
+) %>%
+  dplyr::mutate(`% of annotated` = round(100 * Cells / nrow(master_df_annotated), 1))
+
+knitr::kable(step_counts,
+             caption = "Cells retained after each gating step",
+             format.args = list(big.mark = ","))
+
+counts_before <- dplyr::count(master_df_annotated, Treatment, name = "cells_before")
+counts_before %>%
+  left_join(dplyr::count(master_df_gated, Treatment, name = "cells_after"), by = "Treatment") %>%
+  mutate(cells_after       = replace_na(cells_after, 0),
+         percent_remaining = round((cells_after / cells_before) * 100, 1)) %>%
+  knitr::kable(caption = "Automated 3-Step Cytometric Gating Summary")
+```
+
+# Single-Cell NP Intensity Distributions (Violin Plot)
+
+```{r gating-post-violin, fig.height=5, fig.width=8}
+violin_data <- master_df_gated %>%
+  filter(Treatment %in% c("Mock", "Mock+Ab", "Virus Only", "Virus + Compound")) %>%
+  mutate(Condition = case_when(
+    Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
+    Treatment == "Virus Only"           ~ "Virus Only",
+    TRUE                                ~ paste0(Concentration_uM, " ", DOSE_UNIT)
+  ))
+
+bar_levels <- c("Mock", "Virus Only", mixedsort(unique(violin_data$Condition[grepl(DOSE_UNIT, violin_data$Condition)]), decreasing = TRUE))
+violin_data <- violin_data %>% mutate(Condition = factor(Condition, levels = bar_levels))
+
+n_doses  <- sum(grepl(DOSE_UNIT, bar_levels))
+fill_pal <- c(
+  "Mock"       = "grey80",
+  "Virus Only" = "#E41A1C",
+  setNames(colorRampPalette(c("#C6DBEF", "#08306B"))(n_doses),
+           bar_levels[grepl(DOSE_UNIT, bar_levels)])
+)
+
+p_violin <- ggplot(violin_data, aes(x = Condition, y = virus_intensity, fill = Condition)) +
+  geom_violin(trim = FALSE, alpha = 0.7, color = "black", bw = 0.15) +
+  geom_boxplot(width = 0.1, color = "black", fill = "white", outlier.shape = NA, alpha = 0.8) +
+  scale_fill_manual(values = fill_pal, guide = "none") +
+  scale_y_log10(labels = scales::label_scientific()) +
+  labs(
+    title   = "Single-Cell NP Intensity Distributions per Treatment",
+    x       = "Treatment Condition",
+    y       = "NP Intensity (a.u., log10 scale)",
+    caption = "Internal white boxes indicate median and interquartile range (IQR)"
+  ) +
+  theme_bw(base_size = 8) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(p_violin)
+```
+
+# Infection Gate: Control-Based Normalization + Population GMM
+
+```{r infection-gate, warning=FALSE, fig.width=6, fig.height=4}
+VIRUS_LABEL_VO  <- "Virus Only"
+master_df_gated <- master_df_gated %>% mutate(Plate = "P1")
+
+gmm_threshold <- function(mu, sdv, pi_) {
+  o <- order(mu); mu <- mu[o]; sdv <- sdv[o]; pi_ <- pi_[o]
+  sig1_sq <- sdv[1]^2; sig2_sq <- sdv[2]^2
+  A <- 1/(2*sig1_sq) - 1/(2*sig2_sq)
+  B <- -mu[1]/sig1_sq + mu[2]/sig2_sq
+  C <- mu[1]^2/(2*sig1_sq) - mu[2]^2/(2*sig2_sq) + log(sdv[1]/sdv[2]) - log(pi_[1]/pi_[2])
+  disc <- B^2 - 4*A*C
+  if (disc >= 0 && abs(A) > 1e-10) {
+    roots <- c((-B + sqrt(disc))/(2*A), (-B - sqrt(disc))/(2*A))
+    r_valid <- roots[roots > mu[1] & roots < mu[2]]
+    if (length(r_valid) > 0) return(r_valid[1])
+  }
+  (mu[1] + mu[2]) / 2
+}
+
+fit_high_mode <- function(xlog) {
+  fit <- tryCatch(Mclust(xlog, G = 2, modelNames = "V", verbose = FALSE), error = function(e) NULL)
+  if (!is.null(fit)) return(max(as.numeric(fit$parameters$mean)))
+  as.numeric(quantile(xlog, 0.75, na.rm = TRUE))
+}
+
+# 1. Compute Anchors (L_p, H_p)
+mock_cells <- master_df_gated %>% filter(Treatment %in% c("Mock", "Mock+Ab")) %>% mutate(xlog = log10(virus_intensity + 1))
+L_p_val    <- if (nrow(mock_cells) > 0) median(mock_cells$xlog, na.rm = TRUE) else 2.0
+
+vo_cells   <- master_df_gated %>% filter(Treatment == VIRUS_LABEL_VO) %>% mutate(xlog = log10(virus_intensity + 1))
+H_p_val    <- if (nrow(vo_cells) > 0) fit_high_mode(vo_cells$xlog) else 4.0
+
+# 2. Normalize Cells
+master_df_norm <- master_df_gated %>%
+  mutate(
+    xlog   = log10(virus_intensity + 1),
+    L_p    = L_p_val,
+    H_p    = H_p_val,
+    span   = H_p - L_p,
+    x_norm = if_else(is.na(span) | span < 1e-6, NA_real_, (xlog - L_p) / span)
+  )
+
+# 3. Fit Population 2-GMM Gate
+infected_culture_norm <- master_df_norm %>% filter(Treatment %in% c(VIRUS_LABEL_VO, "Virus + Compound"))
+med_val <- suppressWarnings(median(table(infected_culture_norm$WellName_std), na.rm = TRUE))
+target_n_gate <- if (is.finite(med_val) && med_val > 0) as.integer(round(med_val)) else 200L
+
+# Down-sample each well to the same size so no single well dominates the GMM.
+# slice_sample() takes a RANDOM subset; filter(row_number() <= n) took the first
+# n cells in acquisition order, which is a systematically biased "balanced"
+# sample that the set.seed() call made look reproducible rather than correct.
+set.seed(RANDOM_SEED)
+gate_balanced <- infected_culture_norm %>%
+  group_by(WellName_std) %>%
+  slice_sample(n = target_n_gate, replace = FALSE) %>%
+  ungroup()
+
+x_gate <- gate_balanced$x_norm[is.finite(gate_balanced$x_norm)]
+fit_gate <- tryCatch(
+  Mclust(x_gate, G = 2, modelNames = "V", verbose = FALSE),
+  error = function(e) NULL
+)
+
+# GATE_FALLBACK_THRESHOLD is only reached when the 2-component mixture cannot be
+# fitted. Every percent-infection number and both EC50s depend on this value, so
+# falling back is reported loudly instead of silently.
+GATE_FALLBACK_THRESHOLD <- 0.5
+
+gate_is_fitted <- !is.null(fit_gate) &&
+  !is.null(fit_gate$parameters$mean) &&
+  length(fit_gate$parameters$mean) == 2
+
+if (gate_is_fitted) {
+  mu_gate  <- as.numeric(fit_gate$parameters$mean)
+  sdv_gate <- sqrt(fit_gate$parameters$variance$sigmasq)
+  pi_gate  <- as.numeric(fit_gate$parameters$pro)
+  if (length(sdv_gate) == 1L) sdv_gate <- rep(sdv_gate, 2L)
+  threshold_final <- gmm_threshold(mu_gate, sdv_gate, pi_gate)
+} else {
+  threshold_final <- GATE_FALLBACK_THRESHOLD
+  warning("The 2-component GMM infection gate could not be fitted. ",
+          "Falling back to a FIXED threshold of ", GATE_FALLBACK_THRESHOLD,
+          " on the normalized scale. Every percent-infection value and both ",
+          "EC50 estimates below are conditional on this arbitrary cut — treat ",
+          "them as indicative only, and inspect the density plot.")
+}
+master_df_final <- master_df_norm
+
+# Display GMM Infection Gate Density Plot
+ctrl_dens_df <- master_df_final %>%
+  filter(Treatment %in% c("Mock", "Mock+Ab", VIRUS_LABEL_VO)) %>%
+  mutate(Group = if_else(Treatment %in% c("Mock", "Mock+Ab"), "Mock (Negative Control)", "Virus Only (Positive Control)"))
+
+gate_label <- if (gate_is_fitted) {
+  paste0("GMM Infection Gate = ", round(threshold_final, 3))
+} else {
+  paste0("FALLBACK Gate = ", round(threshold_final, 3), " (GMM fit failed)")
+}
+
+p_gmm_density <- ggplot(ctrl_dens_df, aes(x = x_norm, fill = Group)) +
+  geom_density(alpha = 0.55, color = "black", linewidth = 0.3) +
+  geom_vline(xintercept = threshold_final, linetype = "dashed", color = "firebrick3", linewidth = 0.9) +
+  annotate("label", x = threshold_final, y = 1.1,
+           label = gate_label,
+           fill = "firebrick3", color = "white", fontface = "bold", size = 3, linewidth = 0) +
+  scale_fill_manual(values = c("Mock (Negative Control)" = "grey60", "Virus Only (Positive Control)" = "#E41A1C")) +
+  labs(
+    title = "Control-Based GMM Population Infection Gate",
+    subtitle = "Normalized virus intensity distribution (0 = Mock median, 1 = Virus Only high mode)",
+    x = "Normalized Virus Intensity (log10 scale)",
+    y = "Density",
+    fill = "Control Group"
+  ) +
+  theme_bw(base_size = 9) +
+  theme(legend.position = "top", plot.title = element_text(face = "bold"))
+
+print(p_gmm_density)
+ggsave(file.path(OUTPUT_DIR, "infection_gate_gmm_density.tiff"), p_gmm_density,
+       width = 5.5, height = 3.8, units = "in", dpi = PLOT_DPI)
+```
+
+# Single-Cell Population Shift Across Doses (Ridgeline Plot)
+
+```{r ridgeline-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=5.5}
+treatment_order <- c("Mock+Ab", "Mock", "Virus Only", "Virus + Compound")
+
+bdgr_levels <- master_df_final %>%
+  filter(Treatment == "Virus + Compound") %>%
+  distinct(Concentration_uM) %>%
+  arrange(Concentration_uM) %>%
+  pull(Concentration_uM)
+
+plot_df <- master_df_final %>%
+  filter(Treatment %in% treatment_order) %>%
+  mutate(
+    group_label = case_when(
+      Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
+      Treatment == "Virus Only"           ~ "Virus Only",
+      TRUE ~ paste0(Concentration_uM, " ", DOSE_UNIT, " ", COMPOUND_NAME)
+    ),
+    group_label = fct_inorder(group_label)
+  ) %>%
+  mutate(
+    fill_key = case_when(
+      Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
+      Treatment == "Virus Only"           ~ "Virus Only",
+      TRUE ~ paste0(COMPOUND_NAME, "_", Concentration_uM)
+    ),
+    fill_key = factor(fill_key)
+  )
+
+bdgr_fill_keys <- paste0(COMPOUND_NAME, "_", bdgr_levels)
+n_bdgr         <- length(bdgr_fill_keys)
+bdgr_cols      <- colorRampPalette(RColorBrewer::brewer.pal(9, "Blues"))(n_bdgr)
+
+fill_values <- c(
+  setNames("grey80", "Mock"),
+  setNames("#D55E00", "Virus Only"),
+  setNames(bdgr_cols, bdgr_fill_keys)
+)
+
+# Infection threshold back-transformed to the raw fluorescence scale.
+# The forward transform is xlog = log10(intensity + 1), so the inverse must
+# subtract that same 1 — otherwise the dashed line is drawn at the wrong place.
+raw_threshold <- 10^(L_p_val + threshold_final * (H_p_val - L_p_val)) - 1
+
+p_ridgeline <- ggplot(plot_df, aes(x = virus_intensity, y = group_label, fill = fill_key)) +
+  geom_density_ridges(alpha = 0.8, scale = 3, rel_min_height = 0.01) +
+  geom_vline(xintercept = raw_threshold, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_x_log10(labels = scales::trans_format("log10", scales::math_format(10^.x)), minor_breaks = NULL) +
+  annotation_logticks(sides = "b", short = unit(1.2, "mm"), mid = unit(1.6, "mm"), long = unit(2.2, "mm")) +
+  scale_fill_manual(values = fill_values, breaks = names(fill_values)) +
+  labs(
+    title = paste("Effect of", COMPOUND_NAME, "on", VIRUS_NAME, "NP signal"),
+    subtitle = "Single-cell fluorescence distributions; dashed line indicates GMM infection gate",
+    x = "NP channel fluorescence (a.u., log10 scale)",
+    y = NULL
+  ) +
+  theme_bw(base_size = 8) +
+  theme(
+    legend.position   = "none",
+    axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.minor  = element_blank(),
+    plot.title        = element_text(face = "bold", size = 10)
+  ) +
+  coord_cartesian(clip = "off")
+
+print(p_ridgeline)
+ggsave(file.path(OUTPUT_DIR, "compound_ridgeline.tiff"), p_ridgeline,
+       width = 5.5, height = 4.5, units = "in", dpi = PLOT_DPI,
+       compression = "lzw", device = ragg::agg_tiff)
+```
+
+
+# Well-Level Summary
+
+```{r well-summary}
+total_counts <- master_df_final %>% dplyr::count(Treatment, Concentration_uM, WellName_std, name = "total_cell_count")
+positive_counts <- master_df_final %>% filter(x_norm > threshold_final) %>% dplyr::count(Treatment, Concentration_uM, WellName_std, name = "positive_cell_count")
+
+percent_summary <- total_counts %>%
+  left_join(positive_counts, by = c("Treatment", "Concentration_uM", "WellName_std")) %>%
+  mutate(
+    positive_cell_count = replace_na(positive_cell_count, 0),
+    percent_positive     = (positive_cell_count / total_cell_count) * 100,
+    Plate = "Plate 1",
+    Precision_Flag = if_else(total_cell_count < PRECISION_WARN_CELLS,
+                             "Low Precision", "Normal"),
+    # Precision_Flag used to be displayed and then ignored. It now drives a real
+    # decision: wells below MIN_CELLS_PER_WELL are excluded from every 4PL fit,
+    # while wells between that and PRECISION_WARN_CELLS are kept but flagged.
+    Include_In_Fit = total_cell_count >= MIN_CELLS_PER_WELL
+  )
+
+excluded_wells <- percent_summary %>% filter(!Include_In_Fit)
+if (nrow(excluded_wells) > 0) {
+  message(nrow(excluded_wells), " well(s) below MIN_CELLS_PER_WELL (",
+          MIN_CELLS_PER_WELL, ") excluded from the dose-response fits: ",
+          paste(excluded_wells$WellName_std, collapse = ", "))
+}
+```
+
+```{r fit-helpers}
+## ── Shared 4PL machinery ────────────────────────────────────────────────────
+## One fitter, used for all three curves in this document: relative %
+## infection, normalized NP intensity, and host-cell viability (CC50).
+## The inflection parameter is always named `ec50` internally; it is CC50 when
+## the response is viability.
+fit_4pl <- function(data, response, dose = "dose_fit", weights = NULL,
+                    starts = c(0.5, 1, 2, 5, 8, 10, 20, 40, 0.1),
+                    lower = c(ec50 = 1e-4, hill = 0.05, bottom = -20, top = 80),
+                    upper = c(ec50 = 1e3,  hill = 50,   bottom = 50,  top = 120)) {
+  if (nrow(data) < 4) return(NULL)
+  form <- stats::as.formula(
+    paste0(response, " ~ bottom + (top - bottom) / (1 + (", dose, " / ec50)^hill)")
+  )
+  for (ec50_try in starts) {
+    args <- list(
+      formula = form,
+      data    = data,
+      start   = list(ec50 = ec50_try, hill = 1.0, bottom = 0, top = 100),
+      lower   = lower,
+      upper   = upper,
+      control = minpack.lm::nls.lm.control(maxiter = 500)
+    )
+    # `weights` must be OMITTED, not passed as NULL: nlsLM() treats an explicit
+    # NULL as a zero-length weight vector and aborts with
+    # "evaluation of fn function returns non-sensible value!".
+    if (!is.null(weights)) args$weights <- weights
+
+    fit <- tryCatch(do.call(minpack.lm::nlsLM, args), error = function(e) NULL)
+    if (!is.null(fit)) return(fit)
+  }
+  NULL
+}
+
+## ── Parametric confidence interval for the inflection point ─────────────────
+## This is NOT a bootstrap: it does not resample the data. It draws parameter
+## vectors from the multivariate normal implied by the fit's coefficient
+## covariance (the usual asymptotic/delta-method approximation) and reads the
+## quantiles of the induced EC50/CC50 distribution.
+## Sampling is done on the LOG scale because EC50 is strictly positive and
+## right-skewed — a normal approximation on the raw scale puts mass on
+## impossible negative concentrations and produces asymmetric coverage.
+ec50_ci_parametric <- function(fit, draws = EC50_CI_DRAWS, seed = RANDOM_SEED,
+                               level = 0.95) {
+  na3 <- c(lower = NA_real_, median = NA_real_, upper = NA_real_)
+  if (is.null(fit)) return(na3)
+
+  mu <- coef(fit)
+  vc <- tryCatch(vcov(fit), error = function(e) NULL)
+  if (is.null(vc) || !("ec50" %in% names(mu))) return(na3)
+
+  # Reparameterize to log(ec50) via the delta method, then draw there.
+  ec50_hat <- unname(mu[["ec50"]])
+  se_ec50  <- suppressWarnings(sqrt(vc["ec50", "ec50"]))
+  if (!is.finite(ec50_hat) || ec50_hat <= 0 ||
+      !is.finite(se_ec50) || se_ec50 <= 0) return(na3)
+
+  se_log <- se_ec50 / ec50_hat            # delta method: SE[log X] ~ SE[X] / X
+  set.seed(seed)
+  log_draws <- stats::rnorm(draws, mean = log(ec50_hat), sd = se_log)
+  ec <- exp(log_draws)
+  ec <- ec[is.finite(ec)]
+  if (length(ec) < 10) return(na3)
+
+  a <- (1 - level) / 2
+  c(lower  = unname(stats::quantile(ec, a)),
+    median = unname(stats::quantile(ec, 0.5)),
+    upper  = unname(stats::quantile(ec, 1 - a)))
+}
+```
+
+# Host Cell Viability
+
+```{r toxicity-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=4}
+viab_summary <- percent_summary %>%
+  filter(Treatment %in% c("Mock", "Virus Only", "Virus + Compound", "Toxicity Control")) %>%
+  mutate(Dose_Val = case_when(
+    Treatment == "Mock"       ~ 0,
+    Treatment == "Virus Only" ~ 0,
+    TRUE                      ~ Concentration_uM
+  )) %>%
+  group_by(Treatment, Dose_Val) %>%
+  summarise(
+    n_wells    = n(),
+    mean_cells = mean(total_cell_count, na.rm = TRUE),
+    sd_cells   = if_else(n_wells > 1, sd(total_cell_count, na.rm = TRUE), 0),
+    se_cells   = if_else(n_wells > 1, sd_cells / sqrt(n_wells), 0),
+    .groups    = "drop"
+  )
+
+p_toxicity <- ggplot(viab_summary, aes(x = factor(Dose_Val), y = mean_cells, fill = Treatment)) +
+  geom_col(color = "black", alpha = 0.85, width = 0.65) +
+  geom_errorbar(aes(ymin = pmax(0, mean_cells - se_cells), ymax = mean_cells + se_cells), width = 0.25, linewidth = 0.5) +
+  scale_fill_manual(values = c(
+    "Mock"             = "grey70",
+    "Virus Only"       = "#E41A1C",
+    "Virus + Compound" = "#2B5C8F",
+    "Toxicity Control" = "#7570B3"
+  )) +
+  labs(
+    title = "Host Cell Viability Across Concentrations",
+    subtitle = "Well cell counts (mean ± SE across replicates)",
+    x = paste0("Concentration (", DOSE_UNIT, ")"),
+    y = "Mean Recovered Nuclei / Well",
+    fill = "Group"
+  ) +
+  theme_bw(base_size = 9) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "top", plot.title = element_text(face = "bold"))
+
+print(p_toxicity)
+ggsave(file.path(OUTPUT_DIR, "host_cell_viability.tiff"), p_toxicity,
+       width = 5.5, height = 3.8, units = "in", dpi = PLOT_DPI)
+```
+
+# Percent Infection per Well Table
+
+```{r percent-infection-table}
+percent_summary %>%
+  mutate(
+    Dose_Label = case_when(
+      Treatment %in% c("Mock", "Mock+Ab") ~ "Mock",
+      Treatment == "Virus Only"           ~ "0 µM (Control)",
+      TRUE                                ~ paste0(Concentration_uM, " µM")
+    ),
+    Status_Label = case_when(
+      !Include_In_Fit             ~ paste0("Excluded from fits (< ",
+                                           MIN_CELLS_PER_WELL, " cells)"),
+      Precision_Flag == "Normal"  ~ "Valid",
+      TRUE                        ~ Precision_Flag
+    )
+  ) %>%
+  dplyr::select(
+    Well              = WellName_std,
+    Treatment,
+    Dose              = Dose_Label,
+    `Total Cells`     = total_cell_count,
+    `Infected Cells`  = positive_cell_count,
+    `% Infection`    = percent_positive,
+    `QC Status`       = Status_Label
+  ) %>%
+  knitr::kable(
+    caption     = "Well-Level Percent Infection (Global Population GMM Threshold)",
+    digits      = 1,
+    format.args = list(big.mark = ",")
+  )
+```
+
+# Co-Primary Endpoint 1: % Infection Dose-Response (4PL Curve)
+
+```{r dose-response-model}
+vo_anchor   <- mean(percent_summary$percent_positive[percent_summary$Treatment == "Virus Only"], na.rm = TRUE)
+mock_anchor <- mean(percent_summary$percent_positive[percent_summary$Treatment %in% c("Mock", "Mock+Ab")], na.rm = TRUE)
+if (is.nan(mock_anchor) || is.na(mock_anchor)) mock_anchor <- 0
+
+# The normalization denominator is the assay window. If the infection failed
+# (or the controls are missing) it collapses to ~0 and every normalized value
+# becomes +/-Inf, which then silently feeds the 4PL. Refuse instead.
+assay_window <- vo_anchor - mock_anchor
+if (!is.finite(assay_window) || abs(assay_window) < 1) {
+  stop("Assay window (Virus Only - Mock percent infection) is ",
+       signif(assay_window, 3), " percentage points. ",
+       "Relative normalization is not meaningful: check that the Virus Only ",
+       "wells are actually infected and that the infection gate is sensible.")
+}
+
+summary_rel <- percent_summary %>%
+  mutate(
+    percent_infection_rel = 100 * (percent_positive - mock_anchor) / assay_window
+  )
+
+drc_data_rel <- summary_rel %>% filter(Treatment == "Virus + Compound")
+pos_conc  <- drc_data_rel$Concentration_uM[drc_data_rel$Concentration_uM > 0 & is.finite(drc_data_rel$Concentration_uM)]
+min_pos   <- if (length(pos_conc) > 0) min(pos_conc) else 0.01
+zero_tick <- min_pos / ZERO_DOSE_TICK_DIVISOR
+
+# INCLUDE_ZERO_DOSE_IN_FIT = FALSE (default): the Virus Only control is plotted
+# at `zero_tick` because a log axis has no zero, but that tick is an artifact of
+# the axis, not a measured concentration. Feeding it to the regression as a real
+# dose pulls the `top` asymptote and shifts EC50.
+fit_treatments_rel <- if (INCLUDE_ZERO_DOSE_IN_FIT) {
+  c("Virus Only", "Virus + Compound")
+} else {
+  "Virus + Compound"
+}
+
+fit_data_wide <- summary_rel %>%
+  filter(Treatment %in% fit_treatments_rel, Include_In_Fit) %>%
+  mutate(
+    dose_fit   = ifelse(Treatment == "Virus Only", zero_tick, Concentration_uM),
+    prop_raw   = positive_cell_count / total_cell_count,
+    prop_clamp = pmin(pmax(prop_raw, 1e-3), 1 - 1e-3),
+    bin_weight = total_cell_count / (prop_clamp * (1 - prop_clamp))
+  )
+
+fit_rel <- fit_4pl(fit_data_wide, "percent_infection_rel",
+                   weights = fit_data_wide$bin_weight)
+ci_rel  <- ec50_ci_parametric(fit_rel)
+```
+
+## Relative % Infection 4PL Dose-Response Plot
+
+```{r dose-response-plot, message=FALSE, warning=FALSE, fig.width=6, fig.height=4.5}
+max_pos <- if (length(pos_conc) > 0) max(pos_conc) else 100
+newx    <- exp(seq(log(zero_tick), log(max_pos), length.out = 300))
+
+pred_df_rel <- tibble(Concentration_uM = numeric(0), y = numeric(0))
+if (!is.null(fit_rel)) {
+  coef_rel   <- coef(fit_rel)
+  ec50_rel   <- coef_rel["ec50"]
+  hill_rel   <- coef_rel["hill"]
+  bottom_rel <- coef_rel["bottom"]
+  top_rel    <- coef_rel["top"]
+  pred_df_rel <- tibble(
+    Concentration_uM = newx,
+    y = bottom_rel + (top_rel - bottom_rel) / (1 + (Concentration_uM / ec50_rel)^hill_rel)
+  )
+  ec50_rel_lab <- paste0("EC50 = ", signif(ec50_rel, 3), " ", DOSE_UNIT)
+} else {
+  ec50_rel_lab <- "Fit Failed"
+}
+
+pts_sum <- summary_rel %>%
+  filter(Treatment %in% c("Virus Only", "Virus + Compound")) %>%
+  mutate(x_plot = ifelse(Concentration_uM == 0, zero_tick, Concentration_uM)) %>%
+  group_by(x_plot) %>%
+  summarise(n  = n(),
+            y  = mean(percent_infection_rel, na.rm = TRUE),
+            se = ifelse(n > 1, sd(percent_infection_rel, na.rm = TRUE) / sqrt(n), 0),
+            .groups = "drop") %>%
+  mutate(y    = ifelse(x_plot == zero_tick, 100, y),
+         ymin = pmax(0,   y - se),
+         ymax = pmin(105, y + se))
+
+# Count DISTINCT doses, not wells: with replicate wells the old `length(pos_conc)`
+# was a well count, so a 3-dose experiment in triplicate took the decade-break
+# branch meant for dense dose series.
+if (length(unique(pos_conc)) > LOG_TICK_DOSE_COUNT) {
+  raw_brks <- 10^seq(floor(log10(min_pos)), ceiling(log10(max_pos)))
+  dose_breaks <- sort(unique(c(zero_tick, raw_brks[raw_brks >= min_pos & raw_brks <= max_pos], max_pos)))
+} else {
+  dose_breaks <- sort(unique(c(zero_tick, drc_data_rel$Concentration_uM)))
+}
+dose_labels_vec <- c("0", as.character(dose_breaks[-1]))
+
+p_dr_rel <- ggplot() +
+  geom_errorbar(data = pts_sum, aes(x = x_plot, ymin = ymin, ymax = ymax),
+                width = 0.07, linewidth = 0.6, colour = "#2B5C8F") +
+  geom_point(data = pts_sum, aes(x = x_plot, y = y),
+             shape = 21, size = 2.8, stroke = 0.5,
+             fill = "#2B5C8F", colour = "black")
+
+if (!is.null(fit_rel)) {
+  y_rel_halfway <- bottom_rel + (top_rel - bottom_rel) / 2
+  p_dr_rel <- p_dr_rel +
+    geom_line(data = pred_df_rel, aes(x = Concentration_uM, y = y),
+              color = "#2B5C8F", linewidth = 1.0) +
+    geom_segment(aes(x = ec50_rel, xend = ec50_rel, y = 0, yend = y_rel_halfway),
+                 linetype = "dashed", color = "firebrick3", linewidth = 0.6) +
+    geom_segment(aes(x = zero_tick, xend = ec50_rel, y = y_rel_halfway, yend = y_rel_halfway),
+                 linetype = "dashed", color = "firebrick3", linewidth = 0.6) +
+    annotate("label", x = ec50_rel, y = 25, label = ec50_rel_lab,
+             fill = "#2B5C8F", color = "white", fontface = "bold", size = 3, linewidth = 0)
+}
+
+p_dr_rel <- p_dr_rel +
+  scale_x_log10(limits = c(zero_tick * 0.8, max_pos * 1.2), breaks = dose_breaks, labels = dose_labels_vec, minor_breaks = NULL) +
+  annotation_logticks(sides = "b", short = unit(1.2, "mm"), mid = unit(1.6, "mm"), long = unit(2.2, "mm")) +
+  labs(
+    title = paste(COMPOUND_NAME, "relative % infection dose–response"),
+    subtitle = "Points show mean ± SE across replicate wells; curve fitted via 4PL regression",
+    x     = paste0(COMPOUND_NAME, " (", DOSE_UNIT, ", log10 scale)"),
+    y     = "% Infected Cells (Relative to Control)"
+  ) +
+  coord_cartesian(ylim = c(0, 110), clip = "off") +
+  theme_bw(base_size = 9) +
+  theme(
+    plot.title        = element_text(face = "bold", size = 10, margin = margin(b = 4)),
+    axis.title        = element_text(face = "bold", size = 9),
+    axis.text         = element_text(size = 8),
+    axis.line         = element_line(linewidth = 0.6, colour = "black"),
+    axis.ticks        = element_line(linewidth = 0.6, colour = "black"),
+    axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank(),
+    legend.position   = "none",
+    plot.margin       = margin(6, 10, 6, 8)
+  )
+
+print(p_dr_rel)
+ggsave(file.path(OUTPUT_DIR, "compound_dose_response_relative.tiff"), p_dr_rel,
+       width = 5.5, height = 4.0, units = "in", dpi = PLOT_DPI)
+```
+
+# Cytotoxicity: CC50 and Selectivity Index
+
+Host-cell viability is expressed as the number of recovered nuclei per well
+relative to the untreated mock wells, and fitted with the **same 4PL machinery**
+used for the antiviral endpoints. The concentration at which viability is
+half-maximal is the **CC50**. The **selectivity index**, `SI = CC50 / EC50`,
+is the margin between the antiviral and cytotoxic concentrations — a compound
+whose EC50 is only achievable at cytotoxic doses has no therapeutic window,
+however good its EC50 looks in isolation.
+
+```{r cc50-model, warning=FALSE, message=FALSE}
+mock_wells <- percent_summary %>% filter(Treatment == "Mock")
+mock_mean_cells <- mean(mock_wells$total_cell_count, na.rm = TRUE)
+
+viab_ok <- is.finite(mock_mean_cells) && mock_mean_cells > 0 &&
+           any(percent_summary$Treatment == "Toxicity Control")
+
+if (!viab_ok) {
+  warning("Cannot compute CC50: need Mock wells (viability reference) and ",
+          "'Toxicity Control' wells (compound without virus) in PLATE_MAP.")
+}
+
+cc50_data <- percent_summary %>%
+  filter(Treatment == "Toxicity Control",
+         is.finite(Concentration_uM), Concentration_uM > 0) %>%
+  mutate(
+    dose_fit      = Concentration_uM,
+    viability_pct = 100 * total_cell_count / mock_mean_cells
+  )
+
+# Viability is bounded at 100% by construction, so allow `top` to sit near 100
+# and `bottom` to fall to 0 — the antiviral fit's tighter bounds do not apply.
+fit_cc50 <- if (viab_ok) {
+  fit_4pl(
+    cc50_data, "viability_pct",
+    starts = c(20, 40, 10, 80, 5, 2, 1),
+    # Viability is a percentage of the mock control: it cannot go below 0, and
+    # its upper plateau should sit near 100.
+    lower  = c(ec50 = 1e-4, hill = 0.05, bottom = 0,  top = 50),
+    upper  = c(ec50 = 1e4,  hill = 50,   bottom = 50, top = 150)
+  )
+} else NULL
+
+ci_cc50  <- ec50_ci_parametric(fit_cc50)
+cc50_val <- if (!is.null(fit_cc50)) unname(coef(fit_cc50)["ec50"]) else NA_real_
+ec50_val <- if (!is.null(fit_rel))  unname(coef(fit_rel)["ec50"])  else NA_real_
+
+# A CC50 outside the tested dose range is an extrapolation, not a measurement.
+tested_max <- max(cc50_data$Concentration_uM, default = NA_real_)
+min_viab   <- suppressWarnings(min(cc50_data$viability_pct, na.rm = TRUE))
+cc50_extrapolated <- is.finite(cc50_val) && is.finite(tested_max) &&
+                     (cc50_val > tested_max || min_viab > 50)
+
+selectivity_index <- if (is.finite(cc50_val) && is.finite(ec50_val) && ec50_val > 0) {
+  cc50_val / ec50_val
+} else NA_real_
+
+fmt_ci <- function(ci) {
+  if (any(!is.finite(ci[c("lower", "upper")]))) return("–")
+  paste0(signif(ci[["lower"]], 3), " – ", signif(ci[["upper"]], 3))
+}
+
+tibble::tibble(
+  Parameter = c(paste0("EC50 (% infection endpoint, ", DOSE_UNIT, ")"),
+                paste0("CC50 (host cell viability, ", DOSE_UNIT, ")"),
+                "Selectivity Index (CC50 / EC50)"),
+  Estimate  = c(ec50_val, cc50_val, selectivity_index),
+  `95% CI`  = c(fmt_ci(ci_rel), fmt_ci(ci_cc50), "–")
+) %>%
+  knitr::kable(
+    caption = paste0("Antiviral potency, cytotoxicity and selectivity. ",
+                     "Confidence intervals are parametric (log-scale) ",
+                     "approximations from the fit covariance."),
+    digits  = 3
+  )
+
+if (cc50_extrapolated) {
+  cat("\n**Warning:** viability never falls below 50% within the tested range",
+      "(lowest observed:", round(min_viab, 1), "% at", tested_max, DOSE_UNIT,
+      "). The CC50 above is an EXTRAPOLATION beyond the highest tested dose and",
+      "the selectivity index is therefore a lower bound only. Extend the dose",
+      "series to bracket 50% viability before quoting a CC50.\n")
+} else if (is.null(fit_cc50)) {
+  cat("\n**The CC50 curve could not be fitted.** No selectivity index is reported.\n")
+}
+```
+
+```{r cc50-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=4.5}
+cc50_pts <- cc50_data %>%
+  group_by(Concentration_uM) %>%
+  summarise(n  = dplyr::n(),
+            y  = mean(viability_pct, na.rm = TRUE),
+            se = if_else(dplyr::n() > 1, sd(viability_pct, na.rm = TRUE) / sqrt(dplyr::n()), 0),
+            .groups = "drop")
+
+p_cc50 <- ggplot() +
+  geom_hline(yintercept = 50, linetype = "dotted", colour = "grey50", linewidth = 0.5) +
+  geom_errorbar(data = cc50_pts,
+                aes(x = Concentration_uM, ymin = pmax(0, y - se), ymax = y + se),
+                width = 0.07, linewidth = 0.6, colour = "#7570B3") +
+  geom_point(data = cc50_pts, aes(x = Concentration_uM, y = y),
+             shape = 21, size = 2.8, stroke = 0.5, fill = "#7570B3", colour = "black")
+
+if (!is.null(fit_cc50)) {
+  cf_t     <- coef(fit_cc50)
+  tox_newx <- exp(seq(log(min(cc50_data$Concentration_uM)),
+                      log(max(cc50_data$Concentration_uM)), length.out = 300))
+  pred_cc50 <- tibble::tibble(
+    Concentration_uM = tox_newx,
+    y = cf_t[["bottom"]] + (cf_t[["top"]] - cf_t[["bottom"]]) /
+        (1 + (tox_newx / cf_t[["ec50"]])^cf_t[["hill"]])
+  )
+  cc50_lab <- paste0("CC50 = ", signif(cc50_val, 3), " ", DOSE_UNIT,
+                     if (is.finite(selectivity_index))
+                       paste0("\nSI = ", signif(selectivity_index, 3)) else "")
+  p_cc50 <- p_cc50 +
+    geom_line(data = pred_cc50, aes(x = Concentration_uM, y = y),
+              colour = "#7570B3", linewidth = 1.0) +
+    geom_vline(xintercept = cc50_val, linetype = "dashed",
+               colour = "firebrick3", linewidth = 0.6) +
+    annotate("label", x = cc50_val, y = 25, label = cc50_lab,
+             fill = "#7570B3", colour = "white", fontface = "bold",
+             size = 3, linewidth = 0)
+}
+
+if (!is.null(fit_rel)) {
+  p_cc50 <- p_cc50 +
+    geom_vline(xintercept = ec50_val, linetype = "dashed",
+               colour = "#2B5C8F", linewidth = 0.6) +
+    annotate("text", x = ec50_val, y = 103, label = "EC50",
+             colour = "#2B5C8F", fontface = "bold", size = 3)
+}
+
+p_cc50 <- p_cc50 +
+  scale_x_log10(minor_breaks = NULL) +
+  annotation_logticks(sides = "b", short = unit(1.2, "mm"),
+                      mid = unit(1.6, "mm"), long = unit(2.2, "mm")) +
+  coord_cartesian(ylim = c(0, 110), clip = "off") +
+  labs(
+    title    = paste(COMPOUND_NAME, "cytotoxicity (CC50)"),
+    subtitle = "Recovered nuclei per well relative to untreated Mock; 4PL fit on the drug-only arm",
+    x        = paste0(COMPOUND_NAME, " (", DOSE_UNIT, ", log10 scale)"),
+    y        = "Host Cell Viability (% of Mock)"
+  ) +
+  theme_bw(base_size = 9) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 10),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+print(p_cc50)
+ggsave(file.path(OUTPUT_DIR, "host_cell_viability_cc50.tiff"), p_cc50,
+       width = 5.5, height = 4.0, units = "in", dpi = PLOT_DPI)
+```
+
+# Co-Primary Endpoint 2: Normalized NP Intensity Dose-Response
+
+```{r intensity-dose-response, warning=FALSE}
+intensity_well <- master_df_final %>%
+  filter(Treatment %in% c("Mock", "Mock+Ab", "Virus Only", "Virus + Compound")) %>%
+  group_by(WellName_std, Treatment, Concentration_uM) %>%
+  summarise(
+    n_cells     = n(),
+    mean_xlog   = mean(xlog, na.rm = TRUE),
+    L_p = first(L_p), H_p = first(H_p),
+    .groups = "drop"
+  ) %>%
+  mutate(intensity_norm_mean = 100 * (mean_xlog - L_p) / (H_p - L_p))
+
+vo_i   <- mean(intensity_well$intensity_norm_mean[intensity_well$Treatment == "Virus Only"], na.rm = TRUE)
+mock_i <- mean(intensity_well$intensity_norm_mean[intensity_well$Treatment %in% c("Mock", "Mock+Ab")], na.rm = TRUE)
+
+# Same guard as the % infection endpoint: an assay window near zero turns every
+# normalized value into +/-Inf and silently feeds it to the 4PL.
+window_i <- vo_i - mock_i
+if (!is.finite(window_i) || abs(window_i) < 1) {
+  stop("Intensity assay window (Virus Only - Mock normalized intensity) is ",
+       signif(window_i, 3), " — too small to normalize against. Check the ",
+       "control wells.")
+}
+
+intensity_rel <- intensity_well %>%
+  mutate(intensity_rel_mean = 100 * (intensity_norm_mean - mock_i) / window_i)
+
+pos_conc_i  <- intensity_rel$Concentration_uM[intensity_rel$Concentration_uM > 0 & is.finite(intensity_rel$Concentration_uM)]
+min_pos_i   <- if (length(pos_conc_i) > 0) min(pos_conc_i) else 0.01
+zero_tick_i <- min_pos_i / ZERO_DOSE_TICK_DIVISOR
+
+fit_treatments_i <- if (INCLUDE_ZERO_DOSE_IN_FIT) {
+  c("Virus Only", "Virus + Compound")
+} else {
+  "Virus + Compound"
+}
+
+fit_i <- intensity_rel %>%
+  filter(Treatment %in% fit_treatments_i, n_cells >= MIN_CELLS_PER_WELL) %>%
+  mutate(dose_fit = ifelse(Treatment == "Virus Only", zero_tick_i, Concentration_uM))
+
+fit_int <- fit_4pl(fit_i, "intensity_rel_mean", weights = fit_i$n_cells)
+ci_int  <- ec50_ci_parametric(fit_int)
+
+ec50_compare <- tibble(
+  Endpoint   = c("Normalized NP intensity (mean) -- co-primary",
+                 "% infected (population GMM gate) -- co-primary"),
+  `EC50 (µM)` = c(
+    if (!is.null(fit_int)) unname(coef(fit_int)["ec50"]) else NA_real_,
+    if (!is.null(fit_rel))  unname(coef(fit_rel)["ec50"])  else NA_real_
+  ),
+  `95% CI`    = c(fmt_ci(ci_int), fmt_ci(ci_rel))
+)
+knitr::kable(ec50_compare, caption = "EC50 comparison across co-primary endpoints.", digits = 3)
+```
+
+## Intensity Dose-Response Plot
+
+```{r intensity-dose-response-plot, warning=FALSE, message=FALSE, fig.width=6, fig.height=4.5}
+pts_i <- intensity_rel %>%
+  filter(Treatment %in% c("Virus Only", "Virus + Compound")) %>%
+  mutate(
+    x_plot = ifelse(Treatment == "Virus Only", zero_tick_i, Concentration_uM),
+    x_plot = ifelse(is.na(x_plot), NA_real_, x_plot)
+  ) %>%
+  filter(!is.na(x_plot)) %>%
+  group_by(x_plot) %>%
+  summarise(n  = n(),
+            y  = mean(intensity_rel_mean, na.rm = TRUE),
+            se = ifelse(n > 1, sd(intensity_rel_mean, na.rm = TRUE) / sqrt(n), 0),
+            .groups = "drop") %>%
+  mutate(y    = ifelse(x_plot == zero_tick_i, 100, y),
+         ymin = pmax(0,   y - se),
+         ymax = pmin(105, y + se))
+
+max_pos_i <- if (length(pos_conc_i) > 0) max(pos_conc_i) else 100
+newx_i    <- exp(seq(log(zero_tick_i), log(max_pos_i), length.out = 300))
+
+pred_i <- tibble(Concentration_uM = numeric(0), y = numeric(0))
+if (!is.null(fit_int)) {
+  cf <- coef(fit_int)
+  pred_i <- tibble(
+    Concentration_uM = newx_i,
+    y = cf["bottom"] + (cf["top"] - cf["bottom"]) / (1 + (Concentration_uM / cf["ec50"]) ^ cf["hill"])
+  )
+}
+
+if (length(unique(pos_conc_i)) > LOG_TICK_DOSE_COUNT) {
+  raw_brks_i <- 10^seq(floor(log10(min_pos_i)), ceiling(log10(max_pos_i)))
+  dose_breaks_i <- sort(unique(c(zero_tick_i, raw_brks_i[raw_brks_i >= min_pos_i & raw_brks_i <= max_pos_i], max_pos_i)))
+} else {
+  dose_breaks_i <- sort(unique(c(zero_tick_i, intensity_rel$Concentration_uM[intensity_rel$Treatment == "Virus + Compound"])))
+}
+dose_labels_i <- c("0", as.character(dose_breaks_i[-1]))
+
+p_dr_int <- ggplot() +
+  geom_errorbar(data = pts_i, aes(x = x_plot, ymin = ymin, ymax = ymax),
+                width = 0.07, linewidth = 0.6, colour = "#2B5C8F") +
+  geom_point(data = pts_i, aes(x = x_plot, y = y),
+             shape = 21, size = 2.8, stroke = 0.5,
+             fill = "#2B5C8F", colour = "black")
+
+if (!is.null(fit_int)) {
+  cf <- coef(fit_int)
+  ec50_val  <- unname(cf["ec50"])
+  halfway   <- unname(cf["bottom"] + (cf["top"] - cf["bottom"]) / 2)
+  int_label <- paste0("EC50 = ", signif(ec50_val, 3), " ", DOSE_UNIT)
+  p_dr_int  <- p_dr_int +
+    geom_line(data = pred_i, aes(x = Concentration_uM, y = y),
+              color = "#2B5C8F", linewidth = 1.0) +
+    geom_segment(aes(x = ec50_val, xend = ec50_val, y = 0, yend = halfway),
+                 linetype = "dashed", color = "firebrick3", linewidth = 0.6) +
+    geom_segment(aes(x = zero_tick_i, xend = ec50_val, y = halfway, yend = halfway),
+                 linetype = "dashed", color = "firebrick3", linewidth = 0.6) +
+    annotate("label", x = ec50_val, y = 25, label = int_label,
+             fill = "#2B5C8F", color = "white", fontface = "bold", size = 3, linewidth = 0)
+}
+
+p_dr_int <- p_dr_int +
+  scale_x_log10(limits = c(zero_tick_i * 0.8, max_pos_i * 1.2), breaks = dose_breaks_i, labels = dose_labels_i, minor_breaks = NULL) +
+  annotation_logticks(sides = "b", short = unit(1.2, "mm"), mid = unit(1.6, "mm"), long = unit(2.2, "mm")) +
+  labs(
+    title = paste(COMPOUND_NAME, "intensity dose–response"),
+    subtitle = "Points show mean ± SE across replicate wells; curve fitted via 4PL regression",
+    x     = paste0(COMPOUND_NAME, " (", DOSE_UNIT, ", log10 scale)"),
+    y     = "Normalized NP Intensity (%)"
+  ) +
+  coord_cartesian(ylim = c(0, 110), clip = "off") +
+  theme_bw(base_size = 9) +
+  theme(
+    plot.title        = element_text(face = "bold", size = 10, margin = margin(b = 4)),
+    axis.title        = element_text(face = "bold", size = 9),
+    axis.text         = element_text(size = 8),
+    axis.line         = element_line(linewidth = 0.6, colour = "black"),
+    axis.ticks        = element_line(linewidth = 0.6, colour = "black"),
+    axis.ticks.length = unit(2.2, "mm"),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor  = element_blank(),
+    legend.position   = "none",
+    plot.margin       = margin(6, 10, 6, 8)
+  )
+
+print(p_dr_int)
+ggsave(file.path(OUTPUT_DIR, "compound_dose_response_intensity.tiff"), p_dr_int,
+       width = 5.5, height = 4.0, units = "in", dpi = PLOT_DPI)
+```
+
+# Results Summary
+
+```{r results-summary}
+tibble::tibble(
+  Endpoint = c("EC50 — % infected (population GMM gate)",
+               "EC50 — normalized NP intensity",
+               "CC50 — host cell viability",
+               "Selectivity Index (CC50 / EC50, % infection endpoint)"),
+  Value = c(
+    if (!is.null(fit_rel)) unname(coef(fit_rel)["ec50"]) else NA_real_,
+    if (!is.null(fit_int)) unname(coef(fit_int)["ec50"]) else NA_real_,
+    cc50_val,
+    selectivity_index
+  ),
+  Unit = c(DOSE_UNIT, DOSE_UNIT, DOSE_UNIT, "ratio")
+) %>%
+  knitr::kable(caption = "Headline parameters", digits = 3)
+```
+
+Two co-primary antiviral endpoints are reported side-by-side, plus cytotoxicity:
+
+1. **% infected** — fraction of cells above the population 2-GMM gate, fitted with binomial-weighted relative 4PL.
+2. **Normalized NP intensity** — per-well mean log-intensity, normalized per plate to VO = 100% and Mock = 0%.
+3. **CC50 / SI** — host-cell viability on the drug-only arm, fitted with the same 4PL, divided by the antiviral EC50.
+
+### Caveats & Best Practices
+- **Outlier Masking**: this template does **not** mask outliers automatically. Single-replicate non-monotonic outliers should be identified by eye and named in `WELLS_TO_EXCLUDE` / `DOSES_TO_EXCLUDE`, which removes them from the fits while the underlying cells remain in the QC panels.
+- **Confluence Artifacts**: Over-confluent or washed-off wells must be excluded from analysis (`DOSES_TO_EXCLUDE`, `WELLS_TO_EXCLUDE`).
+- **Selectivity**: an EC50 is only meaningful alongside a CC50. Quote the SI, and treat a CC50 that lies beyond the highest tested dose as a lower bound rather than a measurement.
+- **Confidence intervals** on EC50/CC50 here are parametric (asymptotic, log-scale) approximations from the fit covariance, not resampling bootstraps. They are narrower than a true bootstrap when the fit is poorly identified.

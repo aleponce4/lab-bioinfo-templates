@@ -31,16 +31,23 @@ jobs:
       - name: Prepare R library directory
         run: mkdir -p "${R_LIBS_USER}"
 
-      # ── 2. System dependencies (cached across runs) ──────────────────────────
+      # ── 2. System dependencies ───────────────────────────────────────────────
+      # Installed with plain apt rather than a caching action on purpose. The cache
+      # action keys on a hand-maintained version string, so when the runner image moved
+      # to noble it kept restoring a payload built for the old release: libglpk-dev
+      # looked installed but libglpk.so.40 was absent, and igraph only fails to load
+      # when something actually rebuilds against it. That stayed hidden for as long as
+      # the R package cache kept hitting. A minute of apt is worth not debugging that
+      # again.
       - name: Install system dependencies
-        uses: awalsh128/cache-apt-pkgs-action@v1
-        with:
-          packages: >-
-            libcurl4-openssl-dev libjpeg-dev libpng-dev libudunits2-dev
-            libgdal-dev libgeos-dev libproj-dev libfontconfig1-dev
-            libfreetype6-dev libharfbuzz-dev libfribidi-dev libxml2-dev
-            libssl-dev libglpk-dev libgmp-dev libcairo2-dev
-          version: 1.0
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libcurl4-openssl-dev libjpeg-dev libpng-dev libudunits2-dev \
+            libgdal-dev libgeos-dev libproj-dev libfontconfig1-dev \
+            libfreetype6-dev libharfbuzz-dev libfribidi-dev libxml2-dev \
+            libssl-dev libglpk-dev libglpk40 libgmp-dev \
+            libcairo2-dev
 
       # ── 3. R setup ───────────────────────────────────────────────────────────
       - name: Set up R
